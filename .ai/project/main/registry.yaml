@@ -1,0 +1,32 @@
+version: 1
+
+project:
+  id: P-001
+  slug: main
+  name: Main
+  task_doc_roots:
+    - dev-docs
+
+milestones:
+  - id: M-000
+    title: "Inbox / Triage"
+    status: in-progress
+    description: "Triage queue for new or unplanned work."
+
+features:
+  - id: F-000
+    title: "Inbox / Untriaged"
+    status: in-progress
+    description: "Untriaged tasks live here until mapped to a real feature."
+    milestone_id: M-000
+
+requirements: []
+
+tasks:
+  - id: T-001
+    slug: unify-ci-verify-entrypoint
+    status: archived
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/archive/unify-ci-verify-entrypoint
+    updated: 2026-02-08
