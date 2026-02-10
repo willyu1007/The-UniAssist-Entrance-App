@@ -1,0 +1,11 @@
+openapi: 3.1.0
+info:
+  title: Project API
+  version: 0.1.0
+  description: |
+    This is the canonical API contract for this repository.
+    Update this file via `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs` (registry + verification).
+servers: []
+paths: {}
+components:
+  schemas: {}

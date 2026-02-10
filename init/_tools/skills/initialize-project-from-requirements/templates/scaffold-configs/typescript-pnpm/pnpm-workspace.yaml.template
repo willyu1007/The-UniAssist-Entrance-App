@@ -1,7 +1,0 @@
-# pnpm workspace configuration for monorepo layout
-# Only used when repo.layout === "monorepo"
-
-packages:
-  - "apps/*"
-  - "packages/*"
-

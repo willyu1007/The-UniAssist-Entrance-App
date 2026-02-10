@@ -1,0 +1,11 @@
+{
+  "version": 1,
+  "enabledPacks": [
+    "workflows",
+    "standards",
+    "testing",
+    "context-core",
+    "frontend"
+  ],
+  "lastSync": null
+}

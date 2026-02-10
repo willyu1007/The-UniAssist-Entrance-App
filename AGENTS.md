@@ -1,15 +1,29 @@
 # AI Assistant Instructions
 
-**AI-Friendly Repository Template**: a starter kit for creating LLM-optimized codebases with optional features.
+**baseinterface-appmain** - Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.
 
 ## Project Type
 
-Template repository. Users clone the repository to start new AI-friendly projects.
+baseinterface-appmain - Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.
+
+## Tech Stack
+
+| Category | Value |
+|----------|-------|
+| Language | react-native |
+| Package manager | pnpm |
+| Repo layout | monorepo |
+| Frontend | react-native-expo |
+| Backend | none |
+| Database | postgres |
+| API style | none |
 
 ## Key Directories
 
 | Directory | Purpose | Entry Point |
 |-----------|---------|-------------|
+| `apps/` | Applications | - |
+| `packages/` | Shared packages | - |
 | `init/` | Project initialization | `init/AGENTS.md` |
 | `init/_tools/feature-docs/` | Optional feature documentation | `init/_tools/feature-docs/README.md` |
 | `.ai/` | Skills, scripts, LLM governance | `.ai/AGENTS.md` |
@@ -53,11 +67,14 @@ Template repository. Users clone the repository to start new AI-friendly project
 <!-- DB-SSOT:START -->
 ## Database SSOT and schema synchronization
 
-The section is **managed by the init pipeline**. After project initialization it will contain:
+**Mode: repo-prisma** (SSOT = `prisma/schema.prisma`)
 
-- The selected DB schema SSOT mode (`none` / `repo-prisma` / `database`)
-- The correct routing for DB schema change requests
-- The canonical LLM-readable DB schema contract location
+- SSOT selection file: `docs/project/db-ssot.json`
+- DB context contract (LLM-first): `docs/context/db/schema.json`
+- If you need to change persisted fields / tables: use skill `sync-db-schema-from-code`.
+- If you need to mirror an external DB: do NOT; this mode assumes migrations originate in the repo.
 
-If the block is still in its placeholder form, run the init Stage C apply step.
+Rules:
+- Business layer MUST NOT import Prisma (repositories return domain entities).
+- If `features.contextAwareness=true`: refresh context via `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`.
 <!-- DB-SSOT:END -->
