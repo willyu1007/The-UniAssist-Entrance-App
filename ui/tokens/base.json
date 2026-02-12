@@ -1,33 +1,38 @@
 {
   "meta": {
-    "token_version": "1.0.0",
+    "token_version": "1.1.0",
     "name": "base",
-    "description": "Base UI tokens (default values). Theme files may override subsets, primarily color.*."
+    "description": "Base UI tokens (default values). Theme files may override subsets, primarily color.*. Brand: morethan — Navy primary, Orange accent."
   },
   "color": {
-    "bg": "#ffffff",
+    "bg": "#FAF9F6",
     "surface": "#ffffff",
-    "surface_elevated": "#f9fafb",
+    "surface_elevated": "#f5f4f1",
     "text_primary": "#111827",
     "text_secondary": "#374151",
     "text_muted": "#6b7280",
     "border": "#e5e7eb",
     "border_subtle": "#f3f4f6",
-    "primary": "#2563eb",
-    "primary_hover": "#1d4ed8",
-    "primary_active": "#1e40af",
+    "primary": "#283E68",
+    "primary_hover": "#1F3050",
+    "primary_active": "#172540",
     "on_primary": "#ffffff",
+    "accent": "#E1703C",
+    "accent_hover": "#C9602F",
+    "accent_active": "#B45228",
+    "on_accent": "#ffffff",
     "danger": "#dc2626",
     "on_danger": "#ffffff",
     "success": "#16a34a",
     "on_success": "#ffffff",
     "warning": "#d97706",
     "on_warning": "#111827",
-    "focus_ring": "#2563eb66"
+    "focus_ring": "#283E6866"
   },
   "typography": {
     "font_family": {
-      "sans": "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji",
+      "sans": "Inter, Manrope, SF Pro Display, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, Apple Color Emoji, Segoe UI Emoji",
+      "sans_cn": "HarmonyOS Sans SC, Source Han Sans SC, Noto Sans CJK SC, system-ui, sans-serif",
       "mono": "ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, Liberation Mono, Courier New, monospace"
     },
     "size": {

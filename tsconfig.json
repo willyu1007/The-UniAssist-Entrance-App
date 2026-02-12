@@ -1,25 +1,22 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "extends": "@react-native/typescript-config/tsconfig.json",
   "compilerOptions": {
     "target": "esnext",
-    "module": "commonjs",
+    "module": "esnext",
     "lib": ["es2022"],
-    "jsx": "react-native",
     "strict": true,
-    "moduleResolution": "node",
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "noEmit": true,
-    "isolatedModules": true,
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "isolatedModules": true
   },
-  "include": ["src/**/*", "App.tsx"],
-  "exclude": ["node_modules", "babel.config.mjs", "metro.config.mjs", "jest.config.mjs"]
+  "references": [
+    { "path": "apps/frontend" }
+  ],
+  "files": [],
+  "exclude": ["node_modules"]
 }
 

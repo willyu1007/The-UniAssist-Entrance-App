@@ -1,0 +1,47 @@
+{
+  "expo": {
+    "name": "morethan",
+    "slug": "morethan",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./src/assets/icon.png",
+    "scheme": "morethan",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.morethan.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./src/assets/adaptive-icon.png",
+        "backgroundColor": "#121212"
+      },
+      "package": "com.morethan.app"
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "允许访问相册以发送图片",
+          "cameraPermission": "允许使用相机以拍照发送"
+        }
+      ],
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "允许访问相册以显示最近照片",
+          "isAccessMediaLocationEnabled": true
+        }
+      ],
+      [
+        "expo-av",
+        {
+          "microphonePermission": "允许使用麦克风进行语音输入"
+        }
+      ]
+    ]
+  }
+}

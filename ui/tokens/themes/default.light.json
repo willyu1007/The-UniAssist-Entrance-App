@@ -2,12 +2,12 @@
   "meta": {
     "theme": "default.light",
     "extends": "base",
-    "description": "Default light theme overrides. Keep changes primarily in color.*."
+    "description": "Default light theme overrides. Warm white background with Navy primary and Orange accent."
   },
   "color": {
-    "bg": "#ffffff",
+    "bg": "#FAF9F6",
     "surface": "#ffffff",
-    "surface_elevated": "#f9fafb",
+    "surface_elevated": "#f5f4f1",
     "text_primary": "#111827",
     "text_secondary": "#374151",
     "text_muted": "#6b7280",
