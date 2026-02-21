@@ -10,7 +10,5 @@ Project: `main`
 
 ### F-000 Inbox / Untriaged
 
-| Task | Status | Dev Docs |
-| --- | --- | --- |
-| T-001 unify-ci-verify-entrypoint | archived | dev-docs/archive/unify-ci-verify-entrypoint |
+- (no tasks)
 <!-- AUTO-GENERATED:END feature-map -->

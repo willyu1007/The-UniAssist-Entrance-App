@@ -22,11 +22,4 @@ features:
 
 requirements: []
 
-tasks:
-  - id: T-001
-    slug: unify-ci-verify-entrypoint
-    status: archived
-    milestone_id: M-000
-    feature_id: F-000
-    dev_docs_path: dev-docs/archive/unify-ci-verify-entrypoint
-    updated: 2026-02-08
+tasks: []

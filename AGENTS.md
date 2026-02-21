@@ -18,16 +18,22 @@ baseinterface-appmain - Cross-platform mobile app template homepage SOT for reus
 | Database | postgres |
 | API style | none |
 
+## Repository Status
+
+- Project initialization is complete.
+- This repository does not use an `init/` directory anymore.
+
 ## Key Directories
 
 | Directory | Purpose | Entry Point |
 |-----------|---------|-------------|
 | `apps/` | Applications | - |
 | `packages/` | Shared packages | - |
-| `init/` | Project initialization | `init/AGENTS.md` |
-| `init/_tools/feature-docs/` | Optional feature documentation | `init/_tools/feature-docs/README.md` |
 | `.ai/` | Skills, scripts, LLM governance | `.ai/AGENTS.md` |
 | `dev-docs/` | Complex task documentation | `dev-docs/AGENTS.md` |
+| `docs/context/` | LLM-readable contracts (API/DB/process/UI) | `docs/context/INDEX.md` |
+| `ui/` | UI contract/tokens/patterns | `ui/codegen/AGENTS.md` |
+| `ops/` | Packaging/deployment conventions | `ops/packaging/AGENTS.md` |
 | `.codex/` | Codex skill stubs (generated) | - |
 | `.claude/` | Claude skill stubs (generated) | - |
 
@@ -35,11 +41,12 @@ baseinterface-appmain - Cross-platform mobile app template homepage SOT for reus
 
 | Task Type | Entry Point |
 |-----------|-------------|
-| **First time / Project setup** | `init/AGENTS.md` |
+| **Repo orientation / local setup** | `README.md` |
 | **Skill authoring / maintenance** | `.ai/AGENTS.md` |
 | **LLM engineering** | `.ai/llm-config/AGENTS.md` |
 | **Project progress governance** | `.ai/project/AGENTS.md` |
 | **Complex task documentation** | `dev-docs/AGENTS.md` |
+| **Context contract usage/update** | `docs/context/INDEX.md` |
 
 ## Global Rules
 

@@ -4,6 +4,13 @@ Cross-platform mobile app template homepage SOT for reusable UI components and m
 
 **Domain:** cross-platform-mobile-app-template
 
+## Current Status
+
+- Repository initialization is complete (no `init/` directory).
+- Frontend app is implemented in `apps/frontend` (Expo Router + reusable UI components).
+- Backend/API modules are not implemented in this repo yet.
+- Governance and LLM context contracts are enabled under `.ai/` and `docs/context/`.
+
 ## Tech Stack
 
 | Category | Technology |
@@ -21,6 +28,9 @@ Cross-platform mobile app template homepage SOT for reusable UI components and m
 
 ### Prerequisites
 
+- Node.js >= 18
+- pnpm
+
 ### Installation
 
 ```bash
@@ -35,20 +45,31 @@ pnpm install
 ### Development
 
 ```bash
+# Start the frontend dev server
 pnpm dev
+
+# Optional targets
+pnpm --filter @baseinterface/frontend ios
+pnpm --filter @baseinterface/frontend android
+pnpm --filter @baseinterface/frontend web
+
+# Type checks
+pnpm typecheck
+pnpm --filter @baseinterface/frontend typecheck
 ```
 
 ## Project Structure
 
 ```
 apps/
-  frontend/        # Frontend application
-  backend/         # Backend services
+  frontend/        # Expo React Native app (main product surface)
 packages/
-  shared/          # Shared libraries
-.ai/skills/        # AI skills (SSOT)
-docs/              # Documentation
-ops/               # DevOps configuration
+  shared/          # Shared package placeholder
+.ai/               # Skills (SSOT), governance scripts, LLM config
+dev-docs/          # Long-running task bundles
+docs/context/      # LLM-readable contracts (API/DB/process/UI)
+ui/                # UI tokens/contract/patterns
+ops/               # Ops conventions (packaging/deploy)
 ```
 
 ## Skills & AI Assistance
@@ -68,7 +89,9 @@ node .ai/scripts/sync-skills.mjs --scope current --providers both --mode reset -
 
 1. Create a feature branch
 2. Make your changes
-3. Run tests: `pnpm test`
+3. Run checks:
+   - `pnpm typecheck`
+   - `pnpm --filter @baseinterface/frontend lint`
 4. Submit a pull request
 
 ## License

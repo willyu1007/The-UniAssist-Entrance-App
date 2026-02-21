@@ -10,5 +10,4 @@ Project: `main`
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
 <!-- AUTO-GENERATED:END task-index -->

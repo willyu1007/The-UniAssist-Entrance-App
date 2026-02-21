@@ -8,11 +8,10 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 1 (planned: 0, in-progress: 0, blocked: 0, done: 0, archived: 1)
+- Tasks: 0 (planned: 0, in-progress: 0, blocked: 0, done: 0, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-001 unify-ci-verify-entrypoint | archived | F-000 | dev-docs/archive/unify-ci-verify-entrypoint |
 <!-- AUTO-GENERATED:END dashboard -->
