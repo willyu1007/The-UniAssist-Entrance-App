@@ -176,6 +176,30 @@ pnpm smoke:redis:e2e
 - `SMOKE_STREAM_GROUP`（默认按本次 run 自动生成）
 - `SMOKE_KEEP_ARTIFACTS=true`（保留测试数据用于排查）
 
+### Staging Release Gate
+
+发布前门禁：
+
+```bash
+DATABASE_URL=postgresql://localhost:5432/uniassist_gateway \
+REDIS_URL=redis://localhost:6379 \
+pnpm release:gate:staging
+```
+
+发布后验证：
+
+```bash
+STAGING_GATEWAY_BASE_URL=http://localhost:8787 \
+STAGING_PROVIDER_PLAN_BASE_URL=http://localhost:8890 \
+STAGING_ADAPTER_WECHAT_BASE_URL=http://localhost:8788 \
+STAGING_CONTEXT_TOKEN=provider-dev-token \
+pnpm release:verify:staging
+```
+
+详细流程见：
+- `ops/deploy/staging/runbook.md`
+- `ops/deploy/staging/env.example`
+
 ## Notes
 
 - v0 默认内存态；配置 `DATABASE_URL` 后启用 Postgres 持久化

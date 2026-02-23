@@ -552,7 +552,7 @@ export class GatewayPersistence {
         $1,
         $2,
         $3::jsonb,
-        to_timestamp(($4 + $5) / 1000.0),
+        to_timestamp(($4::bigint + $5::bigint) / 1000.0),
         NOW()
       )
       ON CONFLICT (profile_ref)

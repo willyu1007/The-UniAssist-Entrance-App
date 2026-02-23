@@ -32,7 +32,7 @@ tasks:
     updated: 2026-02-23
   - id: T-002
     slug: ua-staging-release-baseline
-    status: planned
+    status: in-progress
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-staging-release-baseline

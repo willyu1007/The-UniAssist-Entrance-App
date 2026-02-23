@@ -2,5 +2,5 @@ version: 1
 task_id: T-002
 project: main
 slug: ua-staging-release-baseline
-status: planned
+status: in-progress
 updated: "2026-02-23"

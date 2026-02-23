@@ -11,7 +11,7 @@ Project: `main`
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
-| T-002 ua-staging-release-baseline | planned | F-000 | dev-docs/active/ua-staging-release-baseline |
+| T-002 ua-staging-release-baseline | in-progress | F-000 | dev-docs/active/ua-staging-release-baseline |
 | T-003 ua-observability-alerting | planned | F-000 | dev-docs/active/ua-observability-alerting |
 | T-004 ua-worker-reliability-hardening | planned | F-000 | dev-docs/active/ua-worker-reliability-hardening |
 | T-005 ua-frontend-transport-unification | planned | F-000 | dev-docs/active/ua-frontend-transport-unification |
