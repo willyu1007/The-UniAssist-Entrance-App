@@ -27,10 +27,12 @@ Unified AI entrance/orchestration app (input ingress, routing, fallback, interac
   - `apps/gateway`
   - `apps/adapter-wechat`
   - `apps/provider-plan`
+  - `apps/worker`
   - `apps/frontend` runtime integration
 - gateway supports optional persistence:
   - `DATABASE_URL` -> Postgres tables auto-init
-  - `REDIS_URL` -> Redis Streams fan-out
+  - `REDIS_URL` -> outbox events ready for worker dispatch
+  - `UNIASSIST_OUTBOX_INLINE_DISPATCH=true` -> optional inline dispatch (default off)
 
 ## Key Directories
 
@@ -53,6 +55,7 @@ Unified AI entrance/orchestration app (input ingress, routing, fallback, interac
 | **Repo orientation / local setup** | `README.md` |
 | **Contracts update** | `packages/contracts/` |
 | **Gateway/API behavior** | `apps/gateway/src/server.ts` |
+| **Delivery worker behavior** | `apps/worker/src/worker.ts` |
 | **WeChat ingress adapter** | `apps/adapter-wechat/src/server.ts` |
 | **Plan provider behavior** | `apps/provider-plan/src/server.ts` |
 | **Frontend timeline/rendering** | `apps/frontend/app/index.tsx` |

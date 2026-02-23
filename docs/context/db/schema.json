@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-02-23T07:43:08.791Z",
+  "updatedAt": "2026-02-23T08:04:50.240Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -22,6 +22,17 @@
       "schema": null,
       "columns": [
         {
+          "name": "attempts",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "channel",
           "type": "String",
           "nullable": false,
@@ -29,6 +40,28 @@
           "dbName": null,
           "dbType": null,
           "default": "\"timeline\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "consumed_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "consumedBy",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "consumed_by",
+          "dbType": null,
+          "default": null,
           "primaryKey": false,
           "unique": false
         },
@@ -77,6 +110,61 @@
           "unique": false
         },
         {
+          "name": "lastError",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "last_error",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lockedAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "locked_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lockedBy",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "locked_by",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "maxAttempts",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "max_attempts",
+          "dbType": null,
+          "default": "12",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "nextRetryAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "next_retry_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "payload",
           "type": "Json",
           "nullable": false,
@@ -108,6 +196,17 @@
           "default": "\"pending\"",
           "primaryKey": false,
           "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
         }
       ],
       "relations": [],
@@ -120,6 +219,15 @@
           ],
           "name": null,
           "map": "idx_outbox_events_status_created_at"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "status",
+            "nextRetryAt"
+          ],
+          "name": null,
+          "map": "idx_outbox_events_status_next_retry"
         }
       ]
     },

@@ -83,9 +83,19 @@ model OutboxEvent {
   channel     String    @default("timeline")
   payload     Json
   status      String    @default("pending")
+  attempts    Int       @default(0)
+  maxAttempts Int       @default(12) @map("max_attempts")
+  lastError   String?   @map("last_error")
+  nextRetryAt DateTime  @default(now()) @map("next_retry_at")
+  lockedBy    String?   @map("locked_by")
+  lockedAt    DateTime? @map("locked_at")
   createdAt   DateTime  @default(now()) @map("created_at")
   deliveredAt DateTime? @map("delivered_at")
+  consumedAt  DateTime? @map("consumed_at")
+  consumedBy  String?   @map("consumed_by")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   @@index([status, createdAt], map: "idx_outbox_events_status_created_at")
+  @@index([status, nextRetryAt], map: "idx_outbox_events_status_next_retry")
   @@map("outbox_events")
 }

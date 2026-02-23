@@ -54,6 +54,10 @@ export class GatewayPersistence {
 
   private readonly streamPrefix: string;
 
+  private readonly globalStreamKey: string;
+
+  private readonly enableInlineDispatch: boolean;
+
   private readonly enabled: boolean;
 
   constructor() {
@@ -74,6 +78,8 @@ export class GatewayPersistence {
     }
 
     this.streamPrefix = process.env.UNIASSIST_STREAM_PREFIX || 'uniassist:timeline:';
+    this.globalStreamKey = process.env.UNIASSIST_STREAM_GLOBAL_KEY || `${this.streamPrefix}all`;
+    this.enableInlineDispatch = process.env.UNIASSIST_OUTBOX_INLINE_DISPATCH === 'true';
     this.enabled = Boolean(this.pool || this.redis);
   }
 
@@ -160,9 +166,31 @@ export class GatewayPersistence {
         channel TEXT NOT NULL DEFAULT 'timeline',
         payload JSONB NOT NULL,
         status TEXT NOT NULL DEFAULT 'pending',
+        attempts INT NOT NULL DEFAULT 0,
+        max_attempts INT NOT NULL DEFAULT 12,
+        last_error TEXT,
+        next_retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        locked_by TEXT,
+        locked_at TIMESTAMPTZ,
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-        delivered_at TIMESTAMPTZ
+        delivered_at TIMESTAMPTZ,
+        consumed_at TIMESTAMPTZ,
+        consumed_by TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+    `);
+
+    await this.pool.query(`
+      ALTER TABLE outbox_events
+      ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0,
+      ADD COLUMN IF NOT EXISTS max_attempts INT NOT NULL DEFAULT 12,
+      ADD COLUMN IF NOT EXISTS last_error TEXT,
+      ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      ADD COLUMN IF NOT EXISTS locked_by TEXT,
+      ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS consumed_at TIMESTAMPTZ,
+      ADD COLUMN IF NOT EXISTS consumed_by TEXT,
+      ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     `);
 
     await this.pool.query(`
@@ -171,6 +199,7 @@ export class GatewayPersistence {
       CREATE INDEX IF NOT EXISTS idx_timeline_events_session_seq ON timeline_events(session_id, seq);
       CREATE INDEX IF NOT EXISTS idx_provider_runs_session_id ON provider_runs(session_id);
       CREATE INDEX IF NOT EXISTS idx_outbox_events_status_created_at ON outbox_events(status, created_at);
+      CREATE INDEX IF NOT EXISTS idx_outbox_events_status_next_retry ON outbox_events(status, next_retry_at);
       CREATE INDEX IF NOT EXISTS idx_user_context_cache_ttl ON user_context_cache(ttl_expires_at);
     `);
   }
@@ -330,7 +359,43 @@ export class GatewayPersistence {
     ]);
   }
 
+  private sessionStreamKey(sessionId: string): string {
+    return `${this.streamPrefix}${sessionId}`;
+  }
+
+  private async dispatchToRedis(payload: Record<string, unknown>, eventId: string, sessionId: string, seq: number): Promise<void> {
+    if (!this.redis || !this.redis.isOpen) return;
+
+    const serializedPayload = JSON.stringify(payload);
+    const perSessionKey = this.sessionStreamKey(sessionId);
+
+    await this.redis.xAdd(perSessionKey, '*', {
+      eventId,
+      sessionId,
+      seq: String(seq),
+      payload: serializedPayload,
+    });
+
+    await this.redis.xAdd(this.globalStreamKey, '*', {
+      eventId,
+      sessionId,
+      seq: String(seq),
+      streamKey: perSessionKey,
+      payload: serializedPayload,
+    });
+  }
+
   async saveTimelineEvent(event: TimelineEvent): Promise<void> {
+    const envelope = {
+      schemaVersion: 'v0',
+      type: 'timeline_event',
+      event,
+      stream: {
+        key: this.sessionStreamKey(event.sessionId),
+        globalKey: this.globalStreamKey,
+      },
+    };
+
     if (this.pool) {
       await this.pool.query(`
         INSERT INTO timeline_events (
@@ -366,37 +431,53 @@ export class GatewayPersistence {
       ]);
 
       await this.pool.query(`
-        INSERT INTO outbox_events (event_id, session_id, channel, payload)
-        VALUES ($1, $2, 'timeline', $3::jsonb)
-        ON CONFLICT (event_id) DO NOTHING
+        INSERT INTO outbox_events (
+          event_id,
+          session_id,
+          channel,
+          payload,
+          status,
+          attempts,
+          max_attempts,
+          next_retry_at,
+          updated_at
+        )
+        VALUES ($1, $2, 'timeline', $3::jsonb, 'pending', 0, 12, NOW(), NOW())
+        ON CONFLICT (event_id) DO UPDATE SET
+          payload = EXCLUDED.payload,
+          channel = EXCLUDED.channel,
+          status = CASE
+            WHEN outbox_events.status = 'delivered' THEN outbox_events.status
+            WHEN outbox_events.status = 'consumed' THEN outbox_events.status
+            ELSE 'pending'
+          END,
+          next_retry_at = CASE
+            WHEN outbox_events.status = 'delivered' THEN outbox_events.next_retry_at
+            WHEN outbox_events.status = 'consumed' THEN outbox_events.next_retry_at
+            ELSE NOW()
+          END,
+          updated_at = NOW()
       `, [
         event.eventId,
         event.sessionId,
-        JSON.stringify({
-          schemaVersion: 'v0',
-          type: 'timeline_event',
-          event,
-        }),
+        JSON.stringify(envelope),
       ]);
-    }
 
-    if (this.redis && this.redis.isOpen) {
-      const streamKey = `${this.streamPrefix}${event.sessionId}`;
-      await this.redis.xAdd(streamKey, '*', {
-        eventId: event.eventId,
-        sessionId: event.sessionId,
-        seq: String(event.seq),
-        payload: JSON.stringify(event),
-      });
-
-      if (this.pool) {
+      if (this.enableInlineDispatch) {
+        await this.dispatchToRedis(envelope as Record<string, unknown>, event.eventId, event.sessionId, event.seq);
         await this.pool.query(`
           UPDATE outbox_events
           SET status = 'delivered',
+              attempts = attempts + 1,
               delivered_at = NOW()
           WHERE event_id = $1
         `, [event.eventId]);
       }
+      return;
+    }
+
+    if (this.redis && this.redis.isOpen) {
+      await this.dispatchToRedis(envelope as Record<string, unknown>, event.eventId, event.sessionId, event.seq);
     }
   }
 

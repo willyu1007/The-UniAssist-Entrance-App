@@ -175,6 +175,28 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  apps/worker:
+    dependencies:
+      pg:
+        specifier: ^8.16.3
+        version: 8.18.0
+      redis:
+        specifier: ^5.8.2
+        version: 5.11.0
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.16.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   packages/contracts:
     devDependencies:
       typescript:

@@ -20,6 +20,7 @@
 - v0 网关已落地：`apps/gateway`
 - 微信适配层骨架已落地：`apps/adapter-wechat`
 - `plan` 专项 Provider 已落地：`apps/provider-plan`
+- delivery worker 已落地：`apps/worker`（outbox retry + Redis consumer）
 - 前端已接入统一时间线与扩展事件渲染：`apps/frontend`
 
 ## Tech Stack
@@ -52,6 +53,7 @@ apps/
   gateway/           入口网关（路由、兜底、会话、事件流）
   adapter-wechat/    微信适配层（入站归一化与回传骨架）
   provider-plan/     示例专项（invoke/interact/manifest）
+  worker/            投递工作进程（outbox retry + stream consumer）
 packages/
   contracts/         v0 协议类型与 JSON Schema
   shared/            共享包预留
@@ -86,6 +88,9 @@ pnpm --filter @baseinterface/adapter-wechat start
 
 # Plan provider (default :8890)
 pnpm --filter @baseinterface/provider-plan start
+
+# Worker (default no port)
+pnpm --filter @baseinterface/worker start
 ```
 
 ### Frontend Environment
@@ -108,6 +113,30 @@ DATABASE_URL=postgresql://localhost:5432/uniassist_gateway
 # Redis Streams (optional)
 REDIS_URL=redis://localhost:6379
 UNIASSIST_STREAM_PREFIX=uniassist:timeline:
+
+# optional: enable inline dispatch in gateway (default false, recommended false)
+UNIASSIST_OUTBOX_INLINE_DISPATCH=false
+```
+
+### Worker Environment
+
+```bash
+DATABASE_URL=postgresql://localhost:5432/uniassist_gateway
+REDIS_URL=redis://localhost:6379
+UNIASSIST_STREAM_PREFIX=uniassist:timeline:
+UNIASSIST_STREAM_GLOBAL_KEY=uniassist:timeline:all
+UNIASSIST_STREAM_GROUP=ua-delivery
+
+# outbox retry tuning
+OUTBOX_POLL_MS=1000
+OUTBOX_BATCH_SIZE=100
+OUTBOX_MAX_ATTEMPTS=12
+OUTBOX_BACKOFF_BASE_MS=1000
+OUTBOX_BACKOFF_MAX_MS=300000
+
+# consumer tuning
+STREAM_CONSUMER_BLOCK_MS=2000
+STREAM_CONSUMER_BATCH_SIZE=100
 ```
 
 ## Verification
@@ -117,12 +146,15 @@ pnpm --filter @baseinterface/contracts typecheck
 pnpm --filter @baseinterface/gateway typecheck
 pnpm --filter @baseinterface/adapter-wechat typecheck
 pnpm --filter @baseinterface/provider-plan typecheck
+pnpm --filter @baseinterface/worker typecheck
 pnpm --filter @baseinterface/frontend typecheck
+pnpm test:conformance
 ```
 
 ## Notes
 
 - v0 默认内存态；配置 `DATABASE_URL` 后启用 Postgres 持久化
-- 配置 `REDIS_URL` 后，timeline 事件会同步写入 Redis Streams
+- 配置 `REDIS_URL` 后，gateway 会写入 outbox；由 `apps/worker` 重试投递到 Redis Streams
+- `apps/worker` 同时消费全局 stream（consumer group）并回写 outbox consumed 状态
 - 外部入口启用最低安全：HMAC + timestamp + nonce 防重放
 - 内部完整签名/JWT 属于后续版本目标
