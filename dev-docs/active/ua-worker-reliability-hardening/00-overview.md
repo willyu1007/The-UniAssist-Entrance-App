@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Next step: 冻结 worker 状态机与重放策略设计。
+- State: in-progress
+- Next step: 在 staging 复现一次同等故障注入并记录恢复时间（MTTR）。
 
 ## Goal
 把 worker 从“可用”提升为“高可恢复、可排障、可治理”。
@@ -16,7 +16,7 @@
 - 清理场景偶发 `NOGROUP` 日志噪音，影响排障效率。
 
 ## Acceptance criteria (high level)
-- [ ] dead-letter 可重放，且具备幂等保障。
-- [ ] 故障注入后可自动恢复，数据不丢失。
-- [ ] `NOGROUP` 等清理竞态日志降噪完成。
-- [ ] 关键异常路径具备自动化测试。
+- [x] dead-letter 可重放，且具备幂等保障（replay token）。
+- [x] 故障注入后可自动恢复，数据不丢失（NOGROUP 注入 + replay 注入）。
+- [x] `NOGROUP` 等清理竞态日志降噪完成（限频 warn + 自动重建 group）。
+- [x] 关键异常路径具备自动化测试（redis e2e smoke 扩展）。

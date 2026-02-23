@@ -167,6 +167,9 @@ pnpm smoke:redis:e2e
 - 启动 `provider-plan` / `gateway` / `worker`
 - 发起一次 ingest，验证 outbox 从 pending 流转到 consumed
 - 注入一条 `failed` outbox 记录，验证 retry 路径可恢复并最终 consumed
+- 注入一次 `NOGROUP` 竞态并验证 worker 自动恢复 consumer group
+- 注入一条 `dead_letter` 记录，执行 replay 并验证最终 consumed
+- 二次 replay 同一 token，验证幂等（`updated=0`）
 - 校验 Redis session/global stream 有数据
 - 默认清理测试产生的 DB/Redis 数据
 
@@ -177,6 +180,21 @@ pnpm smoke:redis:e2e
 - `SMOKE_STREAM_PREFIX`（默认按本次 run 自动生成）
 - `SMOKE_STREAM_GROUP`（默认按本次 run 自动生成）
 - `SMOKE_KEEP_ARTIFACTS=true`（保留测试数据用于排查）
+
+### Dead-letter Replay
+
+```bash
+DATABASE_URL=postgresql://localhost:5432/uniassist_gateway \
+pnpm worker:replay:dead-letter -- \
+  --event-id=<dead-letter-event-id> \
+  --replay-token=<ticket-or-incident-id>
+```
+
+常用参数：
+- `--session-id=<id>`：按 session 批量重放
+- `--limit=<n>`：限制本次重放条数（默认 20）
+- `--dry-run`：只查看候选，不实际更新
+- `--all`：允许全局扫描（必须配合 `--limit` 控制风险）
 
 ### Staging Release Gate
 

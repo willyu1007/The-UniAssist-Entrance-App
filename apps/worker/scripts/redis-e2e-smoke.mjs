@@ -73,6 +73,38 @@ async function stopService(name, child) {
   }
 }
 
+async function runCommand(name, command, args, env = {}) {
+  const child = spawn(command, args, {
+    cwd: repoRoot,
+    env: {
+      ...process.env,
+      ...env,
+    },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  });
+
+  let stdout = '';
+  let stderr = '';
+
+  child.stdout.on('data', (chunk) => {
+    const text = chunk.toString();
+    stdout += text;
+    process.stdout.write(`[${name}] ${text}`);
+  });
+
+  child.stderr.on('data', (chunk) => {
+    const text = chunk.toString();
+    stderr += text;
+    process.stderr.write(`[${name}] ${text}`);
+  });
+
+  const [code] = await once(child, 'exit');
+  if (code !== 0) {
+    throw new Error(`${name} failed with code ${String(code)}: ${stderr || stdout}`);
+  }
+  return { stdout, stderr };
+}
+
 async function waitForHealth(name, url, timeoutMs = 30_000) {
   const start = nowMs();
   while (nowMs() - start < timeoutMs) {
@@ -155,6 +187,33 @@ async function readOutboxStatus(pool, eventId) {
   };
 }
 
+async function insertOutboxEvent(pool, {
+  eventId,
+  sessionId,
+  payload,
+  status = 'failed',
+  attempts = 0,
+  maxAttempts = 12,
+  lastError = null,
+}) {
+  await pool.query(`
+    INSERT INTO outbox_events (
+      event_id,
+      session_id,
+      channel,
+      payload,
+      status,
+      attempts,
+      max_attempts,
+      last_error,
+      next_retry_at,
+      updated_at
+    )
+    VALUES ($1, $2, 'timeline', $3::jsonb, $4, $5, $6, $7, NOW(), NOW())
+    ON CONFLICT (event_id) DO NOTHING
+  `, [eventId, sessionId, JSON.stringify(payload), status, attempts, maxAttempts, lastError]);
+}
+
 function buildIngest({ sessionId, traceId, userId }) {
   return {
     schemaVersion: 'v0',
@@ -176,6 +235,9 @@ async function main() {
   const sessionId = `s-smoke-${runToken}`;
   const traceId = `t-smoke-${runToken}`;
   const retryEventId = `e-smoke-retry-${runToken}`;
+  const noGroupEventId = `e-smoke-nogroup-${runToken}`;
+  const deadLetterEventId = `e-smoke-dead-letter-${runToken}`;
+  const replayToken = `smoke-replay-${runToken}`;
 
   const gatewayPort = envInt('SMOKE_GATEWAY_PORT', 18877);
   const providerPort = envInt('SMOKE_PROVIDER_PORT', 18890);
@@ -188,7 +250,13 @@ async function main() {
   const sessionStreamKey = `${streamPrefix}${sessionId}`;
 
   const pool = new Pool({ connectionString: databaseUrl });
-  const redis = createClient({ url: redisUrl });
+  const redis = createClient({
+    url: redisUrl,
+    socket: {
+      connectTimeout: 3000,
+      reconnectStrategy: () => false,
+    },
+  });
   redis.on('error', (error) => {
     process.stderr.write(`[smoke][redis] ${String(error)}\n`);
   });
@@ -290,22 +358,15 @@ async function main() {
       },
     };
 
-    await pool.query(`
-      INSERT INTO outbox_events (
-        event_id,
-        session_id,
-        channel,
-        payload,
-        status,
-        attempts,
-        max_attempts,
-        last_error,
-        next_retry_at,
-        updated_at
-      )
-      VALUES ($1, $2, 'timeline', $3::jsonb, 'failed', 1, 12, 'injected-smoke', NOW(), NOW())
-      ON CONFLICT (event_id) DO NOTHING
-    `, [retryEventId, sessionId, JSON.stringify(retryEnvelope)]);
+    await insertOutboxEvent(pool, {
+      eventId: retryEventId,
+      sessionId,
+      payload: retryEnvelope,
+      status: 'failed',
+      attempts: 1,
+      maxAttempts: 12,
+      lastError: 'injected-smoke',
+    });
 
     const retryRow = await waitFor(
       'retry row consumed',
@@ -314,6 +375,97 @@ async function main() {
         if (!row) return null;
         if (row.status === 'dead_letter') {
           throw new Error(`retry row moved to dead_letter: ${JSON.stringify(row)}`);
+        }
+        return row.status === 'consumed' ? row : null;
+      },
+      timeoutMs,
+    );
+
+    await redis.sendCommand(['XGROUP', 'DESTROY', globalStreamKey, streamGroup]);
+
+    const noGroupEnvelope = {
+      ...retryEnvelope,
+      event: {
+        ...retryEnvelope.event,
+        eventId: noGroupEventId,
+        timestampMs: nowMs(),
+        payload: {
+          event: {
+            type: 'assistant_message',
+            text: 'nogroup recovery smoke injected',
+          },
+          source: 'smoke',
+        },
+      },
+    };
+
+    await insertOutboxEvent(pool, {
+      eventId: noGroupEventId,
+      sessionId,
+      payload: noGroupEnvelope,
+      status: 'pending',
+      attempts: 0,
+      maxAttempts: 12,
+    });
+
+    const noGroupRow = await waitFor(
+      'nogroup recovery row consumed',
+      async () => {
+        const row = await readOutboxStatus(pool, noGroupEventId);
+        return row?.status === 'consumed' ? row : null;
+      },
+      timeoutMs,
+    );
+
+    const deadLetterEnvelope = {
+      ...retryEnvelope,
+      event: {
+        ...retryEnvelope.event,
+        eventId: deadLetterEventId,
+        timestampMs: nowMs(),
+        payload: {
+          event: {
+            type: 'assistant_message',
+            text: 'dead-letter replay smoke injected',
+          },
+          source: 'smoke',
+        },
+      },
+    };
+
+    await insertOutboxEvent(pool, {
+      eventId: deadLetterEventId,
+      sessionId,
+      payload: deadLetterEnvelope,
+      status: 'dead_letter',
+      attempts: 12,
+      maxAttempts: 12,
+      lastError: 'injected-dead-letter',
+    });
+
+    const replayResult = await runCommand(
+      'replay',
+      'pnpm',
+      ['--filter', '@baseinterface/worker', 'replay:dead-letter', '--event-id', deadLetterEventId, '--replay-token', replayToken],
+      { DATABASE_URL: databaseUrl },
+    );
+    assert.ok(replayResult.stdout.includes('[replay][PASS]'), 'replay command should pass');
+
+    const replayIdempotent = await runCommand(
+      'replay-idempotent',
+      'pnpm',
+      ['--filter', '@baseinterface/worker', 'replay:dead-letter', '--event-id', deadLetterEventId, '--replay-token', replayToken],
+      { DATABASE_URL: databaseUrl },
+    );
+    assert.ok(replayIdempotent.stdout.includes('updated: 0'), 'replay idempotent run should not update rows');
+
+    const replayedRow = await waitFor(
+      'dead-letter replay row consumed',
+      async () => {
+        const row = await readOutboxStatus(pool, deadLetterEventId);
+        if (!row) return null;
+        if (row.status === 'dead_letter') {
+          throw new Error(`dead-letter row stuck: ${JSON.stringify(row)}`);
         }
         return row.status === 'consumed' ? row : null;
       },
@@ -332,6 +484,9 @@ async function main() {
       streamPrefix,
       baseline,
       retryRow,
+      noGroupRow,
+      replayedRow,
+      replayToken,
       streamEntries: {
         sessionLen,
         globalLen,
@@ -346,6 +501,11 @@ async function main() {
         await pool.query('DELETE FROM sessions WHERE session_id = $1', [sessionId]);
       } catch (error) {
         process.stderr.write(`[smoke][cleanup][db] ${String(error)}\n`);
+      }
+      try {
+        await pool.query('DELETE FROM outbox_replay_log WHERE session_id = $1 OR replay_token = $2', [sessionId, replayToken]);
+      } catch {
+        // replay table might not exist if replay command did not run
       }
 
       try {

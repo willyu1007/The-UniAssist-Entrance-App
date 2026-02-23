@@ -33,6 +33,7 @@ type WorkerConfig = {
 };
 
 const logger = createLogger({ service: 'worker' });
+const TRANSIENT_LOG_INTERVAL_MS = 30_000;
 
 function toBool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
@@ -83,6 +84,23 @@ function toRecord(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
+function errorMessage(error: unknown): string {
+  if (error instanceof Error) return error.message;
+  return String(error);
+}
+
+function isRedisTransientError(message: string): boolean {
+  const normalized = message.toLowerCase();
+  return normalized.includes('connection is closed')
+    || normalized.includes('the client is closed')
+    || normalized.includes('socket closed unexpectedly')
+    || normalized.includes('econnrefused')
+    || normalized.includes('econnreset')
+    || normalized.includes('etimedout')
+    || normalized.includes('read only')
+    || normalized.includes('loading redis is loading');
+}
+
 class DeliveryWorker {
   private readonly config: WorkerConfig;
 
@@ -93,6 +111,10 @@ class DeliveryWorker {
   private running = false;
 
   private consumerGroupReady = false;
+
+  private lastNoGroupLogAt = 0;
+
+  private lastTransientConsumerErrorLogAt = 0;
 
   constructor(config: WorkerConfig) {
     this.config = config;
@@ -248,9 +270,49 @@ class DeliveryWorker {
         }
         await this.consumeStreamOnce();
       } catch (error) {
+        const message = errorMessage(error);
+        if (message.toLowerCase().includes('nogroup')) {
+          await this.recoverConsumerGroup(error);
+          await sleep(300);
+          continue;
+        }
+
+        if (isRedisTransientError(message)) {
+          this.logTransientConsumerError(error);
+          await sleep(1000);
+          continue;
+        }
+
         logger.error('worker consumer loop error', serializeError(error));
         await sleep(1000);
       }
+    }
+  }
+
+  private logTransientConsumerError(error: unknown): void {
+    const ts = Date.now();
+    if (ts - this.lastTransientConsumerErrorLogAt < TRANSIENT_LOG_INTERVAL_MS) {
+      return;
+    }
+    this.lastTransientConsumerErrorLogAt = ts;
+    logger.warn('worker consumer transient error', serializeError(error));
+  }
+
+  private async recoverConsumerGroup(cause: unknown): Promise<void> {
+    this.consumerGroupReady = false;
+    try {
+      await this.ensureConsumerGroup();
+      const ts = Date.now();
+      if (ts - this.lastNoGroupLogAt >= TRANSIENT_LOG_INTERVAL_MS) {
+        this.lastNoGroupLogAt = ts;
+        logger.warn('worker consumer group recovered after NOGROUP', {
+          streamGroup: this.config.streamGroup,
+          globalStreamKey: this.config.globalStreamKey,
+          error: errorMessage(cause),
+        });
+      }
+    } catch (error) {
+      logger.error('worker consumer group recovery failed', serializeError(error));
     }
   }
 
