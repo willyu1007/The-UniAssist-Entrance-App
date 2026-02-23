@@ -10,7 +10,9 @@
     "dev:provider-plan": "pnpm --filter @baseinterface/provider-plan start",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
-    "typecheck:workspaces": "pnpm -r --if-present typecheck"
+    "typecheck:workspaces": "pnpm -r --if-present typecheck",
+    "db:sync-context": "node .ai/scripts/ctl-db-ssot.mjs sync-to-context",
+    "test:conformance": "pnpm --filter @baseinterface/gateway test:conformance"
   },
   "devDependencies": {
     "eslint": "^8.57.0",

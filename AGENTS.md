@@ -28,6 +28,9 @@ Unified AI entrance/orchestration app (input ingress, routing, fallback, interac
   - `apps/adapter-wechat`
   - `apps/provider-plan`
   - `apps/frontend` runtime integration
+- gateway supports optional persistence:
+  - `DATABASE_URL` -> Postgres tables auto-init
+  - `REDIS_URL` -> Redis Streams fan-out
 
 ## Key Directories
 

@@ -43,6 +43,26 @@
   - 支持通过 `UNIASSIST_PLAN_PROVIDER_BASE_URL` 走真实 provider 调用
   - invoke 采用异步 dispatch，不阻塞 ingest ACK（满足快速 ACK 目标）
   - provider 不可用时自动回退到入口内置计划流程（不阻塞主链路）
+- gateway 持久化实现（Postgres + Redis Streams）：
+  - 新增 `apps/gateway/src/persistence.ts`
+  - `DATABASE_URL` 可用时自动建表并持久化：
+    - `sessions`
+    - `timeline_events`
+    - `provider_runs`
+    - `user_context_cache`
+    - `outbox_events`
+  - `REDIS_URL` 可用时同步写入 stream（默认前缀 `uniassist:timeline:`）
+  - timeline 读取支持“内存 + Postgres 合并”，支持重启后 cursor 恢复
+  - context cache 支持落库和 TTL 读取
+- DB SSOT 对齐：
+  - 新增 `prisma/schema.prisma`
+  - 运行 `ctl-db-ssot` 后刷新 `docs/context/db/schema.json`
+- conformance tests：
+  - 新增 `apps/gateway/tests/conformance.mjs`
+  - 覆盖 fallback、结构化资料收集、profileRef、session split、sticky 切换、wechat adapter 闭环
+  - 新增脚本：
+    - `apps/gateway/package.json` -> `test:conformance`
+    - `package.json` -> `test:conformance`
 - 前端 `apps/frontend` 改造：
   - 单时间线渲染（轮询 `GET /v0/timeline`）
   - 来源标签展示
@@ -59,6 +79,11 @@
 - `apps/gateway/*`
 - `apps/adapter-wechat/*`
 - `apps/provider-plan/*`
+- `apps/gateway/src/persistence.ts`
+- `apps/gateway/tests/conformance.mjs`
+- `prisma/schema.prisma`
+- `docs/context/db/schema.json`
+- `docs/context/registry.json`
 - `apps/frontend/app/index.tsx`
 - `apps/frontend/src/components/AppDrawer.tsx`
 - `apps/frontend/package.json`
@@ -69,11 +94,11 @@
 
 ## Decisions & tradeoffs
 - Decision:
-  - v0 先采用内存态事件存储和轮询辅助接口（`/v0/timeline`），优先闭环协议与交互。
+  - 在保持内存态低门槛的同时，增加可选 Postgres/Redis 持久化层（环境变量驱动）。
   - Rationale:
-    - 先保证产品链路可跑通，再推进持久化与高可用。
+    - 兼顾本地开发和可恢复性，降低重启丢事件风险。
   - Alternatives considered:
-    - 直接落 Postgres + Redis Streams；本轮放弃（范围过大，不利于快速验证接口契约）。
+    - 只保留内存态；放弃（无法满足持久化与恢复要求）。
 
 - Decision:
   - `provider_extension` 使用受控扩展块并在 contract 强约束 request/result 渲染 schema 必填。
@@ -84,16 +109,16 @@
 
 ## Deviations from plan
 - Change:
-  - Phase 5（hardening）仅完成 smoke/typecheck，尚未补齐 conformance test 与生产级存储。
+  - Phase 5 增加并完成 conformance tests；持久化从“目标”提升到“可运行可选实现”。
   - Why:
-    - 本轮聚焦可运行闭环与接口定型。
+    - 用户明确要求按顺序落实“Postgres+Redis Streams”后执行 conformance。
   - Impact:
-    - 可用于联调与演示，不建议直接生产上线。
+    - v0 验收项可自动化验证；系统具备重启恢复基础。
 
 ## Known issues / follow-ups
-- TODO: 对 `provider_extension` 建立独立 conformance tests
-- TODO: gateway 从内存态切换到 Postgres + Redis Streams + outbox
+- TODO: Redis consumer group/outbox 重试 worker 仍未独立服务化（当前仅生产者侧写入）
 - TODO: SSE 与 polling 的前端策略统一（避免双通道维护）
+- TODO: 生产环境补全监控告警与数据库容量/归档策略
 
 ## Pitfalls / dead ends (do not repeat)
 - Keep the detailed log in `05-pitfalls.md` (append-only).

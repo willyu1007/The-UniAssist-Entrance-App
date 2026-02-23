@@ -97,6 +97,19 @@ EXPO_PUBLIC_GATEWAY_BASE_URL=http://localhost:8787
 UNIASSIST_PLAN_PROVIDER_BASE_URL=http://localhost:8890
 ```
 
+### Gateway Persistence Environment
+
+网关默认以内存模式运行；设置以下变量后自动启用持久化：
+
+```bash
+# Postgres (durable sessions/timeline/provider_runs/outbox/context_cache)
+DATABASE_URL=postgresql://localhost:5432/uniassist_gateway
+
+# Redis Streams (optional)
+REDIS_URL=redis://localhost:6379
+UNIASSIST_STREAM_PREFIX=uniassist:timeline:
+```
+
 ## Verification
 
 ```bash
@@ -109,6 +122,7 @@ pnpm --filter @baseinterface/frontend typecheck
 
 ## Notes
 
-- v0 采用内存态运行时存储（用于快速闭环验证）
+- v0 默认内存态；配置 `DATABASE_URL` 后启用 Postgres 持久化
+- 配置 `REDIS_URL` 后，timeline 事件会同步写入 Redis Streams
 - 外部入口启用最低安全：HMAC + timestamp + nonce 防重放
 - 内部完整签名/JWT 属于后续版本目标

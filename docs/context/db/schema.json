@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-02-10T10:04:42.910Z",
+  "updatedAt": "2026-02-23T07:43:08.791Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -10,11 +10,682 @@
   },
   "database": {
     "kind": "relational",
-    "dialect": "generic",
+    "dialect": "postgresql",
     "name": "",
     "schemas": []
   },
   "enums": [],
-  "tables": [],
-  "notes": "Missing prisma schema at prisma/schema.prisma. Create it, then re-run ctl-db-ssot."
+  "tables": [
+    {
+      "name": "OutboxEvent",
+      "dbName": "outbox_events",
+      "schema": null,
+      "columns": [
+        {
+          "name": "channel",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"timeline\"",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "deliveredAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "delivered_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "eventId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "event_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": true
+        },
+        {
+          "name": "id",
+          "type": "BigInt",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "autoincrement()",
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "payload",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "\"pending\"",
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "status",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "idx_outbox_events_status_created_at"
+        }
+      ]
+    },
+    {
+      "name": "ProviderRun",
+      "dbName": "provider_runs",
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "idempotencyKey",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "idempotency_key",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "mode",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "providerId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "provider_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "routingMode",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "routing_mode",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "traceId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "trace_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "user_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "sessionId"
+          ],
+          "name": null,
+          "map": "idx_provider_runs_session_id"
+        }
+      ]
+    },
+    {
+      "name": "Session",
+      "dbName": "sessions",
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastActivityAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "last_activity_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastSwitchTs",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "last_switch_ts",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastUserText",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "last_user_text",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "seq",
+          "type": "BigInt",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "stickyProviderId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "sticky_provider_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "stickyWeight",
+          "type": "Decimal",
+          "nullable": false,
+          "list": false,
+          "dbName": "sticky_weight",
+          "dbType": "Decimal",
+          "default": "0.150",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "switchLeadProviderId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "switch_lead_provider_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "switchLeadStreak",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "switch_lead_streak",
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "topicDriftStreak",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "topic_drift_streak",
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "topicState",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "topic_state",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "user_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "lastActivityAt"
+          ],
+          "name": null,
+          "map": "idx_sessions_last_activity_at"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "userId"
+          ],
+          "name": null,
+          "map": "idx_sessions_user_id"
+        }
+      ]
+    },
+    {
+      "name": "TimelineEvent",
+      "dbName": "timeline_events",
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "eventId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "event_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "extensionKind",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "extension_kind",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "kind",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "payload",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "providerId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "provider_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "renderSchemaRef",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "render_schema_ref",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "seq",
+          "type": "BigInt",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "timestampMs",
+          "type": "BigInt",
+          "nullable": false,
+          "list": false,
+          "dbName": "timestamp_ms",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "traceId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "trace_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "user_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "sessionId",
+            "seq"
+          ],
+          "name": null,
+          "map": "idx_timeline_events_session_seq"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "sessionId",
+            "seq"
+          ],
+          "name": null,
+          "map": "timeline_events_session_seq_key"
+        }
+      ]
+    },
+    {
+      "name": "UserContextCache",
+      "dbName": "user_context_cache",
+      "schema": null,
+      "columns": [
+        {
+          "name": "profileRef",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "profile_ref",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "snapshot",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "ttlExpiresAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "ttl_expires_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "user_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "ttlExpiresAt"
+          ],
+          "name": null,
+          "map": "idx_user_context_cache_ttl"
+        }
+      ]
+    }
+  ],
+  "notes": "Generated from Prisma schema.prisma (SSOT: repo-prisma)."
 }

@@ -8,6 +8,8 @@
   - `pnpm --filter @baseinterface/adapter-wechat typecheck` -> PASS
   - `pnpm --filter @baseinterface/provider-plan typecheck` -> PASS
   - `pnpm --filter @baseinterface/frontend typecheck` -> PASS
+  - `pnpm --filter @baseinterface/gateway test:conformance` -> PASS
+  - `pnpm test:conformance` -> PASS
 
 ## Manual smoke checks
 - Executed (local, 2026-02-23):
@@ -30,6 +32,10 @@
      - 配置 `UNIASSIST_PLAN_PROVIDER_BASE_URL`
      - ingest 计划类输入后，timeline 收到 provider 的 ack + `data_collection_request`
      - interact 回传后，timeline 收到 provider 的 `progress/result`
+  6. Postgres 持久化：
+     - 配置 `DATABASE_URL=postgresql://localhost:5432/uniassist_gateway`
+     - ingest 后验证 `sessions/timeline_events/provider_runs/outbox_events` 行数增加
+     - 重启 gateway 后，`/v0/timeline` 仍可按 cursor 拉取历史事件（恢复成功）
 
 ## Sample outcome snapshot
 
@@ -38,10 +44,13 @@
 - `contextNoScopeCode`: `403`
 - `wechat.ok`: `true`
 - `providerAckFromPlan`: `true`
+- `postgresCounts`: `sessions=1,timeline_events=4,provider_runs=1,outbox_events=4`
+- `recoveryAfterRestart`: `events=4`
 
 ## Rollout / Backout (if applicable)
 - Rollout:
   - 当前可用于本地联调：frontend + gateway + adapter + contracts
-  - 下一步接入真实 provider 服务与持久化基础设施
+  - 已支持可选 Postgres/Redis；建议先在 staging 验证回放与吞吐
 - Backout:
+  - 不配置 `DATABASE_URL/REDIS_URL` 时 gateway 自动回退纯内存模式
   - 前端不配置 `EXPO_PUBLIC_GATEWAY_BASE_URL` 时自动回退本地 mock 交互流

@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: in-progress (implementation-complete, hardening pending)
-- Next step: 补充 conformance tests 与持久化（Postgres/Redis Streams）接入，将 v0 骨架升级为生产级。
+- State: in-progress (hardening-complete for v0 scope)
+- Next step: 进入 v1 级别优化（生产部署、监控告警、内部签名/JWT、对象存储与回放管线强化）。
 
 ## Goal
 将当前仓库升级为 UniAssist 统一入口引擎 v0：支持统一输入、路由分发、兜底聊天、结构化交互扩展、长周期事件投递与微信文本接入闭环。

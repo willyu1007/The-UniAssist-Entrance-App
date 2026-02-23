@@ -19,6 +19,7 @@ import type {
   UnifiedUserInput,
   UserInteraction,
 } from '@baseinterface/contracts';
+import { GatewayPersistence, type StoredSession } from './persistence';
 
 const PORT = Number(process.env.PORT || 8787);
 const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';
@@ -41,19 +42,7 @@ app.use(express.json({
 
 type RawBodyRequest = Request & { rawBody?: string };
 
-type SessionState = {
-  sessionId: string;
-  userId: string;
-  seq: number;
-  lastActivityAt: number;
-  lastUserText?: string;
-  topicDriftStreak: number;
-  stickyProviderId?: string;
-  stickyScoreBoost: number;
-  switchLeadProviderId?: string;
-  switchLeadStreak: number;
-  lastSwitchTs?: number;
-};
+type SessionState = StoredSession;
 
 type UserContextResponse = {
   profile: {
@@ -76,6 +65,7 @@ const timelineBySession = new Map<string, TimelineEvent[]>();
 const sseClients = new Map<string, Set<Response>>();
 const userContextCache = new Map<string, UserContextRecord>();
 const nonceReplay = new Map<string, number>();
+const persistence = new GatewayPersistence();
 
 const PROVIDER_RULES: Array<{ id: string; keywords: string[] }> = [
   { id: 'plan', keywords: ['计划', '安排', '日程', '目标', '规划'] },
@@ -121,8 +111,16 @@ function jaccard(a: string, b: string): number {
   return union === 0 ? 0 : inter / union;
 }
 
-function getOrCreateSession(input: UnifiedUserInput): { session: SessionState; rotated: boolean } {
-  const existing = sessions.get(input.sessionId);
+async function getOrCreateSession(input: UnifiedUserInput): Promise<{ session: SessionState; rotated: boolean }> {
+  let existing = sessions.get(input.sessionId);
+
+  if (!existing && persistence.isEnabled()) {
+    const persisted = await persistence.loadSession(input.sessionId);
+    if (persisted) {
+      existing = persisted;
+      sessions.set(existing.sessionId, existing);
+    }
+  }
 
   if (!existing) {
     const created: SessionState = {
@@ -165,6 +163,12 @@ function pushTimelineEvent(event: TimelineEvent): void {
   const list = timelineBySession.get(event.sessionId) || [];
   list.push(event);
   timelineBySession.set(event.sessionId, list);
+
+  if (persistence.isEnabled()) {
+    void persistence.saveTimelineEvent(event).catch((error: unknown) => {
+      console.error('[gateway][persistence] saveTimelineEvent failed', error);
+    });
+  }
 
   const clients = sseClients.get(event.sessionId);
   if (!clients) return;
@@ -213,7 +217,66 @@ function emitEvent(
   };
 
   pushTimelineEvent(event);
+
+  if (kind === 'provider_run' && providerId && runId) {
+    const mode = payload.mode === 'sync' ? 'sync' : 'async';
+    const routingMode = payload.routing_mode === 'fallback' ? 'fallback' : 'normal';
+    const idempotencyKey = typeof payload.idempotency_key === 'string'
+      ? payload.idempotency_key
+      : `${input.traceId}:${providerId}`;
+    const status = typeof payload.status === 'string' ? payload.status : 'in-progress';
+
+    if (persistence.isEnabled()) {
+      void persistence.saveProviderRun({
+        runId,
+        traceId: input.traceId,
+        sessionId: session.sessionId,
+        userId: input.userId,
+        providerId,
+        mode,
+        routingMode,
+        idempotencyKey,
+        status,
+      }).catch((error: unknown) => {
+        console.error('[gateway][persistence] saveProviderRun failed', error);
+      });
+    }
+  }
+
   return event;
+}
+
+function mergeTimelineEvents(
+  inMemory: TimelineEvent[],
+  persisted: TimelineEvent[],
+): TimelineEvent[] {
+  const merged = new Map<string, TimelineEvent>();
+  for (const event of [...persisted, ...inMemory]) {
+    merged.set(event.eventId, event);
+  }
+  return [...merged.values()].sort((a, b) => a.seq - b.seq);
+}
+
+async function listTimelineEvents(sessionId: string, cursor: number): Promise<TimelineEvent[]> {
+  const inMemory = (timelineBySession.get(sessionId) || []).filter((event) => event.seq > cursor);
+  if (!persistence.isEnabled()) {
+    return inMemory;
+  }
+
+  try {
+    const persisted = await persistence.listTimelineEvents(sessionId, cursor);
+    return mergeTimelineEvents(inMemory, persisted);
+  } catch (error) {
+    console.error('[gateway][persistence] listTimelineEvents failed', error);
+    return inMemory;
+  }
+}
+
+function persistSessionAsync(session: SessionState): void {
+  if (!persistence.isEnabled()) return;
+  void persistence.saveSession(session).catch((error: unknown) => {
+    console.error('[gateway][persistence] saveSession failed', error);
+  });
 }
 
 function scoreCandidates(session: SessionState, input: UnifiedUserInput): RoutingCandidate[] {
@@ -497,7 +560,16 @@ function requireExternalSignature(req: RawBodyRequest): { ok: true } | { ok: fal
 }
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, service: 'gateway', version: '0.1.0' });
+  res.json({
+    ok: true,
+    service: 'gateway',
+    version: '0.1.0',
+    persistence: {
+      enabled: persistence.isEnabled(),
+      postgres: Boolean(process.env.DATABASE_URL),
+      redis: Boolean(process.env.REDIS_URL),
+    },
+  });
 });
 
 app.get('/.well-known/uniassist/manifest.json', (_req, res) => {
@@ -515,7 +587,7 @@ app.get('/.well-known/uniassist/manifest.json', (_req, res) => {
   });
 });
 
-app.post('/v0/ingest', (req: RawBodyRequest, res) => {
+app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
   const input = req.body as UnifiedUserInput;
 
   if (!input || input.schemaVersion !== 'v0' || !input.traceId || !input.userId || !input.sessionId) {
@@ -546,7 +618,7 @@ app.post('/v0/ingest', (req: RawBodyRequest, res) => {
     }
   }
 
-  const { session, rotated } = getOrCreateSession(input);
+  const { session, rotated } = await getOrCreateSession(input);
   const effectiveInput: UnifiedUserInput = {
     ...input,
     sessionId: session.sessionId,
@@ -597,6 +669,7 @@ app.post('/v0/ingest', (req: RawBodyRequest, res) => {
 
     emitEvent(session, effectiveInput, 'provider_run', {
       providerId: FALLBACK_PROVIDER_ID,
+      mode: 'async',
       status: 'in-progress',
       routing_mode: 'fallback',
       idempotency_key: `${effectiveInput.traceId}:${FALLBACK_PROVIDER_ID}`,
@@ -624,6 +697,7 @@ app.post('/v0/ingest', (req: RawBodyRequest, res) => {
 
       emitEvent(session, effectiveInput, 'provider_run', {
         providerId: candidate.providerId,
+        mode: 'async',
         score: candidate.score,
         status: 'in-progress',
         routing_mode: 'normal',
@@ -684,6 +758,7 @@ app.post('/v0/ingest', (req: RawBodyRequest, res) => {
     timestampMs: now(),
   };
 
+  persistSessionAsync(session);
   res.json(ack);
 });
 
@@ -694,7 +769,14 @@ app.post('/v0/interact', async (req, res) => {
     return;
   }
 
-  const session = sessions.get(interaction.sessionId);
+  let session = sessions.get(interaction.sessionId);
+  if (!session && persistence.isEnabled()) {
+    const persisted = await persistence.loadSession(interaction.sessionId);
+    if (persisted) {
+      session = persisted;
+      sessions.set(session.sessionId, session);
+    }
+  }
   if (!session) {
     res.status(404).json({ accepted: false, reason: 'session not found' });
     return;
@@ -739,6 +821,7 @@ app.post('/v0/interact', async (req, res) => {
       switchLeadStreak: 0,
     };
     sessions.set(newSessionId, next);
+    persistSessionAsync(next);
 
     res.json({ accepted: true, newSessionId });
     return;
@@ -786,6 +869,7 @@ app.post('/v0/interact', async (req, res) => {
     }
   }
 
+  persistSessionAsync(session);
   res.json({ accepted: true });
 });
 
@@ -832,6 +916,7 @@ app.post('/v0/events', (req, res) => {
         };
 
         sessions.set(sessionId, session);
+        persistSessionAsync(session);
 
         const inputRef: UnifiedUserInput = {
           schemaVersion: 'v0',
@@ -855,7 +940,7 @@ app.post('/v0/events', (req, res) => {
   res.json({ schemaVersion: 'v0', accepted, rejected, errors: errors.length ? errors : undefined });
 });
 
-app.get('/v0/stream', (req, res) => {
+app.get('/v0/stream', async (req, res) => {
   const sessionId = String(req.query.sessionId || '');
   const cursor = Number(req.query.cursor || 0);
 
@@ -869,7 +954,7 @@ app.get('/v0/stream', (req, res) => {
   res.setHeader('Connection', 'keep-alive');
   res.flushHeaders();
 
-  const seed = (timelineBySession.get(sessionId) || []).filter((event) => event.seq > cursor);
+  const seed = await listTimelineEvents(sessionId, cursor);
   for (const event of seed) {
     res.write(`data: ${JSON.stringify({ schemaVersion: 'v0', type: 'timeline_event', event })}\n\n`);
   }
@@ -884,7 +969,7 @@ app.get('/v0/stream', (req, res) => {
   });
 });
 
-app.get('/v0/timeline', (req, res) => {
+app.get('/v0/timeline', async (req, res) => {
   const sessionId = String(req.query.sessionId || '');
   const cursor = Number(req.query.cursor || 0);
 
@@ -893,12 +978,12 @@ app.get('/v0/timeline', (req, res) => {
     return;
   }
 
-  const events = (timelineBySession.get(sessionId) || []).filter((event) => event.seq > cursor);
+  const events = await listTimelineEvents(sessionId, cursor);
   const nextCursor = events.length > 0 ? events[events.length - 1].seq : cursor;
   res.json({ schemaVersion: 'v0', events, nextCursor });
 });
 
-app.get('/v0/context/users/:profileRef', (req, res) => {
+app.get('/v0/context/users/:profileRef', async (req, res) => {
   const auth = req.header('authorization');
   if (auth !== `Bearer ${PROVIDER_CONTEXT_TOKEN}`) {
     res.status(401).json({
@@ -935,6 +1020,20 @@ app.get('/v0/context/users/:profileRef', (req, res) => {
     return;
   }
 
+  if (persistence.isEnabled()) {
+    const persisted = await persistence.loadUserContext(profileRef);
+    if (persisted) {
+      const restored = persisted as UserContextResponse;
+      userContextCache.set(profileRef, {
+        profileRef,
+        userId: profileRef.replace(/^profile:/, ''),
+        context: restored,
+      });
+      res.json(restored);
+      return;
+    }
+  }
+
   const generated: UserContextRecord = {
     profileRef,
     userId: profileRef.replace(/^profile:/, ''),
@@ -955,9 +1054,40 @@ app.get('/v0/context/users/:profileRef', (req, res) => {
   };
 
   userContextCache.set(profileRef, generated);
+  if (persistence.isEnabled()) {
+    void persistence.saveUserContext({
+      profileRef,
+      userId: generated.userId,
+      snapshot: generated.context as Record<string, unknown>,
+      ttlMs: 24 * 60 * 60 * 1000,
+    }).catch((error: unknown) => {
+      console.error('[gateway][persistence] saveUserContext failed', error);
+    });
+  }
   res.json(generated.context);
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, async () => {
+  try {
+    await persistence.init();
+  } catch (error) {
+    console.error('[gateway][persistence] init failed, continue with in-memory mode', error);
+  }
   console.log(`[gateway] listening on :${PORT}`);
+});
+
+async function shutdown(): Promise<void> {
+  await persistence.close().catch((error: unknown) => {
+    console.error('[gateway][persistence] close failed', error);
+  });
+  server.close(() => {
+    process.exit(0);
+  });
+}
+
+process.on('SIGINT', () => {
+  void shutdown();
+});
+process.on('SIGTERM', () => {
+  void shutdown();
 });
