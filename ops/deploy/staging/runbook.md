@@ -49,6 +49,36 @@ Verification criteria:
 - timeline contains routing + provider run + interaction events
 - context API authorization path works (if token provided)
 
+## Worker reliability drill
+
+Table-top / simulate:
+
+```bash
+WORKER_DRILL_MODE=simulate pnpm worker:drill:staging
+```
+
+Live drill (requires staging DB + Redis access):
+
+```bash
+WORKER_DRILL_MODE=live \
+DATABASE_URL=... \
+REDIS_URL=... \
+UNIASSIST_STREAM_PREFIX=uniassist:timeline: \
+UNIASSIST_STREAM_GLOBAL_KEY=uniassist:timeline:all \
+UNIASSIST_STREAM_GROUP=ua-delivery-staging \
+pnpm worker:drill:staging
+```
+
+Live drill steps:
+1. inject one `failed` outbox event and verify automatic recovery to `consumed`
+2. destroy consumer group once (NOGROUP injection) and verify auto-recovery path
+3. inject one `dead_letter` event and verify replay command restores delivery
+4. replay same token again and verify idempotency (`updated=0`)
+
+Drill evidence:
+- `ops/deploy/reports/staging-worker-drill-latest.md`
+- command output + start/end timestamps
+
 ## Rollback target (< 15 minutes)
 
 Trigger rollback if any of the following occurs:

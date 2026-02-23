@@ -28,6 +28,11 @@ import { AppDrawer } from '@/components/AppDrawer';
 import { Toast } from '@/components/Toast';
 import { useVoiceRecorder } from '@/hooks/useVoiceRecorder';
 import type { FeatureOption } from '@/components/FeaturePicker';
+import {
+  TimelineTransport,
+  type TimelineTransportMode,
+  type TimelineTransportState,
+} from '@/transport/timelineTransport';
 
 const logoIcon = require('@/assets/logo-icon.png');
 
@@ -92,8 +97,11 @@ export default function HomeScreen() {
   const [drawerVisible, setDrawerVisible] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [switchSuggestion, setSwitchSuggestion] = useState<SwitchSuggestion | null>(null);
+  const [transportMode, setTransportMode] = useState<TimelineTransportMode>('idle');
+  const [transportState, setTransportState] = useState<TimelineTransportState>('closed');
 
   const seenEventIds = useRef<Set<string>>(new Set());
+  const transportRef = useRef<TimelineTransport | null>(null);
 
   const appendTextItem = useCallback((role: ChatItem['role'], text: string, label?: string, providerId?: string, runId?: string) => {
     setItems((prev) => [
@@ -171,33 +179,39 @@ export default function HomeScreen() {
     }
   }, [appendInteractionItem, appendTextItem]);
 
-  const pollTimeline = useCallback(async () => {
-    if (!GATEWAY_BASE_URL) return;
-
-    try {
-      const response = await fetch(
-        `${GATEWAY_BASE_URL}/v0/timeline?sessionId=${encodeURIComponent(sessionId)}&cursor=${cursor}`,
-      );
-      if (!response.ok) return;
-
-      const json = (await response.json()) as { events?: TimelineEvent[]; nextCursor?: number };
-      const events = json.events || [];
-      events.forEach((event) => appendTimelineEvent(event));
-      if (typeof json.nextCursor === 'number') {
-        setCursor(json.nextCursor);
-      }
-    } catch {
-      // Keep polling resilient; failures are surfaced by missing new events.
-    }
-  }, [appendTimelineEvent, cursor, sessionId]);
-
   useEffect(() => {
-    if (!GATEWAY_BASE_URL) return;
-    const timer = setInterval(() => {
-      void pollTimeline();
-    }, 1500);
-    return () => clearInterval(timer);
-  }, [pollTimeline]);
+    if (!GATEWAY_BASE_URL) {
+      setTransportMode('idle');
+      setTransportState('closed');
+      return undefined;
+    }
+
+    const transport = new TimelineTransport({
+      baseUrl: GATEWAY_BASE_URL,
+      sessionId,
+      initialCursor: 0,
+      onEvents: (events) => {
+        events.forEach((event) => appendTimelineEvent(event));
+      },
+      onCursor: (nextCursor) => {
+        setCursor(nextCursor);
+      },
+      onStatus: (state, mode) => {
+        setTransportState(state);
+        setTransportMode(mode);
+      },
+    });
+
+    transportRef.current = transport;
+    transport.start();
+
+    return () => {
+      if (transportRef.current === transport) {
+        transportRef.current = null;
+      }
+      transport.stop();
+    };
+  }, [appendTimelineEvent, sessionId]);
 
   const resetSession = useCallback((nextSessionId?: string) => {
     setSessionId(nextSessionId || makeId('session'));
@@ -247,11 +261,11 @@ export default function HomeScreen() {
         setSwitchSuggestion(null);
       }
 
-      void pollTimeline();
+      void transportRef.current?.syncNow();
     } catch {
       appendTextItem('system', '交互回传异常，请稍后重试', 'engine');
     }
-  }, [appendTextItem, pollTimeline, resetSession, sessionId, userId]);
+  }, [appendTextItem, resetSession, sessionId, userId]);
 
   const simulateLocalFlow = useCallback((text: string) => {
     const isPlan = /计划|安排|日程|目标|规划/.test(text);
@@ -335,11 +349,11 @@ export default function HomeScreen() {
         appendInteractionItem(ackEvent, 'engine', undefined, undefined);
       }
 
-      void pollTimeline();
+      void transportRef.current?.syncNow();
     } catch {
       appendTextItem('system', '请求失败，请检查 Gateway 连接。', 'engine');
     }
-  }, [appendInteractionItem, appendTextItem, pollTimeline, sessionId, simulateLocalFlow, userId]);
+  }, [appendInteractionItem, appendTextItem, sessionId, simulateLocalFlow, userId]);
 
   const handleVoiceStart = useCallback(async () => {
     const ok = await voice.start();
@@ -542,6 +556,31 @@ export default function HomeScreen() {
           </ToolbarSlot>
         </Toolbar>
 
+        {GATEWAY_BASE_URL ? (
+          <View
+            style={[
+              styles.transportStatusWrap,
+              { paddingHorizontal: t.space[4], paddingBottom: t.space[2] },
+            ]}
+          >
+            <View
+              style={[
+                styles.transportStatusPill,
+                {
+                  borderRadius: t.radius.full,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                通道: {transportMode} · 状态: {transportState} · cursor: {cursor}
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <FlatList
           data={items}
           keyExtractor={(item) => item.id}
@@ -729,6 +768,12 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 6,
+    paddingHorizontal: 10,
+  },
+  transportStatusWrap: {},
+  transportStatusPill: {
+    alignSelf: 'flex-start',
+    paddingVertical: 4,
     paddingHorizontal: 10,
   },
 });

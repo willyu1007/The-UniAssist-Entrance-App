@@ -2,7 +2,7 @@
 
 ## Status
 - State: in-progress
-- Next step: 在 staging 复现一次同等故障注入并记录恢复时间（MTTR）。
+- Next step: 执行 `WORKER_DRILL_MODE=live` 并沉淀一次真实 staging MTTA/MTTR 记录。
 
 ## Goal
 把 worker 从“可用”提升为“高可恢复、可排障、可治理”。

@@ -22,6 +22,7 @@
 - `plan` 专项 Provider 已落地：`apps/provider-plan`
 - delivery worker 已落地：`apps/worker`（outbox retry + Redis consumer）
 - 前端已接入统一时间线与扩展事件渲染：`apps/frontend`
+- 前端 transport 已统一：SSE 主通道 + polling fallback（自动回切）
 
 ## Tech Stack
 
@@ -214,6 +215,14 @@ STAGING_PROVIDER_PLAN_BASE_URL=http://localhost:8890 \
 STAGING_ADAPTER_WECHAT_BASE_URL=http://localhost:8788 \
 STAGING_CONTEXT_TOKEN=provider-dev-token \
 pnpm release:verify:staging
+```
+
+Staging worker reliability drill（支持 simulate/live）：
+
+```bash
+WORKER_DRILL_MODE=simulate pnpm worker:drill:staging
+# live 模式需 staging DB/Redis 可达，并默认会执行 NOGROUP 注入与 replay
+WORKER_DRILL_MODE=live DATABASE_URL=... REDIS_URL=... pnpm worker:drill:staging
 ```
 
 详细流程见：

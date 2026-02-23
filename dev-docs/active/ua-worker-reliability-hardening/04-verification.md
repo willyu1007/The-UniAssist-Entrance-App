@@ -5,6 +5,8 @@
   - `pnpm --filter @baseinterface/worker typecheck` -> PASS
   - `pnpm typecheck:workspaces` -> PASS
   - `DATABASE_URL=postgres://localhost:5432/uniassist_gateway REDIS_URL=redis://127.0.0.1:6379 pnpm smoke:redis:e2e` -> PASS
+  - `WORKER_DRILL_MODE=simulate pnpm worker:drill:staging` -> PASS
+  - `WORKER_DRILL_MODE=live ... pnpm worker:drill:staging`（本地 gateway+worker 联动）-> PASS
 
 ## Manual smoke checks
 - Executed (2026-02-23):
@@ -13,6 +15,7 @@
 3. 注入 `dead_letter` 记录，执行 replay 命令后恢复为 `failed` 并最终 `consumed` -> PASS。
 4. 重复执行同一 `replay_token`，`updated=0`，验证幂等 -> PASS。
 5. worker 日志对 transient/NOGROUP 为 `warn` 且限频，未出现高频 error 刷屏 -> PASS。
+6. 生成 `ops/deploy/reports/staging-worker-drill-latest.md`，记录每个 drill 步骤耗时 -> PASS。
 
 ## Rollout / Backout
 - Rollout:

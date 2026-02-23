@@ -13,6 +13,7 @@
     "worker:replay:dead-letter": "pnpm --filter @baseinterface/worker replay:dead-letter",
     "observability:alerts:validate": "node ops/observability/scripts/validate-alert-rules.mjs",
     "observability:drill:staging": "node ops/observability/scripts/staging-alert-drill.mjs",
+    "worker:drill:staging": "node ops/deploy/scripts/staging-worker-reliability-drill.mjs",
     "release:gate:staging": "node ops/deploy/scripts/staging-release-gate.mjs",
     "release:verify:staging": "node ops/deploy/scripts/staging-post-deploy-check.mjs",
     "lint": "eslint .",

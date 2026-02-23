@@ -15,6 +15,7 @@ CLAUDE.md
 # Temporary files
 .ai/.tmp/
 ops/observability/reports/staging-drill-latest.md
+ops/deploy/reports/staging-worker-drill-latest.md
 
 # Init runtime artifacts (generated)
 init/START-HERE.md

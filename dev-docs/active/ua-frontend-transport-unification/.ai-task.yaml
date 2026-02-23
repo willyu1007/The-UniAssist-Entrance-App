@@ -2,5 +2,5 @@ version: 1
 task_id: T-005
 project: main
 slug: ua-frontend-transport-unification
-status: planned
+status: in-progress
 updated: "2026-02-23"

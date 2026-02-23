@@ -53,11 +53,11 @@ tasks:
     updated: 2026-02-23
   - id: T-005
     slug: ua-frontend-transport-unification
-    status: planned
+    status: in-progress
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-frontend-transport-unification
-    updated: 2026-02-23
+    updated: 2026-02-24
   - id: T-006
     slug: ua-v1-internal-security
     status: planned

@@ -19,6 +19,11 @@
   - 新增 NOGROUP 注入恢复校验
   - 新增 dead_letter -> replay -> consumed 校验
   - 新增 replay 幂等二次执行校验
+- staging 演练脚本与运维文档：
+  - `ops/deploy/scripts/staging-worker-reliability-drill.mjs`
+  - `ops/deploy/staging/runbook.md`
+  - `ops/deploy/staging/env.example`
+  - 根 `package.json` 新增 `pnpm worker:drill:staging`
 
 ## Decisions & tradeoffs
 - Decision:
@@ -36,7 +41,7 @@
     - 首次恢复后 30s 内相同问题不会重复刷屏，需要结合 metrics 观察频次。
 
 ## Known issues / follow-ups
-- TODO: 在 staging 运行同等故障注入并记录 MTTA/MTTR。
+- TODO: 在 staging 执行 `WORKER_DRILL_MODE=live` 并记录 MTTA/MTTR。
 - TODO: smoke 脚本当前依赖本地 Redis/Postgres 可达，CI 环境需补充 service provisioning。
 
 ## Pitfalls / dead ends (do not repeat)
