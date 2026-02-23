@@ -20,6 +20,26 @@ Current runtime metrics are exposed by gateway:
 Staging rule draft:
 - `ops/observability/alerts/staging.rules.yml`
 
+Rule validation command:
+
+```bash
+pnpm observability:alerts:validate
+```
+
+Staging drill command (table-top + simulated firing):
+
+```bash
+STAGING_GATEWAY_BASE_URL=http://localhost:8787 \
+pnpm observability:drill:staging
+```
+
+Output report:
+- `ops/observability/reports/staging-drill-latest.md`
+
+Staging integration templates:
+- `ops/observability/staging/prometheus.rules.load.example.yml`
+- `ops/observability/staging/alertmanager.receivers.example.yml`
+
 ## Operations
 
 Primary incident playbook:

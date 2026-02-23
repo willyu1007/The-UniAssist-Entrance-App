@@ -7,6 +7,18 @@
 3. Correlate with structured logs (`service`, `traceId`, `sessionId`, `runId`).
 4. Decide mitigate vs rollback using staging runbook criteria.
 
+## Drill entry
+
+Before real incident drills, run:
+
+```bash
+pnpm observability:alerts:validate
+STAGING_GATEWAY_BASE_URL=<gateway-base-url> pnpm observability:drill:staging
+```
+
+Drill report path:
+- `ops/observability/reports/staging-drill-latest.md`
+
 ## P1: Gateway ingest error rate high
 
 - Verify:

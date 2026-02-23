@@ -10,6 +10,8 @@
     "dev:provider-plan": "pnpm --filter @baseinterface/provider-plan start",
     "dev:worker": "pnpm --filter @baseinterface/worker start",
     "smoke:redis:e2e": "pnpm --filter @baseinterface/worker smoke:redis:e2e",
+    "observability:alerts:validate": "node ops/observability/scripts/validate-alert-rules.mjs",
+    "observability:drill:staging": "node ops/observability/scripts/staging-alert-drill.mjs",
     "release:gate:staging": "node ops/deploy/scripts/staging-release-gate.mjs",
     "release:verify:staging": "node ops/deploy/scripts/staging-post-deploy-check.mjs",
     "lint": "eslint .",

@@ -23,9 +23,17 @@
   - `ops/observability/README.md`
   - `ops/observability/alerts/staging.rules.yml`
   - `ops/observability/runbooks/incident-playbook.md`
+- 新增告警校验与演练脚本：
+  - `ops/observability/scripts/validate-alert-rules.mjs`
+  - `ops/observability/scripts/staging-alert-drill.mjs`
+  - `ops/observability/staging/prometheus.rules.load.example.yml`
+  - `ops/observability/staging/alertmanager.receivers.example.yml`
 - README 与 ops 索引更新：
   - `README.md`
   - `ops/README.md`
+  - 根 `package.json` 增加命令：
+    - `pnpm observability:alerts:validate`
+    - `pnpm observability:drill:staging`
 
 ## Decisions & tradeoffs
 - Decision:
@@ -44,7 +52,7 @@
 
 ## Known issues / follow-ups
 - TODO: 将 `ops/observability/alerts/staging.rules.yml` 导入真实监控系统并联通通知渠道。
-- TODO: 完成一次“告警触发 -> runbook 处理 -> 恢复”的真实演练并记录 MTTR。
+- TODO: 完成一次“告警触发 -> runbook 处理 -> 恢复”的真实演练并记录 MTTR（目前已完成 table-top + simulate drill）。
 - TODO: worker 清理阶段偶发 `NOGROUP` 错误日志噪音，需在 T-004 做降噪处理。
 
 ## Pitfalls / dead ends (do not repeat)

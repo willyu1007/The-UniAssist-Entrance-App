@@ -220,6 +220,13 @@ Staging 告警规则草案：
 - `ops/observability/alerts/staging.rules.yml`
 - `ops/observability/runbooks/incident-playbook.md`
 
+告警规则校验与演练：
+
+```bash
+pnpm observability:alerts:validate
+STAGING_GATEWAY_BASE_URL=http://localhost:8787 pnpm observability:drill:staging
+```
+
 ## Notes
 
 - v0 默认内存态；配置 `DATABASE_URL` 后启用 Postgres 持久化
