@@ -9,6 +9,7 @@
     "dev:wechat": "pnpm --filter @baseinterface/adapter-wechat start",
     "dev:provider-plan": "pnpm --filter @baseinterface/provider-plan start",
     "dev:worker": "pnpm --filter @baseinterface/worker start",
+    "smoke:redis:e2e": "pnpm --filter @baseinterface/worker smoke:redis:e2e",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "typecheck:workspaces": "pnpm -r --if-present typecheck",

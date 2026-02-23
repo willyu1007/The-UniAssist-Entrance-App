@@ -151,6 +151,31 @@ pnpm --filter @baseinterface/frontend typecheck
 pnpm test:conformance
 ```
 
+### Redis E2E Smoke (outbox retry + consumer)
+
+需要可用的 Postgres 和 Redis，然后执行一条命令：
+
+```bash
+DATABASE_URL=postgresql://localhost:5432/uniassist_gateway \
+REDIS_URL=redis://localhost:6379 \
+pnpm smoke:redis:e2e
+```
+
+脚本会自动：
+- 启动 `provider-plan` / `gateway` / `worker`
+- 发起一次 ingest，验证 outbox 从 pending 流转到 consumed
+- 注入一条 `failed` outbox 记录，验证 retry 路径可恢复并最终 consumed
+- 校验 Redis session/global stream 有数据
+- 默认清理测试产生的 DB/Redis 数据
+
+可选环境变量：
+- `SMOKE_GATEWAY_PORT`（默认 `18877`）
+- `SMOKE_PROVIDER_PORT`（默认 `18890`）
+- `SMOKE_TIMEOUT_MS`（默认 `40000`）
+- `SMOKE_STREAM_PREFIX`（默认按本次 run 自动生成）
+- `SMOKE_STREAM_GROUP`（默认按本次 run 自动生成）
+- `SMOKE_KEEP_ARTIFACTS=true`（保留测试数据用于排查）
+
 ## Notes
 
 - v0 默认内存态；配置 `DATABASE_URL` 后启用 Postgres 持久化
