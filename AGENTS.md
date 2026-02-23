@@ -1,27 +1,33 @@
 # AI Assistant Instructions
 
-**baseinterface-appmain** - Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.
+**The-UA-Entrance-APP** - UniAssist unified entrance engine (v0).
 
 ## Project Type
 
-baseinterface-appmain - Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.
+Unified AI entrance/orchestration app (input ingress, routing, fallback, interaction aggregation, channel adapters).
 
 ## Tech Stack
 
 | Category | Value |
 |----------|-------|
-| Language | react-native |
+| Language | typescript |
 | Package manager | pnpm |
 | Repo layout | monorepo |
 | Frontend | react-native-expo |
-| Backend | none |
+| Backend | node-express (gateway + adapters) |
 | Database | postgres |
-| API style | none |
+| API style | restful + event timeline (sse/polling) |
 
 ## Repository Status
 
 - Project initialization is complete.
 - This repository does not use an `init/` directory anymore.
+- v0 engine modules exist:
+  - `packages/contracts`
+  - `apps/gateway`
+  - `apps/adapter-wechat`
+  - `apps/provider-plan`
+  - `apps/frontend` runtime integration
 
 ## Key Directories
 
@@ -42,6 +48,11 @@ baseinterface-appmain - Cross-platform mobile app template homepage SOT for reus
 | Task Type | Entry Point |
 |-----------|-------------|
 | **Repo orientation / local setup** | `README.md` |
+| **Contracts update** | `packages/contracts/` |
+| **Gateway/API behavior** | `apps/gateway/src/server.ts` |
+| **WeChat ingress adapter** | `apps/adapter-wechat/src/server.ts` |
+| **Plan provider behavior** | `apps/provider-plan/src/server.ts` |
+| **Frontend timeline/rendering** | `apps/frontend/app/index.tsx` |
 | **Skill authoring / maintenance** | `.ai/AGENTS.md` |
 | **LLM engineering** | `.ai/llm-config/AGENTS.md` |
 | **Project progress governance** | `.ai/project/AGENTS.md` |

@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/context_package.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "user", "permissions"],
+  "properties": {
+    "schemaVersion": { "const": "v0" },
+    "profileRef": { "type": "string" },
+    "user": {
+      "type": "object",
+      "required": ["userId"],
+      "properties": {
+        "userId": { "type": "string" },
+        "locale": { "type": "string" },
+        "timezone": { "type": "string" }
+      }
+    },
+    "permissions": { "type": "array", "items": { "type": "string" } }
+  }
+}

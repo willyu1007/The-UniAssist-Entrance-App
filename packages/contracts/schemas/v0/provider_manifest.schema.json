@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/provider_manifest.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "providerId", "name", "version", "description", "capabilities"],
+  "properties": {
+    "schemaVersion": { "const": "v0" },
+    "providerId": { "type": "string" },
+    "name": { "type": "string" },
+    "version": { "type": "string" },
+    "description": { "type": "string" },
+    "capabilities": {
+      "type": "object",
+      "required": ["inputs", "interactionEvents", "streaming"],
+      "properties": {
+        "inputs": { "type": "array", "items": { "type": "string" } },
+        "interactionEvents": { "type": "array", "items": { "type": "string" } },
+        "streaming": { "type": "boolean" }
+      }
+    }
+  }
+}

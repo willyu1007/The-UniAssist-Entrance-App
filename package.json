@@ -5,8 +5,12 @@
   "private": true,
   "scripts": {
     "dev": "pnpm --filter @baseinterface/frontend start",
+    "dev:gateway": "pnpm --filter @baseinterface/gateway start",
+    "dev:wechat": "pnpm --filter @baseinterface/adapter-wechat start",
+    "dev:provider-plan": "pnpm --filter @baseinterface/provider-plan start",
     "lint": "eslint .",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "typecheck:workspaces": "pnpm -r --if-present typecheck"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
@@ -16,4 +20,3 @@
     "node": ">=18"
   }
 }
-

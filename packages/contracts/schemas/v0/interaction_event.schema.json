@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/interaction_event.schema.json",
+  "oneOf": [
+    {
+      "type": "object",
+      "required": ["type"],
+      "properties": {
+        "type": {
+          "enum": [
+            "ack",
+            "assistant_message",
+            "card",
+            "form",
+            "nav",
+            "request_clarification",
+            "error"
+          ]
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "extensionKind", "payload"],
+      "properties": {
+        "type": { "const": "provider_extension" },
+        "extensionKind": { "const": "data_collection_request" },
+        "payload": {
+          "type": "object",
+          "required": ["schemaVersion", "providerId", "dataSchema", "uiSchema"],
+          "properties": {
+            "schemaVersion": { "const": "v0" },
+            "providerId": { "type": "string" },
+            "taskId": { "type": "string" },
+            "dataSchema": { "type": "object" },
+            "uiSchema": { "type": "object" },
+            "status": { "enum": ["pending", "in_progress", "completed", "failed"] }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "extensionKind", "payload"],
+      "properties": {
+        "type": { "const": "provider_extension" },
+        "extensionKind": { "const": "data_collection_progress" },
+        "payload": {
+          "type": "object",
+          "required": ["schemaVersion", "providerId", "progress"],
+          "properties": {
+            "schemaVersion": { "const": "v0" },
+            "providerId": { "type": "string" },
+            "taskId": { "type": "string" },
+            "progress": {
+              "type": "object",
+              "required": ["step", "total"],
+              "properties": {
+                "step": { "type": "number" },
+                "total": { "type": "number" },
+                "label": { "type": "string" }
+              }
+            },
+            "status": { "enum": ["pending", "in_progress", "completed", "failed"] }
+          }
+        }
+      }
+    },
+    {
+      "type": "object",
+      "required": ["type", "extensionKind", "payload"],
+      "properties": {
+        "type": { "const": "provider_extension" },
+        "extensionKind": { "const": "data_collection_result" },
+        "payload": {
+          "type": "object",
+          "required": ["schemaVersion", "providerId", "dataSchema", "uiSchema"],
+          "properties": {
+            "schemaVersion": { "const": "v0" },
+            "providerId": { "type": "string" },
+            "taskId": { "type": "string" },
+            "dataSchema": { "type": "object" },
+            "uiSchema": { "type": "object" },
+            "values": { "type": "object" },
+            "status": { "enum": ["pending", "in_progress", "completed", "failed"] }
+          }
+        }
+      }
+    }
+  ]
+}

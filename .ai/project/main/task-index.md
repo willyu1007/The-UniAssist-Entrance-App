@@ -10,4 +10,5 @@ Project: `main`
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
 <!-- AUTO-GENERATED:END task-index -->

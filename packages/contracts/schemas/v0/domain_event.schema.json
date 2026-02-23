@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/domain_event.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "userId", "providerId", "eventType", "title", "timestampMs"],
+  "properties": {
+    "schemaVersion": { "const": "v0" },
+    "userId": { "type": "string" },
+    "providerId": { "type": "string" },
+    "eventType": { "enum": ["reminder", "progress", "approval_required", "exception", "summary"] },
+    "title": { "type": "string" },
+    "body": { "type": "string" },
+    "timestampMs": { "type": "number" }
+  }
+}

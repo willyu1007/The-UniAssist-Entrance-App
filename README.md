@@ -1,99 +1,114 @@
-# baseinterface-appmain
+# The-UA-Entrance-APP (UniAssist Entrance Engine)
 
-Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.
+统一入口项目（v0）：负责多专项 AI 能力的输入接入、路由分发、交互聚合、未命中兜底、外部渠道承接与导航承载。
 
-**Domain:** cross-platform-mobile-app-template
+## Project Goal
+
+本仓库不是专项业务实现仓库，而是统一入口引擎：
+
+1. 分发：判断用户输入命中哪个专项（可多命中），并将输入分发到专项系统
+2. 聚合：接收专项即时交互事件并统一展示
+3. 兜底：未命中或待确认时使用内置聊天能力承接
+4. 承接外部输入：当前 v0 支持微信文本接入骨架
+5. 承载长周期反馈：专项可回推 domain event 到统一时间线
+6. 导航入口：在统一界面提供专项设置/详情/进度入口承载能力
 
 ## Current Status
 
-- Repository initialization is complete (no `init/` directory).
-- Frontend app is implemented in `apps/frontend` (Expo Router + reusable UI components).
-- Backend/API modules are not implemented in this repo yet.
-- Governance and LLM context contracts are enabled under `.ai/` and `docs/context/`.
+- 初始化流程已完成（无 `init/` 目录）
+- v0 合同层已落地：`packages/contracts`
+- v0 网关已落地：`apps/gateway`
+- 微信适配层骨架已落地：`apps/adapter-wechat`
+- `plan` 专项 Provider 已落地：`apps/provider-plan`
+- 前端已接入统一时间线与扩展事件渲染：`apps/frontend`
 
 ## Tech Stack
 
 | Category | Technology |
-|----------|------------|
-| Language | react-native |
+|---|---|
+| Language | TypeScript |
 | Package Manager | pnpm |
-| Layout | monorepo |
-| Frontend | react-native-expo |
+| Repo Layout | Monorepo |
+| Frontend | Expo + React Native |
+| Gateway / Adapter | Node.js + Express |
+| Realtime | SSE (v0) |
+| Persistence (target) | Postgres + Redis Streams + Object Storage |
 
-| Database | postgres |
+## Runtime Interfaces (v0)
 
-| API | none |
+- `POST /v0/ingest`
+- `POST /v0/interact`
+- `GET /v0/stream?sessionId=&cursor=`
+- `GET /v0/timeline?sessionId=&cursor=` (frontend polling helper)
+- `POST /v0/events`
+- `GET /v0/context/users/{profileRef}`
+- `GET /.well-known/uniassist/manifest.json`
 
-## Getting Started
+## Workspace Structure
+
+```txt
+apps/
+  frontend/          Expo App (统一入口 UI)
+  gateway/           入口网关（路由、兜底、会话、事件流）
+  adapter-wechat/    微信适配层（入站归一化与回传骨架）
+  provider-plan/     示例专项（invoke/interact/manifest）
+packages/
+  contracts/         v0 协议类型与 JSON Schema
+  shared/            共享包预留
+dev-docs/            任务文档与实施记录
+.ai/                 技能与治理脚本
+```
+
+## Quick Start
 
 ### Prerequisites
 
 - Node.js >= 18
 - pnpm
 
-### Installation
+### Install
 
 ```bash
-# Clone the repository
-git clone <repository-url>
-cd baseinterface-appmain
-
-# Install dependencies
 pnpm install
 ```
 
-### Development
+### Start Services
 
 ```bash
-# Start the frontend dev server
-pnpm dev
+# Frontend
+pnpm --filter @baseinterface/frontend start
 
-# Optional targets
-pnpm --filter @baseinterface/frontend ios
-pnpm --filter @baseinterface/frontend android
-pnpm --filter @baseinterface/frontend web
+# Gateway (default :8787)
+pnpm --filter @baseinterface/gateway start
 
-# Type checks
-pnpm typecheck
+# WeChat adapter (default :8788)
+pnpm --filter @baseinterface/adapter-wechat start
+
+# Plan provider (default :8890)
+pnpm --filter @baseinterface/provider-plan start
+```
+
+### Frontend Environment
+
+设置前端连接网关：
+
+```bash
+EXPO_PUBLIC_GATEWAY_BASE_URL=http://localhost:8787
+UNIASSIST_PLAN_PROVIDER_BASE_URL=http://localhost:8890
+```
+
+## Verification
+
+```bash
+pnpm --filter @baseinterface/contracts typecheck
+pnpm --filter @baseinterface/gateway typecheck
+pnpm --filter @baseinterface/adapter-wechat typecheck
+pnpm --filter @baseinterface/provider-plan typecheck
 pnpm --filter @baseinterface/frontend typecheck
 ```
 
-## Project Structure
+## Notes
 
-```
-apps/
-  frontend/        # Expo React Native app (main product surface)
-packages/
-  shared/          # Shared package placeholder
-.ai/               # Skills (SSOT), governance scripts, LLM config
-dev-docs/          # Long-running task bundles
-docs/context/      # LLM-readable contracts (API/DB/process/UI)
-ui/                # UI tokens/contract/patterns
-ops/               # Ops conventions (packaging/deploy)
-```
-
-## Skills & AI Assistance
-
-This project uses the AI-Friendly Repository pattern:
-
-- **SSOT Skills**: `.ai/skills/` - Edit skills here only
-- **Generated Wrappers**: `.codex/skills/`, `.claude/skills/` - Do NOT edit directly
-
-Regenerate wrappers after skill changes:
-
-```bash
-node .ai/scripts/sync-skills.mjs --scope current --providers both --mode reset --yes
-```
-
-## Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Run checks:
-   - `pnpm typecheck`
-   - `pnpm --filter @baseinterface/frontend lint`
-4. Submit a pull request
-
-## License
-
-[Add your license here]
+- v0 采用内存态运行时存储（用于快速闭环验证）
+- 外部入口启用最低安全：HMAC + timestamp + nonce 防重放
+- 内部完整签名/JWT 属于后续版本目标

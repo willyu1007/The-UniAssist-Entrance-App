@@ -22,4 +22,11 @@ features:
 
 requirements: []
 
-tasks: []
+tasks:
+  - id: T-001
+    slug: uniassist-entrance-engine-v0
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/uniassist-entrance-engine-v0
+    updated: 2026-02-23

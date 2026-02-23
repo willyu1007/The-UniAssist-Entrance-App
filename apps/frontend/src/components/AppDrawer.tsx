@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View,
   Modal,
@@ -63,14 +63,16 @@ const RECENT_CHATS: ChatItem[] = [
 export interface AppDrawerProps {
   visible: boolean;
   onClose: () => void;
+  onCreateSession?: () => void;
 }
 
 /* ---------- Component ---------- */
 
-export function AppDrawer({ visible, onClose }: AppDrawerProps) {
+export function AppDrawer({ visible, onClose, onCreateSession }: AppDrawerProps) {
   const t = useThemeTokens();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  const [showSessionTools, setShowSessionTools] = useState(false);
 
   /* ---- Slide animation ---- */
   const slideAnim = useRef(new Animated.Value(-DRAWER_WIDTH)).current;
@@ -111,6 +113,12 @@ export function AppDrawer({ visible, onClose }: AppDrawerProps) {
       }),
     ]).start(() => onClose());
   }, [slideAnim, backdropAnim, onClose]);
+
+  useEffect(() => {
+    if (!visible) {
+      setShowSessionTools(false);
+    }
+  }, [visible]);
 
   const navigateTo = useCallback(
     (path: string) => {
@@ -229,6 +237,68 @@ export function AppDrawer({ visible, onClose }: AppDrawerProps) {
             },
           ]}
         >
+          {/* Session tools */}
+          <Pressable
+            onPress={() => setShowSessionTools((prev) => !prev)}
+            style={({ pressed }) => [
+              styles.bottomItem,
+              {
+                borderRadius: t.radius.md,
+                paddingVertical: t.space[3],
+                paddingHorizontal: t.space[4],
+                backgroundColor: pressed ? t.color.surfaceElevated : 'transparent',
+              },
+            ]}
+          >
+            <Ionicons
+              name="albums-outline"
+              size={20}
+              color={t.color.textSecondary}
+            />
+            <Text
+              variant="body"
+              style={{ marginLeft: t.space[3], color: t.color.textPrimary, flex: 1 }}
+            >
+              会话管理
+            </Text>
+            <Ionicons
+              name={showSessionTools ? 'chevron-up' : 'chevron-down'}
+              size={16}
+              color={t.color.textMuted}
+            />
+          </Pressable>
+
+          {showSessionTools && (
+            <Pressable
+              onPress={() => {
+                onCreateSession?.();
+                handleClose();
+              }}
+              style={({ pressed }) => [
+                styles.subItem,
+                {
+                  borderRadius: t.radius.md,
+                  paddingVertical: t.space[2],
+                  paddingHorizontal: t.space[4],
+                  marginLeft: t.space[6],
+                  backgroundColor: pressed ? t.color.surfaceElevated : 'transparent',
+                },
+              ]}
+            >
+              <Ionicons
+                name="add-circle-outline"
+                size={18}
+                color={t.color.textSecondary}
+              />
+              <Text
+                variant="caption"
+                style={{ marginLeft: t.space[2], color: t.color.textSecondary }}
+              >
+                新建会话
+              </Text>
+            </Pressable>
+          )}
+
           {/* Settings */}
           <Pressable
             onPress={() => navigateTo('/settings')}
@@ -325,6 +395,10 @@ const styles = StyleSheet.create({
   },
   bottomSection: {},
   bottomItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  subItem: {
     flexDirection: 'row',
     alignItems: 'center',
   },

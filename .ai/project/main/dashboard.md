@@ -8,10 +8,11 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 0 (planned: 0, in-progress: 0, blocked: 0, done: 0, archived: 0)
+- Tasks: 1 (planned: 0, in-progress: 1, blocked: 0, done: 0, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
 <!-- AUTO-GENERATED:END dashboard -->

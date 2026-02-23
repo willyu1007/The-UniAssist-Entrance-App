@@ -10,5 +10,7 @@ Project: `main`
 
 ### F-000 Inbox / Untriaged
 
-- (no tasks)
+| Task | Status | Dev Docs |
+| --- | --- | --- |
+| T-001 uniassist-entrance-engine-v0 | in-progress | dev-docs/active/uniassist-entrance-engine-v0 |
 <!-- AUTO-GENERATED:END feature-map -->

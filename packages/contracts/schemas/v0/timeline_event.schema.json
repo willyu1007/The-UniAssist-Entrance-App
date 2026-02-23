@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/timeline_event.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "eventId", "traceId", "sessionId", "userId", "seq", "timestampMs", "kind", "payload"],
+  "properties": {
+    "schemaVersion": { "const": "v0" },
+    "eventId": { "type": "string" },
+    "traceId": { "type": "string" },
+    "sessionId": { "type": "string" },
+    "userId": { "type": "string" },
+    "seq": { "type": "number" },
+    "timestampMs": { "type": "number" },
+    "extensionKind": {
+      "enum": ["data_collection_request", "data_collection_progress", "data_collection_result"]
+    },
+    "renderSchemaRef": { "type": "string" },
+    "kind": {
+      "enum": ["inbound", "routing_decision", "provider_run", "interaction", "user_interaction", "domain_event", "delivery_event", "error"]
+    },
+    "payload": { "type": "object" }
+  }
+}

@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "uniassist/v0/unified_user_input.schema.json",
+  "type": "object",
+  "required": ["schemaVersion", "traceId", "userId", "sessionId", "source", "timestampMs"],
+  "properties": {
+    "schemaVersion": { "const": "v0" },
+    "traceId": { "type": "string", "minLength": 1 },
+    "userId": { "type": "string", "minLength": 1 },
+    "sessionId": { "type": "string", "minLength": 1 },
+    "source": { "enum": ["app", "wechat", "web", "api"] },
+    "text": { "type": "string" },
+    "timestampMs": { "type": "number" },
+    "attachments": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type"],
+        "properties": {
+          "id": { "type": "string" },
+          "type": { "enum": ["image", "audio", "file"] },
+          "url": { "type": "string" }
+        }
+      }
+    }
+  }
+}
