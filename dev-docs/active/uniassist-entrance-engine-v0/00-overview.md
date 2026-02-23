@@ -1,7 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: in-progress (v0 主链路与投递闭环已完成，进入 v1 hardening)
+- State: in-progress
+- Status note: v0 主链路与投递闭环已完成，进入 v1 hardening。
 - Next step: 进入 v1 级别优化（生产部署、监控告警、内部签名/JWT、对象存储与回放管线强化）。
 
 ## Goal

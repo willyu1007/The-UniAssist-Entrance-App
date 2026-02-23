@@ -8,11 +8,17 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 1 (planned: 0, in-progress: 1, blocked: 0, done: 0, archived: 0)
+- Tasks: 7 (planned: 6, in-progress: 1, blocked: 0, done: 0, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
+| T-002 ua-staging-release-baseline | planned | F-000 | dev-docs/active/ua-staging-release-baseline |
+| T-003 ua-observability-alerting | planned | F-000 | dev-docs/active/ua-observability-alerting |
+| T-004 ua-worker-reliability-hardening | planned | F-000 | dev-docs/active/ua-worker-reliability-hardening |
+| T-005 ua-frontend-transport-unification | planned | F-000 | dev-docs/active/ua-frontend-transport-unification |
+| T-006 ua-v1-internal-security | planned | F-000 | dev-docs/active/ua-v1-internal-security |
+| T-007 ua-second-provider-integration | planned | F-000 | dev-docs/active/ua-second-provider-integration |
 <!-- AUTO-GENERATED:END dashboard -->

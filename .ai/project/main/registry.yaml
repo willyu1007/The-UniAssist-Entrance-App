@@ -30,3 +30,45 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/uniassist-entrance-engine-v0
     updated: 2026-02-23
+  - id: T-002
+    slug: ua-staging-release-baseline
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-staging-release-baseline
+    updated: 2026-02-23
+  - id: T-003
+    slug: ua-observability-alerting
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-observability-alerting
+    updated: 2026-02-23
+  - id: T-004
+    slug: ua-worker-reliability-hardening
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-worker-reliability-hardening
+    updated: 2026-02-23
+  - id: T-005
+    slug: ua-frontend-transport-unification
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-frontend-transport-unification
+    updated: 2026-02-23
+  - id: T-006
+    slug: ua-v1-internal-security
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-v1-internal-security
+    updated: 2026-02-23
+  - id: T-007
+    slug: ua-second-provider-integration
+    status: planned
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-second-provider-integration
+    updated: 2026-02-23
