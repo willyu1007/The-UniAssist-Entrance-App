@@ -1,7 +1,7 @@
 # 03 Implementation Notes
 
 ## Status
-- Current status: `in-progress (feature-complete scaffold)`
+- Current status: `in-progress (v0 delivery-closed-loop complete, v1 hardening pending)`
 - Last updated: 2026-02-23
 
 ## What changed
@@ -54,6 +54,15 @@
   - `REDIS_URL` 可用时同步写入 stream（默认前缀 `uniassist:timeline:`）
   - timeline 读取支持“内存 + Postgres 合并”，支持重启后 cursor 恢复
   - context cache 支持落库和 TTL 读取
+- 新增 `apps/worker`（独立投递进程）：
+  - outbox 批量 claim（`FOR UPDATE SKIP LOCKED`）与重试投递
+  - 指数退避、最大重试、`dead_letter` 终态
+  - Redis Streams 全局 consumer group 消费与 `consumed` 状态回写
+  - fail-fast 配置校验（缺 `DATABASE_URL` 或 `REDIS_URL` 直接失败）
+- 新增 Redis 端到端冒烟脚本：
+  - `apps/worker/scripts/redis-e2e-smoke.mjs`
+  - 根命令：`pnpm smoke:redis:e2e`
+  - 覆盖 baseline 投递 + 注入 failed outbox 后 retry 恢复
 - DB SSOT 对齐：
   - 新增 `prisma/schema.prisma`
   - 运行 `ctl-db-ssot` 后刷新 `docs/context/db/schema.json`
@@ -80,6 +89,8 @@
 - `apps/adapter-wechat/*`
 - `apps/provider-plan/*`
 - `apps/gateway/src/persistence.ts`
+- `apps/worker/src/worker.ts`
+- `apps/worker/scripts/redis-e2e-smoke.mjs`
 - `apps/gateway/tests/conformance.mjs`
 - `prisma/schema.prisma`
 - `docs/context/db/schema.json`
@@ -116,9 +127,9 @@
     - v0 验收项可自动化验证；系统具备重启恢复基础。
 
 ## Known issues / follow-ups
-- TODO: Redis consumer group/outbox 重试 worker 仍未独立服务化（当前仅生产者侧写入）
 - TODO: SSE 与 polling 的前端策略统一（避免双通道维护）
 - TODO: 生产环境补全监控告警与数据库容量/归档策略
+- TODO: worker 清理期偶发 `NOGROUP` 日志噪音（流/组被删除后的短暂竞态）可做降噪处理
 
 ## Pitfalls / dead ends (do not repeat)
 - Keep the detailed log in `05-pitfalls.md` (append-only).

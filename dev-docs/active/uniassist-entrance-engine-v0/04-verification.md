@@ -7,9 +7,11 @@
   - `pnpm --filter @baseinterface/gateway typecheck` -> PASS
   - `pnpm --filter @baseinterface/adapter-wechat typecheck` -> PASS
   - `pnpm --filter @baseinterface/provider-plan typecheck` -> PASS
+  - `pnpm --filter @baseinterface/worker typecheck` -> PASS
   - `pnpm --filter @baseinterface/frontend typecheck` -> PASS
   - `pnpm --filter @baseinterface/gateway test:conformance` -> PASS
   - `pnpm test:conformance` -> PASS
+  - `DATABASE_URL=... REDIS_URL=... pnpm smoke:redis:e2e` -> PASS
 
 ## Manual smoke checks
 - Executed (local, 2026-02-23):
@@ -36,6 +38,14 @@
      - 配置 `DATABASE_URL=postgresql://localhost:5432/uniassist_gateway`
      - ingest 后验证 `sessions/timeline_events/provider_runs/outbox_events` 行数增加
      - 重启 gateway 后，`/v0/timeline` 仍可按 cursor 拉取历史事件（恢复成功）
+  7. Redis 端到端投递闭环（worker）：
+     - 本机启动临时 Redis（6380）+ 临时 Postgres DB
+     - 执行 `pnpm smoke:redis:e2e`
+     - 结果：`[smoke][PASS] Redis worker pipeline is healthy`
+     - 验证点：
+       - baseline outbox 由 pending/processing 最终进入 consumed
+       - 注入 failed outbox 记录后，retry 路径可恢复并 consumed
+       - session/global stream 均有数据
 
 ## Sample outcome snapshot
 
@@ -46,11 +56,14 @@
 - `providerAckFromPlan`: `true`
 - `postgresCounts`: `sessions=1,timeline_events=4,provider_runs=1,outbox_events=4`
 - `recoveryAfterRestart`: `events=4`
+- `redisE2E`: `PASS`
+- `retryRow`: `status=consumed,attempts=2`
+- `streamEntries`: `sessionLen=8,globalLen=8`
 
 ## Rollout / Backout (if applicable)
 - Rollout:
   - 当前可用于本地联调：frontend + gateway + adapter + contracts
-  - 已支持可选 Postgres/Redis；建议先在 staging 验证回放与吞吐
+  - 已支持可选 Postgres/Redis + 独立 worker；建议先在 staging 验证回放与吞吐
 - Backout:
   - 不配置 `DATABASE_URL/REDIS_URL` 时 gateway 自动回退纯内存模式
   - 前端不配置 `EXPO_PUBLIC_GATEWAY_BASE_URL` 时自动回退本地 mock 交互流

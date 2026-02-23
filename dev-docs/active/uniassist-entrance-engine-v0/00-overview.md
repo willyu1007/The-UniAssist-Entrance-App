@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: in-progress (hardening-complete for v0 scope)
+- State: in-progress (v0 主链路与投递闭环已完成，进入 v1 hardening)
 - Next step: 进入 v1 级别优化（生产部署、监控告警、内部签名/JWT、对象存储与回放管线强化）。
 
 ## Goal
@@ -13,9 +13,9 @@
 - v0 实现医疗策略中心
 
 ## Context
-- 现状：仓库仅有 `apps/frontend`（Expo App），尚无 gateway/contracts/adapter 模块。
-- 已有：聊天输入、语音录制、附件面板、抽屉导航 UI 骨架。
-- 目标：按“契约先行 + Mock 先行 + 1 个真实专项可接入”的策略，落地引擎侧统一协议与最小可运行链路。
+- 当前：`contracts + gateway + adapter-wechat + provider-plan + worker + frontend` 均已落地。
+- 已有：统一输入/路由分发/兜底/结构化扩展交互/外部接入/投递链路的 v0 可运行实现。
+- 目标：在现有 v0 基础上推进生产级治理与规模化能力。
 
 ## Acceptance criteria (high level)
 - [x] `packages/contracts` 提供 v0 类型与 JSON schema（含 `profileRef` 与 `provider_extension`）
@@ -26,3 +26,4 @@
 - [x] 会话支持自动切分规则（闲置 + 主题漂移）与手动新建入口
 - [x] 微信适配层最小入站+文本回传链路可用（v0 骨架）
 - [x] 至少 1 个真实专项 provider 完成 invoke/interact 端到端接入（`apps/provider-plan`）
+- [x] `apps/worker` 完成 outbox retry + Redis consumer 并通过端到端冒烟
