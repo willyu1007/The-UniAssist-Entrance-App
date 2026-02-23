@@ -7,8 +7,10 @@ import type {
   ProviderInvokeRequest,
   ProviderInvokeResponse,
 } from '@baseinterface/contracts';
+import { createLogger } from '@baseinterface/shared';
 
 const PORT = Number(process.env.PORT || 8890);
+const logger = createLogger({ service: 'provider-plan' });
 
 const PLAN_DATA_SCHEMA = {
   type: 'object',
@@ -40,6 +42,19 @@ function buildCollectionRequest(taskId: string): InteractionEvent {
 
 const app = express();
 app.use(express.json());
+
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    logger.info('http request', {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - startedAt,
+    });
+  });
+  next();
+});
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, service: 'provider-plan' });
@@ -167,5 +182,5 @@ app.post('/v0/interact', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[provider-plan] listening on :${PORT}`);
+  logger.info('provider-plan listening', { port: PORT });
 });

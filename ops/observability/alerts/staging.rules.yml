@@ -1,0 +1,57 @@
+groups:
+  - name: uniassist-staging-gateway
+    rules:
+      - alert: UniAssistGatewayIngestErrorRateHigh
+        expr: uniassist_gateway_ingest_error_rate > 0.05
+        for: 5m
+        labels:
+          severity: p1
+          service: gateway
+        annotations:
+          summary: "Gateway ingest error rate too high"
+          description: "ingest error rate has been above 5% for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-gateway-ingest-error-rate-high"
+
+      - alert: UniAssistGatewayIngestLatencyP95High
+        expr: uniassist_gateway_ingest_latency_p95_ms > 1500
+        for: 10m
+        labels:
+          severity: p2
+          service: gateway
+        annotations:
+          summary: "Gateway ingest latency p95 is high"
+          description: "ingest p95 latency has stayed above 1500ms for 10 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p2-gateway-ingest-latency-high"
+
+      - alert: UniAssistOutboxBacklogHigh
+        expr: uniassist_outbox_backlog_total > 100
+        for: 10m
+        labels:
+          severity: p1
+          service: worker
+        annotations:
+          summary: "Outbox backlog keeps growing"
+          description: "outbox backlog has been above 100 for 10 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-outbox-backlog-high"
+
+      - alert: UniAssistOutboxDeadLetterDetected
+        expr: uniassist_outbox_dead_letter_total > 0
+        for: 2m
+        labels:
+          severity: p1
+          service: worker
+        annotations:
+          summary: "Dead-letter events detected"
+          description: "at least one outbox event moved to dead_letter state."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-dead-letter-detected"
+
+      - alert: UniAssistProviderInvokeErrorsHigh
+        expr: increase(uniassist_gateway_provider_invoke_error_total[10m]) > 10
+        for: 5m
+        labels:
+          severity: p2
+          service: provider
+        annotations:
+          summary: "Provider invoke failures increasing"
+          description: "provider invoke errors increased by >10 in 10 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p2-provider-invoke-errors-high"

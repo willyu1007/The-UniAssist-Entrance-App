@@ -19,6 +19,8 @@ import type {
   UnifiedUserInput,
   UserInteraction,
 } from '@baseinterface/contracts';
+import { createLogger, serializeError } from '@baseinterface/shared';
+import { GatewayObservability } from './observability';
 import { GatewayPersistence, type StoredSession } from './persistence';
 
 const PORT = Number(process.env.PORT || 8787);
@@ -66,6 +68,29 @@ const sseClients = new Map<string, Set<Response>>();
 const userContextCache = new Map<string, UserContextRecord>();
 const nonceReplay = new Map<string, number>();
 const persistence = new GatewayPersistence();
+const logger = createLogger({ service: 'gateway' });
+const observability = new GatewayObservability();
+
+app.use((req, res, next) => {
+  const startedAt = now();
+  res.on('finish', () => {
+    logger.info('http request', {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: now() - startedAt,
+    });
+  });
+  next();
+});
+
+app.use('/v0/ingest', (_req, res, next) => {
+  const startedAt = now();
+  res.on('finish', () => {
+    observability.observeIngest(res.statusCode, now() - startedAt);
+  });
+  next();
+});
 
 const PROVIDER_RULES: Array<{ id: string; keywords: string[] }> = [
   { id: 'plan', keywords: ['计划', '安排', '日程', '目标', '规划'] },
@@ -166,7 +191,8 @@ function pushTimelineEvent(event: TimelineEvent): void {
 
   if (persistence.isEnabled()) {
     void persistence.saveTimelineEvent(event).catch((error: unknown) => {
-      console.error('[gateway][persistence] saveTimelineEvent failed', error);
+      observability.observePersistenceError();
+      logger.error('persistence saveTimelineEvent failed', serializeError(error));
     });
   }
 
@@ -238,7 +264,8 @@ function emitEvent(
         idempotencyKey,
         status,
       }).catch((error: unknown) => {
-        console.error('[gateway][persistence] saveProviderRun failed', error);
+        observability.observePersistenceError();
+        logger.error('persistence saveProviderRun failed', serializeError(error));
       });
     }
   }
@@ -267,7 +294,8 @@ async function listTimelineEvents(sessionId: string, cursor: number): Promise<Ti
     const persisted = await persistence.listTimelineEvents(sessionId, cursor);
     return mergeTimelineEvents(inMemory, persisted);
   } catch (error) {
-    console.error('[gateway][persistence] listTimelineEvents failed', error);
+    observability.observePersistenceError();
+    logger.error('persistence listTimelineEvents failed', serializeError(error));
     return inMemory;
   }
 }
@@ -275,7 +303,8 @@ async function listTimelineEvents(sessionId: string, cursor: number): Promise<Ti
 function persistSessionAsync(session: SessionState): void {
   if (!persistence.isEnabled()) return;
   void persistence.saveSession(session).catch((error: unknown) => {
-    console.error('[gateway][persistence] saveSession failed', error);
+    observability.observePersistenceError();
+    logger.error('persistence saveSession failed', serializeError(error));
   });
 }
 
@@ -452,7 +481,9 @@ async function invokePlanProvider(
       output.push(...payload.immediateEvents);
     }
     return output;
-  } catch {
+  } catch (error) {
+    observability.observeProviderInvokeError();
+    logger.warn('plan provider invoke fallback', serializeError(error));
     return [
       {
         type: 'assistant_message',
@@ -493,7 +524,9 @@ async function interactPlanProvider(
     }
     const payload = (await response.json()) as ProviderInteractResponse;
     return payload.events || [];
-  } catch {
+  } catch (error) {
+    observability.observeProviderInteractError();
+    logger.warn('plan provider interact fallback', serializeError(error));
     return [
       {
         type: 'error',
@@ -559,6 +592,17 @@ function requireExternalSignature(req: RawBodyRequest): { ok: true } | { ok: fal
   return { ok: true };
 }
 
+async function loadOutboxMetricsSnapshot() {
+  if (!persistence.isEnabled()) return null;
+  try {
+    return await persistence.getOutboxMetricsSnapshot();
+  } catch (error) {
+    observability.observePersistenceError();
+    logger.error('persistence getOutboxMetricsSnapshot failed', serializeError(error));
+    return null;
+  }
+}
+
 app.get('/health', (_req, res) => {
   res.json({
     ok: true,
@@ -570,6 +614,22 @@ app.get('/health', (_req, res) => {
       redis: Boolean(process.env.REDIS_URL),
     },
   });
+});
+
+app.get('/v0/metrics', async (_req, res) => {
+  const outbox = await loadOutboxMetricsSnapshot();
+  res.json({
+    schemaVersion: 'v0',
+    service: 'gateway',
+    timestampMs: now(),
+    metrics: observability.snapshot(outbox),
+  });
+});
+
+app.get('/metrics', async (_req, res) => {
+  const outbox = await loadOutboxMetricsSnapshot();
+  res.type('text/plain');
+  res.send(observability.toPrometheus(outbox));
 });
 
 app.get('/.well-known/uniassist/manifest.json', (_req, res) => {
@@ -1061,7 +1121,8 @@ app.get('/v0/context/users/:profileRef', async (req, res) => {
       snapshot: generated.context as Record<string, unknown>,
       ttlMs: 24 * 60 * 60 * 1000,
     }).catch((error: unknown) => {
-      console.error('[gateway][persistence] saveUserContext failed', error);
+      observability.observePersistenceError();
+      logger.error('persistence saveUserContext failed', serializeError(error));
     });
   }
   res.json(generated.context);
@@ -1071,14 +1132,16 @@ const server = app.listen(PORT, async () => {
   try {
     await persistence.init();
   } catch (error) {
-    console.error('[gateway][persistence] init failed, continue with in-memory mode', error);
+    observability.observePersistenceError();
+    logger.error('persistence init failed, continue with in-memory mode', serializeError(error));
   }
-  console.log(`[gateway] listening on :${PORT}`);
+  logger.info('gateway listening', { port: PORT });
 });
 
 async function shutdown(): Promise<void> {
   await persistence.close().catch((error: unknown) => {
-    console.error('[gateway][persistence] close failed', error);
+    observability.observePersistenceError();
+    logger.error('persistence close failed', serializeError(error));
   });
   server.close(() => {
     process.exit(0);

@@ -2,6 +2,7 @@ import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
 
 import type { TimelineEvent } from '@baseinterface/contracts';
+import { createLogger, serializeError } from '@baseinterface/shared';
 
 export type StoredSession = {
   sessionId: string;
@@ -35,6 +36,20 @@ type UserContextCacheRecord = {
   snapshot: Record<string, unknown>;
   ttlMs: number;
 };
+
+export type OutboxMetricsSnapshot = {
+  pending: number;
+  processing: number;
+  failed: number;
+  delivered: number;
+  consumed: number;
+  deadLetter: number;
+  attemptsTotal: number;
+  retryRows: number;
+  oldestBacklogAgeMs: number;
+};
+
+const logger = createLogger({ service: 'gateway' });
 
 function toNumber(value: unknown, fallback = 0): number {
   const n = Number(value);
@@ -73,7 +88,7 @@ export class GatewayPersistence {
     if (redisUrl) {
       this.redis = createClient({ url: redisUrl });
       this.redis.on('error', (error: unknown) => {
-        console.error('[gateway][redis] error', error);
+        logger.error('redis client error', serializeError(error));
       });
     }
 
@@ -568,5 +583,45 @@ export class GatewayPersistence {
       Date.now(),
       record.ttlMs,
     ]);
+  }
+
+  async getOutboxMetricsSnapshot(): Promise<OutboxMetricsSnapshot | null> {
+    if (!this.pool) return null;
+
+    const result = await this.pool.query(`
+      SELECT
+        COUNT(*) FILTER (WHERE status = 'pending')::INT AS pending,
+        COUNT(*) FILTER (WHERE status = 'processing')::INT AS processing,
+        COUNT(*) FILTER (WHERE status = 'failed')::INT AS failed,
+        COUNT(*) FILTER (WHERE status = 'delivered')::INT AS delivered,
+        COUNT(*) FILTER (WHERE status = 'consumed')::INT AS consumed,
+        COUNT(*) FILTER (WHERE status = 'dead_letter')::INT AS dead_letter,
+        COALESCE(SUM(attempts), 0)::BIGINT AS attempts_total,
+        COUNT(*) FILTER (WHERE attempts > 0)::INT AS retry_rows,
+        COALESCE(
+          MIN(
+            CASE
+              WHEN status IN ('pending', 'processing', 'failed')
+              THEN EXTRACT(EPOCH FROM (NOW() - created_at)) * 1000
+              ELSE NULL
+            END
+          ),
+          0
+        )::BIGINT AS oldest_backlog_age_ms
+      FROM outbox_events
+    `);
+
+    const row = (result.rows[0] || {}) as Record<string, unknown>;
+    return {
+      pending: toNumber(row.pending),
+      processing: toNumber(row.processing),
+      failed: toNumber(row.failed),
+      delivered: toNumber(row.delivered),
+      consumed: toNumber(row.consumed),
+      deadLetter: toNumber(row.dead_letter),
+      attemptsTotal: toNumber(row.attempts_total),
+      retryRows: toNumber(row.retry_rows),
+      oldestBacklogAgeMs: toNumber(row.oldest_backlog_age_ms),
+    };
   }
 }

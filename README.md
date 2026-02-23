@@ -43,6 +43,8 @@
 - `GET /v0/timeline?sessionId=&cursor=` (frontend polling helper)
 - `POST /v0/events`
 - `GET /v0/context/users/{profileRef}`
+- `GET /v0/metrics` (JSON)
+- `GET /metrics` (Prometheus text)
 - `GET /.well-known/uniassist/manifest.json`
 
 ## Workspace Structure
@@ -199,6 +201,24 @@ pnpm release:verify:staging
 详细流程见：
 - `ops/deploy/staging/runbook.md`
 - `ops/deploy/staging/env.example`
+
+### Observability Baseline
+
+Gateway 指标端点：
+
+```bash
+curl -s http://localhost:8787/v0/metrics
+curl -s http://localhost:8787/metrics
+```
+
+已内置关键指标：
+- ingest latency p95 / error rate
+- outbox backlog / failed / dead_letter / retry
+- provider invoke/interact error totals
+
+Staging 告警规则草案：
+- `ops/observability/alerts/staging.rules.yml`
+- `ops/observability/runbooks/incident-playbook.md`
 
 ## Notes
 

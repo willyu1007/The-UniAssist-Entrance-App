@@ -1,3 +1,7 @@
 # Shared package
 
-This folder is a scaffold placeholder for shared types/utilities.
+Common runtime utilities shared by backend services.
+
+Current exports:
+- `createLogger()` - JSON structured logger
+- `serializeError()` - safe error field serializer

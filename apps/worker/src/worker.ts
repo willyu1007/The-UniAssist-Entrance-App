@@ -2,6 +2,7 @@ import os from 'node:os';
 
 import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
+import { createLogger, serializeError } from '@baseinterface/shared';
 
 type OutboxRow = {
   id: number;
@@ -30,6 +31,8 @@ type WorkerConfig = {
   consumerBlockMs: number;
   consumerBatchSize: number;
 };
+
+const logger = createLogger({ service: 'worker' });
 
 function toBool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
@@ -103,7 +106,7 @@ class DeliveryWorker {
     if (config.redisUrl) {
       this.redis = createClient({ url: config.redisUrl });
       this.redis.on('error', (error: unknown) => {
-        console.error('[worker][redis] error', error);
+        logger.error('redis client error', serializeError(error));
       });
     }
   }
@@ -131,7 +134,7 @@ class DeliveryWorker {
 
   async run(): Promise<void> {
     this.running = true;
-    console.log('[worker] started', {
+    logger.info('worker started', {
       outboxEnabled: this.config.outboxEnabled,
       consumerEnabled: this.config.consumerEnabled,
       streamGroup: this.config.streamGroup,
@@ -148,7 +151,7 @@ class DeliveryWorker {
   async stop(): Promise<void> {
     if (!this.running) return;
     this.running = false;
-    console.log('[worker] stopping...');
+    logger.info('worker stopping');
 
     if (this.redis && this.redis.isOpen) {
       await this.redis.quit();
@@ -156,7 +159,7 @@ class DeliveryWorker {
     if (this.pool) {
       await this.pool.end();
     }
-    console.log('[worker] stopped');
+    logger.info('worker stopped');
   }
 
   private async ensureOutboxSchema(): Promise<void> {
@@ -230,7 +233,7 @@ class DeliveryWorker {
         }
         await this.processOutboxBatch();
       } catch (error) {
-        console.error('[worker][outbox] loop error', error);
+        logger.error('worker outbox loop error', serializeError(error));
       }
       await sleep(this.config.outboxPollMs);
     }
@@ -245,7 +248,7 @@ class DeliveryWorker {
         }
         await this.consumeStreamOnce();
       } catch (error) {
-        console.error('[worker][consumer] loop error', error);
+        logger.error('worker consumer loop error', serializeError(error));
         await sleep(1000);
       }
     }
@@ -428,7 +431,7 @@ async function main(): Promise<void> {
   const worker = new DeliveryWorker(config);
 
   const handleSignal = async (signal: string): Promise<void> => {
-    console.log(`[worker] received ${signal}`);
+    logger.info('worker received signal', { signal });
     await worker.stop();
     process.exit(0);
   };
@@ -445,6 +448,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((error) => {
-  console.error('[worker] fatal', error);
+  logger.error('worker fatal', serializeError(error));
   process.exit(1);
 });

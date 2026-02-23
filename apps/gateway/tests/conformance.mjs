@@ -152,6 +152,17 @@ async function run() {
     await waitForHealth('gateway', `http://localhost:${ports.gateway}/health`);
     await waitForHealth('adapter', `http://localhost:${ports.adapter}/health`);
 
+    // 0) observability endpoints
+    const metricsJson = await httpGet(`http://localhost:${ports.gateway}/v0/metrics`);
+    assert.equal(metricsJson.status, 200);
+    assert.equal(metricsJson.json.service, 'gateway');
+    assert.ok(metricsJson.json.metrics?.ingest);
+
+    const metricsText = await httpGet(`http://localhost:${ports.gateway}/metrics`);
+    assert.equal(metricsText.status, 200);
+    assert.match(metricsText.json.raw || '', /uniassist_gateway_ingest_total/);
+    assert.match(metricsText.json.raw || '', /uniassist_outbox_backlog_total/);
+
     // 1) 未命中兜底
     const sessionFallback = 's-conf-fallback';
     const fallbackIngest = await httpPost(

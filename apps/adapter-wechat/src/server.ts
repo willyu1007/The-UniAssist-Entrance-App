@@ -2,10 +2,12 @@ import crypto from 'node:crypto';
 import express, { type Request } from 'express';
 
 import type { IngestAck, InteractionEvent, UnifiedUserInput } from '@baseinterface/contracts';
+import { createLogger, serializeError } from '@baseinterface/shared';
 
 const PORT = Number(process.env.PORT || 8788);
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8787';
 const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';
+const logger = createLogger({ service: 'adapter-wechat' });
 
 type RawBodyRequest = Request & { rawBody?: string };
 
@@ -15,6 +17,19 @@ app.use(express.json({
     (req as RawBodyRequest).rawBody = buf.toString('utf8');
   },
 }));
+
+app.use((req, res, next) => {
+  const startedAt = Date.now();
+  res.on('finish', () => {
+    logger.info('http request', {
+      method: req.method,
+      path: req.path,
+      statusCode: res.statusCode,
+      durationMs: Date.now() - startedAt,
+    });
+  });
+  next();
+});
 
 function signBody(rawBody: string): { signature: string; timestamp: string; nonce: string } {
   const timestamp = String(Date.now());
@@ -60,16 +75,26 @@ app.post('/wechat/webhook', async (req: RawBodyRequest, res) => {
   const raw = JSON.stringify(input);
   const signed = signBody(raw);
 
-  const response = await fetch(`${GATEWAY_URL}/v0/ingest`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      'x-uniassist-signature': signed.signature,
-      'x-uniassist-timestamp': signed.timestamp,
-      'x-uniassist-nonce': signed.nonce,
-    },
-    body: raw,
-  });
+  let response: Response;
+  try {
+    response = await fetch(`${GATEWAY_URL}/v0/ingest`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        'x-uniassist-signature': signed.signature,
+        'x-uniassist-timestamp': signed.timestamp,
+        'x-uniassist-nonce': signed.nonce,
+      },
+      body: raw,
+    });
+  } catch (error) {
+    logger.error('gateway ingest request failed', {
+      gatewayUrl: GATEWAY_URL,
+      ...serializeError(error),
+    });
+    res.status(502).json({ ok: false, message: 'gateway ingest failed', detail: 'network_or_gateway_unreachable' });
+    return;
+  }
 
   if (!response.ok) {
     const detail = await response.text();
@@ -91,5 +116,5 @@ app.post('/wechat/webhook', async (req: RawBodyRequest, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`[adapter-wechat] listening on :${PORT}`);
+  logger.info('adapter-wechat listening', { port: PORT, gatewayUrl: GATEWAY_URL });
 });
