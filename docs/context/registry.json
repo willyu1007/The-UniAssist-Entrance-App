@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "updatedAt": "2026-02-23T08:04:50.270Z",
+  "updatedAt": "2026-03-04T14:24:32.276Z",
   "artifacts": [
     {
       "id": "api-openapi",
@@ -49,6 +49,22 @@
       "source": {
         "kind": "manual",
         "notes": "Replace with real processes or add more .bpmn files; then run ctl-context touch."
+      }
+    },
+    {
+      "id": "iac-overview",
+      "type": "json",
+      "path": "docs/context/iac/overview.json",
+      "mode": "generated",
+      "tags": [
+        "iac"
+      ],
+      "checksumSha256": "ffc5155abcb0b717ea1612851d9bf12e99a8d31add6ba692d6d8c14b6a27bd65",
+      "lastUpdated": "2026-03-04T14:24:32.276Z",
+      "source": {
+        "kind": "command",
+        "command": "ctl-context add-artifact",
+        "cwd": "."
       }
     }
   ]

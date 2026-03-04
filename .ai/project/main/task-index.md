@@ -17,4 +17,5 @@ Project: `main`
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
 | T-006 ua-v1-internal-security | in-progress | F-000 | dev-docs/active/ua-v1-internal-security |
 | T-007 ua-second-provider-integration | planned | F-000 | dev-docs/active/ua-second-provider-integration |
+| T-008 ua-k8s-staging-foundation | done | F-000 | dev-docs/active/ua-k8s-staging-foundation |
 <!-- AUTO-GENERATED:END task-index -->

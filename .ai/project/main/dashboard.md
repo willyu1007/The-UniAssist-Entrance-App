@@ -8,13 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 7 (planned: 1, in-progress: 6, blocked: 0, done: 0, archived: 0)
+- Tasks: 8 (planned: 1, in-progress: 6, blocked: 0, done: 1, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
 | T-006 ua-v1-internal-security | in-progress | F-000 | dev-docs/active/ua-v1-internal-security |
+| T-008 ua-k8s-staging-foundation | done | F-000 | dev-docs/active/ua-k8s-staging-foundation |
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
 | T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
 | T-002 ua-staging-release-baseline | in-progress | F-000 | dev-docs/active/ua-staging-release-baseline |

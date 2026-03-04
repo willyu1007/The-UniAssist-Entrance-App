@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: provider-plan
+  namespace: uniassist-staging
+  labels:
+    app: provider-plan
+spec:
+  selector:
+    app: provider-plan
+  ports:
+    - name: http
+      port: 8890
+      targetPort: 8890
+  type: ClusterIP

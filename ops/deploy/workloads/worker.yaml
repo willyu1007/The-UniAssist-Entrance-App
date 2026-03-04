@@ -1,0 +1,7 @@
+# Service deployment descriptor
+# Generated: 2026-03-04T14:37:10.961Z
+
+id: worker
+kind: workload
+artifact: uniassist/worker:local
+description: Outbox and stream worker

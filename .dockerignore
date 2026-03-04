@@ -1,0 +1,10 @@
+.git
+.ai
+.codex
+.claude
+node_modules
+**/node_modules
+dev-docs/archive
+ops/deploy/reports
+apps/frontend/.expo
+apps/frontend/.expo-shared

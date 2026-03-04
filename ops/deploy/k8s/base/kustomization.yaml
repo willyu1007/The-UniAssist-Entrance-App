@@ -1,0 +1,18 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - configmap.yaml
+  - secret.yaml
+  - postgres-deployment.yaml
+  - postgres-service.yaml
+  - redis-deployment.yaml
+  - redis-service.yaml
+  - gateway-deployment.yaml
+  - gateway-service.yaml
+  - provider-plan-deployment.yaml
+  - provider-plan-service.yaml
+  - adapter-wechat-deployment.yaml
+  - adapter-wechat-service.yaml
+  - worker-deployment.yaml

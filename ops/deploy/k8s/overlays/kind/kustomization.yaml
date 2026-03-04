@@ -1,0 +1,21 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+patches:
+  - path: gateway-nodeport-patch.yaml
+    target:
+      group: ""
+      version: v1
+      kind: Service
+      name: gateway
+      namespace: uniassist-staging
+  - path: adapter-wechat-nodeport-patch.yaml
+    target:
+      group: ""
+      version: v1
+      kind: Service
+      name: adapter-wechat
+      namespace: uniassist-staging

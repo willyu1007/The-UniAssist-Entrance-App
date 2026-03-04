@@ -1,0 +1,59 @@
+{
+  "version": 1,
+  "updatedAt": "2026-03-04T14:37:28.921Z",
+  "model": "k8s",
+  "k8s": {
+    "tool": "kustomize"
+  },
+  "environments": [
+    {
+      "id": "dev",
+      "description": "Development",
+      "canDeploy": true,
+      "requiresApproval": false
+    },
+    {
+      "id": "staging",
+      "description": "Staging",
+      "canDeploy": true,
+      "requiresApproval": true
+    },
+    {
+      "id": "prod",
+      "description": "Production",
+      "canDeploy": true,
+      "requiresApproval": true
+    }
+  ],
+  "services": [
+    {
+      "id": "gateway",
+      "kind": "http_service",
+      "artifact": "uniassist/gateway:local",
+      "description": "UniAssist gateway",
+      "addedAt": "2026-03-04T14:37:10.883Z"
+    },
+    {
+      "id": "provider-plan",
+      "kind": "http_service",
+      "artifact": "uniassist/provider-plan:local",
+      "description": "Plan provider",
+      "addedAt": "2026-03-04T14:37:10.908Z"
+    },
+    {
+      "id": "adapter-wechat",
+      "kind": "http_service",
+      "artifact": "uniassist/adapter-wechat:local",
+      "description": "WeChat adapter",
+      "addedAt": "2026-03-04T14:37:10.961Z"
+    },
+    {
+      "id": "worker",
+      "kind": "workload",
+      "artifact": "uniassist/worker:local",
+      "description": "Outbox and stream worker",
+      "addedAt": "2026-03-04T14:37:28.921Z"
+    }
+  ],
+  "history": []
+}

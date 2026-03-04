@@ -96,6 +96,29 @@ pnpm --filter @baseinterface/provider-plan start
 pnpm --filter @baseinterface/worker start
 ```
 
+### Run on Local Kubernetes (kind)
+
+先决条件：
+- Docker
+- kind
+- kubectl
+
+一键拉起：
+
+```bash
+pnpm k8s:kind:up
+```
+
+默认会将入口暴露到本机：
+- `http://127.0.0.1:8787` -> gateway
+- `http://127.0.0.1:8788` -> adapter-wechat
+
+销毁环境：
+
+```bash
+pnpm k8s:kind:down
+```
+
 ### Frontend Environment
 
 设置前端连接网关：

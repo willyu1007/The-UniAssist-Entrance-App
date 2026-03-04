@@ -1,0 +1,53 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: uniassist-staging
+  labels:
+    app: postgres
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16-alpine
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+              name: postgres
+          env:
+            - name: POSTGRES_DB
+              value: uniassist_gateway
+            - name: POSTGRES_USER
+              value: postgres
+            - name: POSTGRES_PASSWORD
+              value: postgres
+          readinessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U postgres -d uniassist_gateway
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command:
+                - sh
+                - -c
+                - pg_isready -U postgres -d uniassist_gateway
+            initialDelaySeconds: 15
+            periodSeconds: 10
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: postgres-data
+          emptyDir: {}

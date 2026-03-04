@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: uniassist-common-config
+  namespace: uniassist-staging
+data:
+  NODE_ENV: staging
+  UNIASSIST_STREAM_PREFIX: "uniassist:timeline:"
+  UNIASSIST_STREAM_GLOBAL_KEY: "uniassist:timeline:all"
+  UNIASSIST_STREAM_GROUP: "ua-delivery-staging"
+  UNIASSIST_STREAM_CONSUMER: "ua-worker-staging"
+  UNIASSIST_INTERNAL_AUTH_MODE: audit
+  UNIASSIST_INTERNAL_AUTH_ISSUER: uniassist-internal
+  UNIASSIST_INTERNAL_AUTH_SIGNING_KID: kid-main
+  UNIASSIST_INTERNAL_AUTH_TOKEN_TTL_S: "300"
+  UNIASSIST_INTERNAL_AUTH_CLOCK_SKEW_S: "120"
+  UNIASSIST_INTERNAL_AUTH_NONCE_TTL_S: "300"
+  UNIASSIST_INTERNAL_AUTH_REPLAY_BACKEND: memory
+  UNIASSIST_OUTBOX_INLINE_DISPATCH: "false"

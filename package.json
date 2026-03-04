@@ -16,6 +16,8 @@
     "worker:drill:staging": "node ops/deploy/scripts/staging-worker-reliability-drill.mjs",
     "release:gate:staging": "node ops/deploy/scripts/staging-release-gate.mjs",
     "release:verify:staging": "node ops/deploy/scripts/staging-post-deploy-check.mjs",
+    "k8s:kind:up": "node ops/deploy/scripts/k8s-kind-up.mjs",
+    "k8s:kind:down": "node ops/deploy/scripts/k8s-kind-down.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "typecheck:workspaces": "pnpm -r --if-present typecheck",

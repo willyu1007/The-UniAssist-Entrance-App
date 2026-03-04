@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: provider-plan
+  namespace: uniassist-staging
+  labels:
+    app: provider-plan
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: provider-plan
+  template:
+    metadata:
+      labels:
+        app: provider-plan
+    spec:
+      containers:
+        - name: provider-plan
+          image: uniassist/provider-plan:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8890
+              name: http
+          envFrom:
+            - configMapRef:
+                name: uniassist-common-config
+            - secretRef:
+                name: uniassist-secrets
+          env:
+            - name: UNIASSIST_SERVICE_ID
+              value: provider-plan
+            - name: PORT
+              value: "8890"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
