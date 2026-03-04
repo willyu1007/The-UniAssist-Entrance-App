@@ -121,6 +121,23 @@ UNIASSIST_STREAM_PREFIX=uniassist:timeline:
 UNIASSIST_OUTBOX_INLINE_DISPATCH=false
 ```
 
+### Internal Auth Environment (v1)
+
+内部服务调用支持 `off|audit|enforce` 三种模式，默认 `off`。建议先在 staging 使用 `audit`，验证通过后切 `enforce`。
+
+```bash
+# set on gateway / provider-plan / adapter-wechat
+UNIASSIST_SERVICE_ID=gateway
+UNIASSIST_INTERNAL_AUTH_MODE=off
+UNIASSIST_INTERNAL_AUTH_ISSUER=uniassist-internal
+UNIASSIST_INTERNAL_AUTH_KEYS_JSON='{"kid-main":"replace-with-strong-secret"}'
+UNIASSIST_INTERNAL_AUTH_SIGNING_KID=kid-main
+UNIASSIST_INTERNAL_AUTH_TOKEN_TTL_S=300
+UNIASSIST_INTERNAL_AUTH_CLOCK_SKEW_S=120
+UNIASSIST_INTERNAL_AUTH_NONCE_TTL_S=300
+UNIASSIST_INTERNAL_AUTH_REPLAY_BACKEND=memory
+```
+
 ### Worker Environment
 
 ```bash
@@ -213,7 +230,10 @@ pnpm release:gate:staging
 STAGING_GATEWAY_BASE_URL=http://localhost:8787 \
 STAGING_PROVIDER_PLAN_BASE_URL=http://localhost:8890 \
 STAGING_ADAPTER_WECHAT_BASE_URL=http://localhost:8788 \
-STAGING_CONTEXT_TOKEN=provider-dev-token \
+STAGING_INTERNAL_AUTH_KID=kid-main \
+STAGING_INTERNAL_AUTH_SECRET=replace-with-strong-secret \
+STAGING_INTERNAL_AUTH_ISSUER=uniassist-internal \
+STAGING_CONTEXT_SUBJECT=provider-plan \
 pnpm release:verify:staging
 ```
 
@@ -242,6 +262,7 @@ curl -s http://localhost:8787/metrics
 - ingest latency p95 / error rate
 - outbox backlog / failed / dead_letter / retry
 - provider invoke/interact error totals
+- internal auth requests/denied/replay totals
 
 Staging 告警规则草案：
 - `ops/observability/alerts/staging.rules.yml`

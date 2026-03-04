@@ -1,5 +1,52 @@
 export type SchemaVersion = 'v0';
 
+export type InternalServiceId =
+  | 'gateway'
+  | 'provider-plan'
+  | 'adapter-wechat'
+  | 'worker'
+  | 'frontend'
+  | 'unknown';
+
+export type InternalScope =
+  | 'context:read'
+  | 'events:write'
+  | 'provider:invoke'
+  | 'provider:interact'
+  | '*';
+
+export type InternalAuthMode = 'off' | 'audit' | 'enforce';
+
+export type InternalAuthReplayBackend = 'memory' | 'redis';
+
+export type InternalAuthErrorCode =
+  | 'AUTH_MISSING'
+  | 'AUTH_TOKEN_INVALID'
+  | 'AUTH_SIGNATURE_INVALID'
+  | 'AUTH_REPLAY'
+  | 'AUTH_SCOPE_MISSING'
+  | 'AUTH_AUD_MISMATCH';
+
+export type InternalAuthHeaders = {
+  authorization: string;
+  'x-uniassist-internal-kid': string;
+  'x-uniassist-internal-ts': string;
+  'x-uniassist-internal-nonce': string;
+  'x-uniassist-internal-signature': string;
+};
+
+export type InternalAuthConfig = {
+  serviceId: InternalServiceId;
+  mode: InternalAuthMode;
+  issuer: string;
+  signingKid: string;
+  keys: Record<string, string>;
+  tokenTtlSec: number;
+  clockSkewSec: number;
+  nonceTtlSec: number;
+  replayBackend: InternalAuthReplayBackend;
+};
+
 export type InputSource = 'app' | 'wechat' | 'web' | 'api';
 
 export type Attachment = {

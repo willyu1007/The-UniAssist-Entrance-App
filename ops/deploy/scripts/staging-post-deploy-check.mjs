@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import assert from 'node:assert/strict';
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 function nowMs() {
   return Date.now();
@@ -26,6 +26,49 @@ function optionalEnv(name) {
 function toInt(value, fallback) {
   const parsed = Number(value);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
+}
+
+function base64urlJson(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+function signInternalHeaders({
+  method,
+  path,
+  rawBody = '',
+  subject,
+  audience,
+  scopes,
+  issuer,
+  kid,
+  secret,
+  timestampMs = nowMs(),
+}) {
+  const ts = String(timestampMs);
+  const nonce = randomUUID();
+  const claims = {
+    iss: issuer,
+    sub: subject,
+    aud: audience,
+    scope: scopes.join(' ').trim(),
+    iat: Math.floor(timestampMs / 1000),
+    exp: Math.floor(timestampMs / 1000) + 300,
+    jti: randomUUID(),
+  };
+  const header = { alg: 'HS256', typ: 'JWT', kid };
+  const unsigned = `${base64urlJson(header)}.${base64urlJson(claims)}`;
+  const tokenSig = createHmac('sha256', secret).update(unsigned).digest('base64url');
+  const token = `${unsigned}.${tokenSig}`;
+  const bodyHash = createHash('sha256').update(rawBody).digest('hex');
+  const signPayload = `${ts}.${nonce}.${method.toUpperCase()}.${path}.${bodyHash}`;
+  const requestSig = createHmac('sha256', secret).update(signPayload).digest('hex');
+  return {
+    authorization: `Bearer ${token}`,
+    'x-uniassist-internal-kid': kid,
+    'x-uniassist-internal-ts': ts,
+    'x-uniassist-internal-nonce': nonce,
+    'x-uniassist-internal-signature': requestSig,
+  };
 }
 
 async function getJson(url, headers = {}) {
@@ -81,6 +124,10 @@ async function main() {
   const providerBase = optionalEnv('STAGING_PROVIDER_PLAN_BASE_URL');
   const adapterBase = optionalEnv('STAGING_ADAPTER_WECHAT_BASE_URL');
   const contextToken = process.env.STAGING_CONTEXT_TOKEN || '';
+  const internalAuthKid = process.env.STAGING_INTERNAL_AUTH_KID || '';
+  const internalAuthSecret = process.env.STAGING_INTERNAL_AUTH_SECRET || '';
+  const internalAuthIssuer = process.env.STAGING_INTERNAL_AUTH_ISSUER || 'uniassist-internal';
+  const contextSubject = process.env.STAGING_CONTEXT_SUBJECT || 'provider-plan';
   const timeoutMs = toInt(process.env.STAGING_VERIFY_TIMEOUT_MS, 30_000);
 
   const health = {
@@ -125,13 +172,28 @@ async function main() {
   );
 
   let contextCheck = 'skipped';
-  if (contextToken) {
-    const context = await getJson(`${gatewayBase}/v0/context/users/profile:${encodeURIComponent(userId)}`, {
+  const contextPath = `/v0/context/users/profile:${encodeURIComponent(userId)}`;
+  if (internalAuthKid && internalAuthSecret) {
+    const headers = signInternalHeaders({
+      method: 'GET',
+      path: contextPath,
+      subject: contextSubject,
+      audience: 'gateway',
+      scopes: ['context:read'],
+      issuer: internalAuthIssuer,
+      kid: internalAuthKid,
+      secret: internalAuthSecret,
+    });
+    const context = await getJson(`${gatewayBase}${contextPath}`, headers);
+    assert.equal(context.status, 200, `context read failed with status ${context.status}`);
+    contextCheck = 'ok-internal-auth';
+  } else if (contextToken) {
+    const context = await getJson(`${gatewayBase}${contextPath}`, {
       authorization: `Bearer ${contextToken}`,
       'x-provider-scopes': 'context:read',
     });
     assert.equal(context.status, 200, `context read failed with status ${context.status}`);
-    contextCheck = 'ok';
+    contextCheck = 'ok-legacy-token';
   }
 
   console.log('[staging-verify][PASS] post-deploy checks passed');

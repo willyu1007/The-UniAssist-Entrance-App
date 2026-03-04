@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, createHmac, randomUUID } from 'node:crypto';
 
 const cwd = '/Volumes/DataDisk/Project/The-UA-Entrance-APP';
 
@@ -9,6 +9,12 @@ const ports = {
   gateway: 9877,
   adapter: 9878,
 };
+const internalAuth = {
+  mode: 'enforce',
+  issuer: 'uniassist-internal',
+  kid: 'kid-main',
+  secret: 'internal-secret-main',
+};
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
@@ -16,6 +22,53 @@ function sleep(ms) {
 
 function nowMs() {
   return Date.now();
+}
+
+function base64urlJson(value) {
+  return Buffer.from(JSON.stringify(value), 'utf8').toString('base64url');
+}
+
+function signInternalHeaders({
+  method,
+  path,
+  rawBody = '',
+  subject,
+  audience,
+  scopes = [],
+  timestampMs = nowMs(),
+  nonce = randomUUID(),
+  jti = randomUUID(),
+}) {
+  const ts = String(timestampMs);
+  const claims = {
+    iss: internalAuth.issuer,
+    sub: subject,
+    aud: audience,
+    scope: scopes.join(' ').trim(),
+    iat: Math.floor(timestampMs / 1000),
+    exp: Math.floor(timestampMs / 1000) + 300,
+    jti,
+  };
+  const header = {
+    alg: 'HS256',
+    typ: 'JWT',
+    kid: internalAuth.kid,
+  };
+  const headerEncoded = base64urlJson(header);
+  const payloadEncoded = base64urlJson(claims);
+  const unsigned = `${headerEncoded}.${payloadEncoded}`;
+  const tokenSig = createHmac('sha256', internalAuth.secret).update(unsigned).digest('base64url');
+  const token = `${unsigned}.${tokenSig}`;
+  const bodyHash = createHash('sha256').update(rawBody).digest('hex');
+  const signPayload = `${ts}.${nonce}.${method.toUpperCase()}.${path}.${bodyHash}`;
+  const requestSig = createHmac('sha256', internalAuth.secret).update(signPayload).digest('hex');
+  return {
+    authorization: `Bearer ${token}`,
+    'x-uniassist-internal-kid': internalAuth.kid,
+    'x-uniassist-internal-ts': ts,
+    'x-uniassist-internal-nonce': nonce,
+    'x-uniassist-internal-signature': requestSig,
+  };
 }
 
 function startService(name, args, env = {}) {
@@ -119,17 +172,30 @@ function hasKind(timeline, kind) {
 }
 
 async function run() {
+  const internalEnv = {
+    UNIASSIST_INTERNAL_AUTH_MODE: internalAuth.mode,
+    UNIASSIST_INTERNAL_AUTH_ISSUER: internalAuth.issuer,
+    UNIASSIST_INTERNAL_AUTH_KEYS_JSON: JSON.stringify({ [internalAuth.kid]: internalAuth.secret }),
+    UNIASSIST_INTERNAL_AUTH_SIGNING_KID: internalAuth.kid,
+  };
+
   const provider = startService('provider-plan', ['--filter', '@baseinterface/provider-plan', 'start'], {
     PORT: String(ports.provider),
+    UNIASSIST_SERVICE_ID: 'provider-plan',
+    ...internalEnv,
   });
   const gateway = startService('gateway', ['--filter', '@baseinterface/gateway', 'start'], {
     PORT: String(ports.gateway),
+    UNIASSIST_SERVICE_ID: 'gateway',
     UNIASSIST_PLAN_PROVIDER_BASE_URL: `http://localhost:${ports.provider}`,
+    ...internalEnv,
   });
   const adapter = startService('adapter-wechat', ['--filter', '@baseinterface/adapter-wechat', 'start'], {
     PORT: String(ports.adapter),
+    UNIASSIST_SERVICE_ID: 'adapter-wechat',
     GATEWAY_URL: `http://localhost:${ports.gateway}`,
     UNIASSIST_ADAPTER_SECRET: 'dev-adapter-secret',
+    ...internalEnv,
   });
 
   const stopAll = () => {
@@ -226,25 +292,134 @@ async function run() {
     });
 
     // 3) profileRef 拉取
-    const contextOk = await httpGet(
-      `http://localhost:${ports.gateway}/v0/context/users/profile:u-conformance`,
-      {
-        authorization: 'Bearer provider-dev-token',
-        'x-provider-scopes': 'context:read',
-      },
-    );
+    const contextPath = '/v0/context/users/profile:u-conformance';
+    const contextOk = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
+      method: 'GET',
+      path: contextPath,
+      subject: 'provider-plan',
+      audience: 'gateway',
+      scopes: ['context:read'],
+    }));
     assert.equal(contextOk.status, 200);
     assert.ok(contextOk.json.profile);
     assert.ok(contextOk.json.preferences);
     assert.ok(contextOk.json.consents);
 
-    const contextForbidden = await httpGet(
-      `http://localhost:${ports.gateway}/v0/context/users/profile:u-conformance`,
-      {
-        authorization: 'Bearer provider-dev-token',
-      },
-    );
+    const contextForbidden = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
+      method: 'GET',
+      path: contextPath,
+      subject: 'provider-plan',
+      audience: 'gateway',
+      scopes: ['provider:invoke'],
+    }));
     assert.equal(contextForbidden.status, 403);
+    const contextUnauthorized = await httpGet(`http://localhost:${ports.gateway}${contextPath}`);
+    assert.equal(contextUnauthorized.status, 401);
+
+    // 3.1) /v0/events scope
+    const eventsBody = {
+      schemaVersion: 'v0',
+      providerId: 'plan',
+      timestampMs: nowMs(),
+      events: [
+        {
+          kind: 'domain_event',
+          event: {
+            schemaVersion: 'v0',
+            userId: 'u-conformance',
+            providerId: 'plan',
+            eventType: 'progress',
+            title: 'conformance event',
+            body: 'security scope check',
+            timestampMs: nowMs(),
+          },
+        },
+      ],
+    };
+    const eventsRaw = JSON.stringify(eventsBody);
+    const eventsOk = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...signInternalHeaders({
+          method: 'POST',
+          path: '/v0/events',
+          rawBody: eventsRaw,
+          subject: 'provider-plan',
+          audience: 'gateway',
+          scopes: ['events:write'],
+        }),
+      },
+      body: eventsRaw,
+    });
+    assert.equal(eventsOk.status, 200);
+    const eventsOkJson = await eventsOk.json();
+    assert.equal(eventsOkJson.accepted, 1);
+
+    const replayNonce = randomUUID();
+    const replayTimestamp = nowMs();
+    const replayJti = randomUUID();
+    const replayHeaders = signInternalHeaders({
+      method: 'POST',
+      path: '/v0/events',
+      rawBody: eventsRaw,
+      subject: 'provider-plan',
+      audience: 'gateway',
+      scopes: ['events:write'],
+      nonce: replayNonce,
+      timestampMs: replayTimestamp,
+      jti: replayJti,
+    });
+    const replayFirst = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...replayHeaders,
+      },
+      body: eventsRaw,
+    });
+    assert.equal(replayFirst.status, 200);
+    const replaySecond = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...replayHeaders,
+      },
+      body: eventsRaw,
+    });
+    assert.equal(replaySecond.status, 401);
+
+    const eventsForbidden = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...signInternalHeaders({
+          method: 'POST',
+          path: '/v0/events',
+          rawBody: eventsRaw,
+          subject: 'provider-plan',
+          audience: 'gateway',
+          scopes: ['context:read'],
+        }),
+      },
+      body: eventsRaw,
+    });
+    assert.equal(eventsForbidden.status, 403);
+    const eventsUnauthorized = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: eventsRaw,
+    });
+    assert.equal(eventsUnauthorized.status, 401);
+
+    const contextWrongAudience = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
+      method: 'GET',
+      path: contextPath,
+      subject: 'provider-plan',
+      audience: 'provider-plan',
+      scopes: ['context:read'],
+    }));
+    assert.equal(contextWrongAudience.status, 401);
 
     // 4) 会话分割：闲置 24h + 主题漂移提示
     const sessionIdle = 's-conf-idle';

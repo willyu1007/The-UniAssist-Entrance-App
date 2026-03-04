@@ -17,6 +17,6 @@ Project: `main`
 | T-003 ua-observability-alerting | in-progress | dev-docs/active/ua-observability-alerting |
 | T-004 ua-worker-reliability-hardening | in-progress | dev-docs/active/ua-worker-reliability-hardening |
 | T-005 ua-frontend-transport-unification | in-progress | dev-docs/active/ua-frontend-transport-unification |
-| T-006 ua-v1-internal-security | planned | dev-docs/active/ua-v1-internal-security |
+| T-006 ua-v1-internal-security | in-progress | dev-docs/active/ua-v1-internal-security |
 | T-007 ua-second-provider-integration | planned | dev-docs/active/ua-second-provider-integration |
 <!-- AUTO-GENERATED:END feature-map -->

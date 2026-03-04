@@ -2,11 +2,24 @@ import crypto from 'node:crypto';
 import express, { type Request } from 'express';
 
 import type { IngestAck, InteractionEvent, UnifiedUserInput } from '@baseinterface/contracts';
-import { createLogger, serializeError } from '@baseinterface/shared';
+import {
+  buildInternalAuthHeaders,
+  createLogger,
+  loadInternalAuthConfigFromEnv,
+  serializeError,
+} from '@baseinterface/shared';
 
 const PORT = Number(process.env.PORT || 8788);
 const GATEWAY_URL = process.env.GATEWAY_URL || 'http://localhost:8787';
 const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';
+const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'adapter-wechat';
+const INTERNAL_AUTH_CONFIG = (() => {
+  const config = loadInternalAuthConfigFromEnv(process.env);
+  if (config.serviceId === 'unknown') {
+    config.serviceId = INTERNAL_AUTH_DEFAULT_SERVICE_ID;
+  }
+  return config;
+})();
 const logger = createLogger({ service: 'adapter-wechat' });
 
 type RawBodyRequest = Request & { rawBody?: string };
@@ -74,6 +87,13 @@ app.post('/wechat/webhook', async (req: RawBodyRequest, res) => {
 
   const raw = JSON.stringify(input);
   const signed = signBody(raw);
+  const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
+    method: 'POST',
+    path: '/v0/ingest',
+    rawBody: raw,
+    audience: 'gateway',
+    scopes: [],
+  });
 
   let response: Response;
   try {
@@ -84,6 +104,11 @@ app.post('/wechat/webhook', async (req: RawBodyRequest, res) => {
         'x-uniassist-signature': signed.signature,
         'x-uniassist-timestamp': signed.timestamp,
         'x-uniassist-nonce': signed.nonce,
+        authorization: internalHeaders.authorization,
+        'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
+        'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
+        'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
+        'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
       },
       body: raw,
     });

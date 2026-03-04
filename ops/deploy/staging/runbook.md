@@ -10,6 +10,9 @@
 1. Load staging env variables from `ops/deploy/staging/env.example`.
 2. Ensure Postgres and Redis are reachable.
 3. Ensure target release revision is tagged and reproducible.
+4. Internal auth rollout uses `audit -> enforce`:
+   - first deployment: `UNIASSIST_INTERNAL_AUTH_MODE=audit`
+   - after verification + deny log review: switch to `enforce`
 
 ## Pre-release gate (must pass)
 
@@ -39,7 +42,10 @@ After each step, check `/health` endpoint of updated service.
 STAGING_GATEWAY_BASE_URL=... \
 STAGING_PROVIDER_PLAN_BASE_URL=... \
 STAGING_ADAPTER_WECHAT_BASE_URL=... \
-STAGING_CONTEXT_TOKEN=... \
+STAGING_INTERNAL_AUTH_KID=... \
+STAGING_INTERNAL_AUTH_SECRET=... \
+STAGING_INTERNAL_AUTH_ISSUER=uniassist-internal \
+STAGING_CONTEXT_SUBJECT=provider-plan \
 pnpm release:verify:staging
 ```
 
@@ -47,7 +53,7 @@ Verification criteria:
 - health endpoints all green
 - one ingest request accepted
 - timeline contains routing + provider run + interaction events
-- context API authorization path works (if token provided)
+- context API internal auth path works (`context:read` scope)
 
 ## Worker reliability drill
 

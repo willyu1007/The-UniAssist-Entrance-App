@@ -19,13 +19,20 @@ import type {
   UnifiedUserInput,
   UserInteraction,
 } from '@baseinterface/contracts';
-import { createLogger, serializeError } from '@baseinterface/shared';
+import {
+  buildInternalAuthHeaders,
+  createLogger,
+  createMemoryNonceStore,
+  loadInternalAuthConfigFromEnv,
+  serializeError,
+  verifyInternalAuthRequest,
+  type InternalAuthDenyCode,
+} from '@baseinterface/shared';
 import { GatewayObservability } from './observability';
 import { GatewayPersistence, type StoredSession } from './persistence';
 
 const PORT = Number(process.env.PORT || 8787);
 const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';
-const PROVIDER_CONTEXT_TOKEN = process.env.UNIASSIST_PROVIDER_CONTEXT_TOKEN || 'provider-dev-token';
 const PLAN_PROVIDER_BASE_URL = (process.env.UNIASSIST_PLAN_PROVIDER_BASE_URL || '').replace(/\/$/, '');
 const FALLBACK_PROVIDER_ID = 'builtin_chat';
 const ROUTE_THRESHOLD = 0.55;
@@ -33,6 +40,15 @@ const STICKY_DEFAULT_BOOST = 0.15;
 const STICKY_DECAY_PER_TURN = 0.03;
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
 const TOPIC_DRIFT_THRESHOLD = 0.3;
+const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'gateway';
+
+const INTERNAL_AUTH_CONFIG = (() => {
+  const config = loadInternalAuthConfigFromEnv(process.env);
+  if (config.serviceId === 'unknown') {
+    config.serviceId = INTERNAL_AUTH_DEFAULT_SERVICE_ID;
+  }
+  return config;
+})();
 
 const app = express();
 app.use(cors());
@@ -67,6 +83,7 @@ const timelineBySession = new Map<string, TimelineEvent[]>();
 const sseClients = new Map<string, Set<Response>>();
 const userContextCache = new Map<string, UserContextRecord>();
 const nonceReplay = new Map<string, number>();
+const internalNonceStore = createMemoryNonceStore();
 const persistence = new GatewayPersistence();
 const logger = createLogger({ service: 'gateway' });
 const observability = new GatewayObservability();
@@ -465,10 +482,25 @@ async function invokePlanProvider(
   };
 
   try {
+    const rawBody = JSON.stringify(requestBody);
+    const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
+      method: 'POST',
+      path: '/v0/invoke',
+      rawBody,
+      audience: 'provider-plan',
+      scopes: ['provider:invoke'],
+    });
     const response = await fetch(`${PLAN_PROVIDER_BASE_URL}/v0/invoke`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      headers: {
+        'content-type': 'application/json',
+        authorization: internalHeaders.authorization,
+        'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
+        'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
+        'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
+        'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
+      },
+      body: rawBody,
     });
     if (!response.ok) {
       throw new Error(`provider_invoke_failed:${response.status}`);
@@ -514,10 +546,25 @@ async function interactPlanProvider(
   };
 
   try {
+    const rawBody = JSON.stringify(requestBody);
+    const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
+      method: 'POST',
+      path: '/v0/interact',
+      rawBody,
+      audience: 'provider-plan',
+      scopes: ['provider:interact'],
+    });
     const response = await fetch(`${PLAN_PROVIDER_BASE_URL}/v0/interact`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify(requestBody),
+      headers: {
+        'content-type': 'application/json',
+        authorization: internalHeaders.authorization,
+        'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
+        'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
+        'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
+        'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
+      },
+      body: rawBody,
     });
     if (!response.ok) {
       throw new Error(`provider_interact_failed:${response.status}`);
@@ -550,6 +597,105 @@ async function dispatchPlanProviderRun(
       source: 'provider',
     }, 'plan', runId);
   });
+}
+
+type InternalAuthGuardOptions = {
+  endpoint: string;
+  expectedAudience: string;
+  requiredScopes?: string[];
+  allowedSubjects?: string[];
+  traceId?: string;
+};
+
+function buildAuthProblemDetail(
+  code: InternalAuthDenyCode,
+  status: 401 | 403,
+  message: string,
+): {
+  type: string;
+  title: string;
+  status: 401 | 403;
+  code: InternalAuthDenyCode;
+  detail: string;
+} {
+  return {
+    type: status === 403 ? 'https://uniassist/errors/forbidden' : 'https://uniassist/errors/unauthorized',
+    title: status === 403 ? 'Forbidden' : 'Unauthorized',
+    status,
+    code,
+    detail: message,
+  };
+}
+
+function resolveTraceIdFromBody(body: unknown): string | undefined {
+  if (!body || typeof body !== 'object' || Array.isArray(body)) return undefined;
+  const obj = body as Record<string, unknown>;
+  if (typeof obj.traceId === 'string') return obj.traceId;
+  const input = obj.input as Record<string, unknown> | undefined;
+  if (input && typeof input.traceId === 'string') return input.traceId;
+  const interaction = obj.interaction as Record<string, unknown> | undefined;
+  if (interaction && typeof interaction.traceId === 'string') return interaction.traceId;
+  return undefined;
+}
+
+async function guardInternalAuth(
+  req: RawBodyRequest,
+  res: Response,
+  options: InternalAuthGuardOptions,
+): Promise<boolean> {
+  if (INTERNAL_AUTH_CONFIG.mode === 'off') {
+    observability.observeInternalAuthRequest(options.endpoint, 'off', 'pass');
+    return true;
+  }
+
+  const verification = await verifyInternalAuthRequest({
+    method: req.method,
+    path: req.path,
+    rawBody: req.rawBody || '',
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    config: INTERNAL_AUTH_CONFIG,
+    nonceStore: internalNonceStore,
+    expectedAudience: options.expectedAudience,
+    requiredScopes: options.requiredScopes,
+    allowedSubjects: options.allowedSubjects,
+  });
+
+  if (verification.ok) {
+    observability.observeInternalAuthRequest(options.endpoint, INTERNAL_AUTH_CONFIG.mode, 'pass');
+    return true;
+  }
+
+  observability.observeInternalAuthDenied(options.endpoint, verification.code);
+  if (verification.code === 'AUTH_REPLAY') {
+    observability.observeInternalAuthReplay(options.endpoint);
+  }
+
+  const effectiveTraceId = options.traceId || resolveTraceIdFromBody(req.body);
+  const deniedFields: Record<string, unknown> = {
+    endpoint: options.endpoint,
+    mode: INTERNAL_AUTH_CONFIG.mode,
+    code: verification.code,
+    detail: verification.message,
+    traceId: effectiveTraceId,
+    requiredScopes: options.requiredScopes,
+    subject: verification.claims?.sub,
+    audience: verification.claims?.aud,
+  };
+  logger.warn('internal auth denied', deniedFields);
+
+  if (INTERNAL_AUTH_CONFIG.mode === 'audit') {
+    observability.observeInternalAuthRequest(options.endpoint, 'audit', 'audit_allow');
+    return true;
+  }
+
+  observability.observeInternalAuthRequest(options.endpoint, 'enforce', 'deny');
+  const problem = buildAuthProblemDetail(verification.code, verification.status, verification.message);
+  res.status(problem.status).json({
+    schemaVersion: 'v0',
+    ...problem,
+    traceId: effectiveTraceId,
+  });
+  return false;
 }
 
 function requireExternalSignature(req: RawBodyRequest): { ok: true } | { ok: false; message: string } {
@@ -663,6 +809,14 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
   }
 
   if (input.source !== 'app') {
+    const authorized = await guardInternalAuth(req, res, {
+      endpoint: '/v0/ingest',
+      expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
+      allowedSubjects: ['adapter-wechat'],
+      traceId: input.traceId,
+    });
+    if (!authorized) return;
+
     const signed = requireExternalSignature(req);
     if (!signed.ok) {
       res.status(401).json({
@@ -933,71 +1087,91 @@ app.post('/v0/interact', async (req, res) => {
   res.json({ accepted: true });
 });
 
-app.post('/v0/events', (req, res) => {
-  const body = req.body as ProviderEventsRequest;
-  if (!body || body.schemaVersion !== 'v0' || !Array.isArray(body.events)) {
-    res.status(400).json({ schemaVersion: 'v0', accepted: 0, rejected: 1, errors: [{ index: 0, code: 'INVALID_REQUEST', message: 'invalid payload' }] });
-    return;
-  }
+app.post('/v0/events', async (req: RawBodyRequest, res) => {
+  try {
+    const authorized = await guardInternalAuth(req, res, {
+      endpoint: '/v0/events',
+      expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
+      requiredScopes: ['events:write'],
+      allowedSubjects: ['provider-plan'],
+    });
+    if (!authorized) return;
 
-  let accepted = 0;
-  let rejected = 0;
-  const errors: Array<{ index: number; code: string; message: string }> = [];
+    const body = req.body as ProviderEventsRequest;
+    if (!body || body.schemaVersion !== 'v0' || !Array.isArray(body.events)) {
+      res.status(400).json({ schemaVersion: 'v0', accepted: 0, rejected: 1, errors: [{ index: 0, code: 'INVALID_REQUEST', message: 'invalid payload' }] });
+      return;
+    }
 
-  body.events.forEach((item: ProviderEventsRequest['events'][number], index: number) => {
-    try {
-      if (item.kind === 'interaction') {
-        const session = sessions.get(item.sessionId);
-        if (!session) {
-          throw new Error('session_not_found');
+    let accepted = 0;
+    let rejected = 0;
+    const errors: Array<{ index: number; code: string; message: string }> = [];
+
+    body.events.forEach((item: ProviderEventsRequest['events'][number], index: number) => {
+      try {
+        if (item.kind === 'interaction') {
+          const session = sessions.get(item.sessionId);
+          if (!session) {
+            throw new Error('session_not_found');
+          }
+
+          const inputRef: UnifiedUserInput = {
+            schemaVersion: 'v0',
+            traceId: item.traceId,
+            userId: item.userId,
+            sessionId: item.sessionId,
+            source: 'api',
+            timestampMs: item.timestampMs,
+          };
+
+          emitEvent(session, inputRef, 'interaction', { event: item.event, source: 'provider' }, body.providerId, item.runId);
+        } else {
+          const event = item.event as DomainEvent;
+          const sessionId = event.sessionId || uuid();
+          const session = sessions.get(sessionId) || {
+            sessionId,
+            userId: event.userId,
+            seq: 0,
+            lastActivityAt: now(),
+            topicDriftStreak: 0,
+            stickyScoreBoost: STICKY_DEFAULT_BOOST,
+            switchLeadStreak: 0,
+          };
+
+          sessions.set(sessionId, session);
+          persistSessionAsync(session);
+
+          const inputRef: UnifiedUserInput = {
+            schemaVersion: 'v0',
+            traceId: event.traceId || uuid(),
+            userId: event.userId,
+            sessionId,
+            source: 'api',
+            timestampMs: event.timestampMs,
+          };
+
+          emitEvent(session, inputRef, 'domain_event', { event }, body.providerId);
         }
 
-        const inputRef: UnifiedUserInput = {
-          schemaVersion: 'v0',
-          traceId: item.traceId,
-          userId: item.userId,
-          sessionId: item.sessionId,
-          source: 'api',
-          timestampMs: item.timestampMs,
-        };
-
-        emitEvent(session, inputRef, 'interaction', { event: item.event, source: 'provider' }, body.providerId, item.runId);
-      } else {
-        const event = item.event as DomainEvent;
-        const sessionId = event.sessionId || uuid();
-        const session = sessions.get(sessionId) || {
-          sessionId,
-          userId: event.userId,
-          seq: 0,
-          lastActivityAt: now(),
-          topicDriftStreak: 0,
-          stickyScoreBoost: STICKY_DEFAULT_BOOST,
-          switchLeadStreak: 0,
-        };
-
-        sessions.set(sessionId, session);
-        persistSessionAsync(session);
-
-        const inputRef: UnifiedUserInput = {
-          schemaVersion: 'v0',
-          traceId: event.traceId || uuid(),
-          userId: event.userId,
-          sessionId,
-          source: 'api',
-          timestampMs: event.timestampMs,
-        };
-
-        emitEvent(session, inputRef, 'domain_event', { event }, body.providerId);
+        accepted += 1;
+      } catch (error) {
+        rejected += 1;
+        errors.push({ index, code: 'EVENT_REJECTED', message: String(error) });
       }
+    });
 
-      accepted += 1;
-    } catch (error) {
-      rejected += 1;
-      errors.push({ index, code: 'EVENT_REJECTED', message: String(error) });
-    }
-  });
-
-  res.json({ schemaVersion: 'v0', accepted, rejected, errors: errors.length ? errors : undefined });
+    res.json({ schemaVersion: 'v0', accepted, rejected, errors: errors.length ? errors : undefined });
+  } catch (error) {
+    logger.error('events handler failed', serializeError(error));
+    res.status(500).json({
+      schemaVersion: 'v0',
+      type: 'https://uniassist/errors/internal',
+      title: 'Internal Server Error',
+      status: 500,
+      code: 'INTERNAL_ERROR',
+      detail: 'unexpected server error',
+    });
+  }
 });
 
 app.get('/v0/stream', async (req, res) => {
@@ -1044,34 +1218,13 @@ app.get('/v0/timeline', async (req, res) => {
 });
 
 app.get('/v0/context/users/:profileRef', async (req, res) => {
-  const auth = req.header('authorization');
-  if (auth !== `Bearer ${PROVIDER_CONTEXT_TOKEN}`) {
-    res.status(401).json({
-      schemaVersion: 'v0',
-      type: 'https://uniassist/errors/unauthorized',
-      title: 'Unauthorized',
-      status: 401,
-      code: 'INVALID_PROVIDER_TOKEN',
-      detail: 'provider token missing or invalid',
-    });
-    return;
-  }
-
-  const scopes = (req.header('x-provider-scopes') || '')
-    .split(/[,\s]+/)
-    .map((item) => item.trim())
-    .filter(Boolean);
-  if (!scopes.includes('context:read') && !scopes.includes('*')) {
-    res.status(403).json({
-      schemaVersion: 'v0',
-      type: 'https://uniassist/errors/forbidden',
-      title: 'Forbidden',
-      status: 403,
-      code: 'MISSING_SCOPE',
-      detail: 'scope context:read is required',
-    });
-    return;
-  }
+  const authorized = await guardInternalAuth(req as RawBodyRequest, res, {
+    endpoint: '/v0/context/users/:profileRef',
+    expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
+    requiredScopes: ['context:read'],
+    allowedSubjects: ['provider-plan'],
+  });
+  if (!authorized) return;
 
   const profileRef = req.params.profileRef;
   const existing = userContextCache.get(profileRef);
@@ -1134,6 +1287,11 @@ const server = app.listen(PORT, async () => {
   } catch (error) {
     observability.observePersistenceError();
     logger.error('persistence init failed, continue with in-memory mode', serializeError(error));
+  }
+  if (INTERNAL_AUTH_CONFIG.replayBackend === 'redis') {
+    logger.warn('internal auth replay backend requested redis but gateway currently uses in-memory nonce store', {
+      requestedReplayBackend: INTERNAL_AUTH_CONFIG.replayBackend,
+    });
   }
   logger.info('gateway listening', { port: PORT });
 });
