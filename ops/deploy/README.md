@@ -11,6 +11,7 @@ Goal: run packaged services/jobs in target environments with repeatable procedur
 - `ops/deploy/k8s/kind/cluster.yaml` - kind cluster config with host port mappings.
 - `ops/deploy/scripts/k8s-kind-up.mjs` - build images + create cluster + apply manifests + rollout checks.
 - `ops/deploy/scripts/k8s-kind-down.mjs` - delete k8s resources and destroy kind cluster.
+- `ops/deploy/scripts/k8s-staging-validate.mjs` - render + client dry-run for staging overlay.
 - `ops/deploy/scripts/staging-release-gate.mjs` - pre-release quality gate.
 - `ops/deploy/scripts/staging-post-deploy-check.mjs` - post-release health and path checks.
 - `ops/deploy/scripts/staging-worker-reliability-drill.mjs` - worker chaos/recovery drill (simulate/live).
@@ -46,4 +47,10 @@ Teardown:
 
 ```bash
 pnpm k8s:kind:down
+```
+
+Validate staging overlay:
+
+```bash
+pnpm k8s:staging:validate
 ```

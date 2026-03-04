@@ -1,0 +1,64 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+images:
+  - name: uniassist/gateway
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/gateway
+    newTag: staging-latest
+  - name: uniassist/provider-plan
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/provider-plan
+    newTag: staging-latest
+  - name: uniassist/adapter-wechat
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/adapter-wechat
+    newTag: staging-latest
+  - name: uniassist/worker
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/worker
+    newTag: staging-latest
+
+patches:
+  - path: remove-incluster-deps.patch.yaml
+  - path: configmap-staging.patch.yaml
+    target:
+      group: ""
+      version: v1
+      kind: ConfigMap
+      name: uniassist-common-config
+      namespace: uniassist-staging
+  - path: secret-staging.patch.yaml
+    target:
+      group: ""
+      version: v1
+      kind: Secret
+      name: uniassist-secrets
+      namespace: uniassist-staging
+  - path: gateway-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: gateway
+      namespace: uniassist-staging
+  - path: provider-plan-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: provider-plan
+      namespace: uniassist-staging
+  - path: adapter-wechat-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: adapter-wechat
+      namespace: uniassist-staging
+  - path: worker-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: worker
+      namespace: uniassist-staging

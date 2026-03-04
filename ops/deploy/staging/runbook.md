@@ -13,6 +13,8 @@
 4. Internal auth rollout uses `audit -> enforce`:
    - first deployment: `UNIASSIST_INTERNAL_AUTH_MODE=audit`
    - after verification + deny log review: switch to `enforce`
+5. Validate k8s overlay:
+   - `pnpm k8s:staging:validate`
 
 ## Pre-release gate (must pass)
 
@@ -35,6 +37,12 @@ If any step fails: stop rollout and fix before retry.
 4. Deploy `worker`
 
 After each step, check `/health` endpoint of updated service.
+
+K8s apply entry (human-run):
+
+```bash
+kubectl apply -k ops/deploy/k8s/overlays/staging
+```
 
 ## Post-release verification
 

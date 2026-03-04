@@ -18,6 +18,7 @@
     "release:verify:staging": "node ops/deploy/scripts/staging-post-deploy-check.mjs",
     "k8s:kind:up": "node ops/deploy/scripts/k8s-kind-up.mjs",
     "k8s:kind:down": "node ops/deploy/scripts/k8s-kind-down.mjs",
+    "k8s:staging:validate": "node ops/deploy/scripts/k8s-staging-validate.mjs",
     "lint": "eslint .",
     "typecheck": "tsc --noEmit",
     "typecheck:workspaces": "pnpm -r --if-present typecheck",

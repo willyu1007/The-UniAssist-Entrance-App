@@ -2,7 +2,7 @@
 
 ## Status
 - State: done
-- Next step: 基于当前清单扩展 staging 集群专用 overlay（镜像仓库、secret 管理、资源配额）。
+- Next step: 基于当前 staging overlay 继续补齐 PDB/HPA、network policy 和 ingress 策略。
 
 ## Goal
 为 UniAssist 建立一套可复现的 Kubernetes 基线环境（先本地 kind，再可迁移到 staging 集群）。

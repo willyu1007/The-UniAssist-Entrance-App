@@ -13,6 +13,10 @@
    - Result: PASS
 6. `node .ai/skills/features/deployment/scripts/ctl-deploy.mjs verify --repo-root .`
    - Result: PASS
+7. `pnpm k8s:staging:validate`
+   - Result: PASS
+8. `kubectl kustomize ops/deploy/k8s/overlays/staging`
+   - Result: PASS
 
 ## Manual smoke checks (executed)
 1. `pnpm k8s:kind:up`
@@ -31,6 +35,8 @@
    - Result: PASS (`/v0/ingest`, `/v0/interact`, `/v0/timeline` 返回预期结构)
 5. adapter wechat webhook smoke
    - Result: PASS (`/wechat/webhook` 返回 `ok=true`，成功透传 gateway)
+6. staging overlay render spot-check
+   - Result: PASS（渲染后仅包含 app 资源，不包含 `postgres/redis`，并正确替换镜像为 `ghcr.io/...:staging-latest`）
 
 ## Rollout / Backout
 - Rollout:

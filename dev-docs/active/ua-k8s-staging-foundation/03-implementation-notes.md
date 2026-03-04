@@ -31,11 +31,20 @@
   - `README.md`
   - `ops/deploy/README.md`
   - `ops/deploy/k8s/README.md`
+  - `ops/deploy/staging/runbook.md`
+  - `ops/deploy/staging/env.example`
 - 启用 deployment feature 配置并注册服务：
   - `ops/deploy/config.json`
   - `ops/deploy/environments/*.yaml`
   - `ops/deploy/http_services/*.yaml`
   - `ops/deploy/workloads/worker.yaml`
+- 新增 staging overlay（`ops/deploy/k8s/overlays/staging`）：
+  - 删除集群内 `postgres/redis`，改用外部依赖连接串
+  - staging 镜像仓库与 tag 占位
+  - gateway/provider/adapter/worker 资源 requests/limits 与副本基线
+- 新增 staging overlay 校验脚本：
+  - `ops/deploy/scripts/k8s-staging-validate.mjs`
+  - `pnpm k8s:staging:validate`
 
 ## Decisions & tradeoffs
 - 本地基线选择 `postgres + redis` 一并部署在集群中，避免依赖宿主机服务，提升复现稳定性。
@@ -44,7 +53,7 @@
 
 ## Known issues / follow-ups
 - staging/prod 需要替换 `base/secret.yaml` 的开发默认值并接入外部 secret manager。
-- staging overlay 仍待补：镜像仓库地址、资源 requests/limits、PDB/HPA、network policy。
+- 当前 staging overlay 已含镜像与基础资源限制；后续仍需补 PDB/HPA、network policy、ingress/gateway 策略。
 
 ## Pitfalls / dead ends (do not repeat)
 - Keep the detailed log in `05-pitfalls.md` (append-only).
