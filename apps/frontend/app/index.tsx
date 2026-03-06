@@ -432,6 +432,13 @@ export default function HomeScreen() {
   }, [appendInteractionItem, appendTextItem]);
 
   const sendTaskReply = useCallback(async (text: string, task: TaskThreadView) => {
+    const trimmed = text.trim();
+    const payload: Record<string, unknown> = { text };
+    const isDueDateQuestion = String(task.questionId || '').toLowerCase().includes('duedate');
+    if (isDueDateQuestion && /^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      payload.dueDate = trimmed;
+    }
+
     appendTextItem('user', text, 'app');
     await postInteraction({
       actionId: 'answer_task_question',
@@ -444,9 +451,7 @@ export default function HomeScreen() {
         taskId: task.taskId,
         questionId: task.questionId,
       },
-      data: {
-        text,
-      },
+      data: payload,
     });
   }, [appendTextItem, postInteraction]);
 

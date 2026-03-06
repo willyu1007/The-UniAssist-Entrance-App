@@ -210,8 +210,8 @@ export class GatewayPersistence {
 
     await this.pool.query(`
       CREATE TABLE IF NOT EXISTS task_threads (
-        task_id TEXT PRIMARY KEY,
         session_id TEXT NOT NULL,
+        task_id TEXT NOT NULL,
         provider_id TEXT NOT NULL,
         run_id TEXT NOT NULL,
         state TEXT NOT NULL,
@@ -219,9 +219,45 @@ export class GatewayPersistence {
         active_question_id TEXT,
         active_reply_token TEXT,
         metadata JSONB,
+        CONSTRAINT task_threads_pkey PRIMARY KEY (session_id, task_id),
         updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
+    `);
+
+    await this.pool.query(`
+      DO $$
+      DECLARE
+        pk_name TEXT;
+        pk_columns TEXT;
+      BEGIN
+        SELECT
+          c.conname,
+          string_agg(a.attname, ',' ORDER BY k.ord)
+        INTO pk_name, pk_columns
+        FROM pg_constraint c
+        JOIN pg_class t
+          ON t.oid = c.conrelid
+        JOIN pg_namespace n
+          ON n.oid = t.relnamespace
+        JOIN LATERAL unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+          ON TRUE
+        JOIN pg_attribute a
+          ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+        WHERE c.contype = 'p'
+          AND t.relname = 'task_threads'
+          AND n.nspname = current_schema()
+        GROUP BY c.conname;
+
+        IF pk_name IS NULL THEN
+          ALTER TABLE task_threads
+          ADD CONSTRAINT task_threads_pkey PRIMARY KEY (session_id, task_id);
+        ELSIF pk_columns = 'task_id' THEN
+          EXECUTE format('ALTER TABLE task_threads DROP CONSTRAINT %I', pk_name);
+          ALTER TABLE task_threads
+          ADD CONSTRAINT task_threads_pkey PRIMARY KEY (session_id, task_id);
+        END IF;
+      END $$;
     `);
 
     await this.pool.query(`
@@ -424,7 +460,7 @@ export class GatewayPersistence {
       ) VALUES (
         $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,NOW()
       )
-      ON CONFLICT (task_id)
+      ON CONFLICT (session_id, task_id)
       DO UPDATE SET
         session_id = EXCLUDED.session_id,
         provider_id = EXCLUDED.provider_id,

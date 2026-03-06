@@ -18,7 +18,6 @@ import type {
   RoutingDecision,
   TaskExecutionPolicy,
   TaskLifecycleState,
-  TaskQuestionExtensionEvent,
   TaskStateExtensionEvent,
   TimelineEvent,
   UnifiedUserInput,
@@ -222,19 +221,6 @@ const providerRegistry = new Map<string, ProviderRegistryEntry>(
   parseProviderRegistryFromEnv().map((entry) => [entry.providerId, entry]),
 );
 
-const PLAN_DATA_SCHEMA = {
-  type: 'object',
-  properties: {
-    goal: { type: 'string', title: '本次目标' },
-    dueDate: { type: 'string', title: '目标日期' },
-  },
-  required: ['goal'],
-};
-
-const PLAN_UI_SCHEMA = {
-  order: ['goal', 'dueDate'],
-};
-
 function uuid(): string {
   return crypto.randomUUID();
 }
@@ -437,7 +423,7 @@ function scoreCandidates(session: SessionState, input: UnifiedUserInput): Routin
   const lowered = text.toLowerCase();
 
   const scored = [...providerRegistry.values()]
-    .filter((provider) => provider.enabled)
+    .filter((provider) => provider.enabled && Boolean(provider.baseUrl))
     .map((provider) => {
     let score = 0;
     let hitCount = 0;
@@ -638,25 +624,6 @@ function findTaskThreadByReplyToken(sessionId: string, replyToken: string): Task
   const map = taskThreadsBySession.get(sessionId);
   if (!map) return undefined;
   return [...map.values()].find((thread) => thread.activeReplyToken === replyToken);
-}
-
-function buildTaskQuestionFallback(providerId: string, runId: string, taskId?: string): TaskQuestionExtensionEvent {
-  const finalTaskId = taskId || runId;
-  return {
-    type: 'provider_extension',
-    extensionKind: 'task_question',
-    payload: {
-      schemaVersion: 'v0',
-      providerId,
-      runId,
-      taskId: finalTaskId,
-      questionId: `${finalTaskId}:q:default`,
-      replyToken: uuid(),
-      prompt: '请补充任务目标和期望结果。',
-      answerSchema: PLAN_DATA_SCHEMA,
-      uiSchema: PLAN_UI_SCHEMA,
-    },
-  };
 }
 
 function normalizeProviderInteractionEvent(
@@ -998,10 +965,10 @@ async function invokeProvider(
     });
     return [
       {
-        type: 'assistant_message',
-        text: `${provider.providerId} 专项暂时不可用，入口将继续承接。`,
+        type: 'error',
+        userMessage: `${provider.providerId} 专项暂时不可用，已切换为入口兜底处理。`,
+        retryable: true,
       },
-      buildTaskQuestionFallback(provider.providerId, runId),
     ];
   }
 }
@@ -1031,13 +998,32 @@ async function interactProvider(
       providerId: provider.providerId,
       ...(error && typeof error === 'object' ? error : { message: String(error) }),
     });
-    return [
+    const fallbackEvents: InteractionEvent[] = [
       {
         type: 'error',
         userMessage: `${provider.providerId} 专项交互失败，入口将使用本地流程继续。`,
         retryable: true,
       },
     ];
+
+    if (interaction.inReplyTo?.taskId) {
+      fallbackEvents.push({
+        type: 'provider_extension',
+        extensionKind: 'task_state',
+        payload: {
+          schemaVersion: 'v0',
+          providerId: provider.providerId,
+          runId: interaction.runId,
+          taskId: interaction.inReplyTo.taskId,
+          state: 'failed',
+          executionPolicy: 'require_user_confirm',
+          metadata: {
+            reason: 'provider_interact_failed',
+          },
+        },
+      });
+    }
+    return fallbackEvents;
   }
 }
 
@@ -1468,10 +1454,21 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
       };
       emitEvent(session, effectiveInput, 'user_interaction', forwarded as unknown as Record<string, unknown>, thread.providerId, runId);
 
-      if (provider) {
+      if (provider && provider.enabled && provider.baseUrl) {
         const providerEvents = await interactProvider(provider, forwarded, contextPackage);
         await emitProviderEvents(session, effectiveInput, thread.providerId, runId, providerEvents);
       } else {
+        updateTaskThread(session.sessionId, {
+          ...thread,
+          state: 'failed',
+          activeQuestionId: undefined,
+          activeReplyToken: undefined,
+          metadata: {
+            ...(thread.metadata || {}),
+            reason: 'provider_unavailable_or_unregistered',
+          },
+          updatedAt: now(),
+        });
         emitEvent(session, effectiveInput, 'interaction', {
           event: {
             type: 'error',
@@ -1624,7 +1621,7 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
       });
 
       const provider = getProviderEntry(candidate.providerId);
-      if (!provider || !provider.enabled) {
+      if (!provider || !provider.enabled || !provider.baseUrl) {
         const msg: InteractionEvent = {
           type: 'assistant_message',
           text: `${candidate.providerId} 专项未注册，入口将先行承接。`,
@@ -1835,10 +1832,23 @@ app.post('/v0/interact', async (req, res) => {
     const contextPackage = buildContextPackage(inputRef, session);
     const provider = getProviderEntry(interaction.providerId);
 
-    if (provider && provider.enabled) {
+    if (provider && provider.enabled && provider.baseUrl) {
       const providerEvents = await interactProvider(provider, interaction, contextPackage);
       await emitProviderEvents(session, inputRef, interaction.providerId, interaction.runId, providerEvents);
     } else {
+      if (thread) {
+        updateTaskThread(session.sessionId, {
+          ...thread,
+          state: 'failed',
+          activeQuestionId: undefined,
+          activeReplyToken: undefined,
+          metadata: {
+            ...(thread.metadata || {}),
+            reason: 'provider_unavailable_or_unregistered',
+          },
+          updatedAt: now(),
+        });
+      }
       emitEvent(session, inputRef, 'interaction', {
         event: {
           type: 'error',

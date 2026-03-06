@@ -187,6 +187,12 @@ function extractGoalText(payload: Record<string, unknown> | undefined): string |
 function extractDueDate(payload: Record<string, unknown> | undefined): string | undefined {
   if (!payload) return undefined;
   if (typeof payload.dueDate === 'string' && payload.dueDate.trim()) return payload.dueDate.trim();
+  if (typeof payload.text === 'string') {
+    const trimmed = payload.text.trim();
+    if (/^\d{4}-\d{2}-\d{2}$/.test(trimmed)) {
+      return trimmed;
+    }
+  }
   return undefined;
 }
 
