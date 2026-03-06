@@ -86,3 +86,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-multi-provider-task-orchestration
     updated: 2026-03-06
+  - id: T-010
+    slug: split-monolith-gateway-frontend
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/split-monolith-gateway-frontend
+    updated: 2026-03-06

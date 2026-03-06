@@ -1,0 +1,6 @@
+version: 1
+task_id: T-010
+project: main
+slug: split-monolith-gateway-frontend
+status: done
+updated: "2026-03-06"

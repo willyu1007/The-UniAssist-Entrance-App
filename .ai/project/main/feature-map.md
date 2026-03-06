@@ -21,4 +21,5 @@ Project: `main`
 | T-007 ua-second-provider-integration | blocked | dev-docs/active/ua-second-provider-integration |
 | T-008 ua-k8s-staging-foundation | done | dev-docs/active/ua-k8s-staging-foundation |
 | T-009 ua-multi-provider-task-orchestration | done | dev-docs/active/ua-multi-provider-task-orchestration |
+| T-010 split-monolith-gateway-frontend | done | dev-docs/active/split-monolith-gateway-frontend |
 <!-- AUTO-GENERATED:END feature-map -->
