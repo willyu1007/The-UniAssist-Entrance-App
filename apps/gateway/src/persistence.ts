@@ -1,7 +1,7 @@
 import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
 
-import type { TimelineEvent } from '@baseinterface/contracts';
+import type { TaskExecutionPolicy, TaskLifecycleState, TimelineEvent } from '@baseinterface/contracts';
 import { createLogger, serializeError } from '@baseinterface/shared';
 
 export type StoredSession = {
@@ -28,6 +28,19 @@ export type ProviderRunRecord = {
   routingMode: 'normal' | 'fallback';
   idempotencyKey: string;
   status: string;
+};
+
+export type TaskThreadRecord = {
+  taskId: string;
+  sessionId: string;
+  providerId: string;
+  runId: string;
+  state: TaskLifecycleState;
+  executionPolicy: TaskExecutionPolicy;
+  activeQuestionId?: string;
+  activeReplyToken?: string;
+  metadata?: Record<string, unknown>;
+  updatedAt?: number;
 };
 
 type UserContextCacheRecord = {
@@ -196,6 +209,22 @@ export class GatewayPersistence {
     `);
 
     await this.pool.query(`
+      CREATE TABLE IF NOT EXISTS task_threads (
+        task_id TEXT PRIMARY KEY,
+        session_id TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        run_id TEXT NOT NULL,
+        state TEXT NOT NULL,
+        execution_policy TEXT NOT NULL,
+        active_question_id TEXT,
+        active_reply_token TEXT,
+        metadata JSONB,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+    `);
+
+    await this.pool.query(`
       ALTER TABLE outbox_events
       ADD COLUMN IF NOT EXISTS attempts INT NOT NULL DEFAULT 0,
       ADD COLUMN IF NOT EXISTS max_attempts INT NOT NULL DEFAULT 12,
@@ -216,6 +245,9 @@ export class GatewayPersistence {
       CREATE INDEX IF NOT EXISTS idx_outbox_events_status_created_at ON outbox_events(status, created_at);
       CREATE INDEX IF NOT EXISTS idx_outbox_events_status_next_retry ON outbox_events(status, next_retry_at);
       CREATE INDEX IF NOT EXISTS idx_user_context_cache_ttl ON user_context_cache(ttl_expires_at);
+      CREATE INDEX IF NOT EXISTS idx_task_threads_session_id ON task_threads(session_id);
+      CREATE INDEX IF NOT EXISTS idx_task_threads_session_state ON task_threads(session_id, state);
+      CREATE INDEX IF NOT EXISTS idx_task_threads_active_reply_token ON task_threads(active_reply_token);
     `);
   }
 
@@ -372,6 +404,83 @@ export class GatewayPersistence {
       run.idempotencyKey,
       run.status,
     ]);
+  }
+
+  async saveTaskThread(record: TaskThreadRecord): Promise<void> {
+    if (!this.pool) return;
+
+    await this.pool.query(`
+      INSERT INTO task_threads (
+        task_id,
+        session_id,
+        provider_id,
+        run_id,
+        state,
+        execution_policy,
+        active_question_id,
+        active_reply_token,
+        metadata,
+        updated_at
+      ) VALUES (
+        $1,$2,$3,$4,$5,$6,$7,$8,$9::jsonb,NOW()
+      )
+      ON CONFLICT (task_id)
+      DO UPDATE SET
+        session_id = EXCLUDED.session_id,
+        provider_id = EXCLUDED.provider_id,
+        run_id = EXCLUDED.run_id,
+        state = EXCLUDED.state,
+        execution_policy = EXCLUDED.execution_policy,
+        active_question_id = EXCLUDED.active_question_id,
+        active_reply_token = EXCLUDED.active_reply_token,
+        metadata = EXCLUDED.metadata,
+        updated_at = NOW()
+    `, [
+      record.taskId,
+      record.sessionId,
+      record.providerId,
+      record.runId,
+      record.state,
+      record.executionPolicy,
+      record.activeQuestionId || null,
+      record.activeReplyToken || null,
+      JSON.stringify(record.metadata || {}),
+    ]);
+  }
+
+  async listTaskThreads(sessionId: string): Promise<TaskThreadRecord[]> {
+    if (!this.pool) return [];
+
+    const result = await this.pool.query(`
+      SELECT
+        task_id,
+        session_id,
+        provider_id,
+        run_id,
+        state,
+        execution_policy,
+        active_question_id,
+        active_reply_token,
+        metadata,
+        updated_at
+      FROM task_threads
+      WHERE session_id = $1
+      ORDER BY updated_at DESC
+      LIMIT 200
+    `, [sessionId]);
+
+    return result.rows.map((row: Record<string, unknown>) => ({
+      taskId: String(row.task_id),
+      sessionId: String(row.session_id),
+      providerId: String(row.provider_id),
+      runId: String(row.run_id),
+      state: String(row.state) as TaskLifecycleState,
+      executionPolicy: String(row.execution_policy) as TaskExecutionPolicy,
+      activeQuestionId: row.active_question_id ? String(row.active_question_id) : undefined,
+      activeReplyToken: row.active_reply_token ? String(row.active_reply_token) : undefined,
+      metadata: (row.metadata || {}) as Record<string, unknown>,
+      updatedAt: toMsFromDate(row.updated_at),
+    }));
   }
 
   private sessionStreamKey(sessionId: string): string {

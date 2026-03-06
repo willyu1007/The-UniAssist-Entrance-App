@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-02-23T08:04:50.240Z",
+  "updatedAt": "2026-03-05T23:59:29.209Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -547,6 +547,162 @@
           ],
           "name": null,
           "map": "idx_sessions_user_id"
+        }
+      ]
+    },
+    {
+      "name": "TaskThread",
+      "dbName": "task_threads",
+      "schema": null,
+      "columns": [
+        {
+          "name": "activeQuestionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "active_question_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "activeReplyToken",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "active_reply_token",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "executionPolicy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "execution_policy",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "metadata",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "providerId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "provider_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "state",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "taskId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "task_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "activeReplyToken"
+          ],
+          "name": null,
+          "map": "idx_task_threads_active_reply_token"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "sessionId",
+            "state"
+          ],
+          "name": null,
+          "map": "idx_task_threads_session_state"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "sessionId"
+          ],
+          "name": null,
+          "map": "idx_task_threads_session_id"
         }
       ]
     },

@@ -15,6 +15,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type {
   IngestAck,
   InteractionEvent,
+  TaskExecutionPolicy,
+  TaskLifecycleState,
   TimelineEvent,
   UnifiedUserInput,
   UserInteraction,
@@ -62,6 +64,28 @@ type SwitchSuggestion = {
   runId?: string;
 };
 
+type TaskThreadView = {
+  taskId: string;
+  providerId: string;
+  runId: string;
+  state: TaskLifecycleState;
+  executionPolicy: TaskExecutionPolicy;
+  questionId?: string;
+  replyToken?: string;
+  prompt?: string;
+};
+
+type FocusedTaskResponse = {
+  accepted?: boolean;
+  newSessionId?: string;
+  focusedTask?: {
+    taskId: string;
+    providerId: string;
+    runId: string;
+    replyToken?: string;
+  };
+};
+
 function makeId(prefix: string): string {
   return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
@@ -99,9 +123,15 @@ export default function HomeScreen() {
   const [switchSuggestion, setSwitchSuggestion] = useState<SwitchSuggestion | null>(null);
   const [transportMode, setTransportMode] = useState<TimelineTransportMode>('idle');
   const [transportState, setTransportState] = useState<TimelineTransportState>('closed');
+  const [taskThreads, setTaskThreads] = useState<Record<string, TaskThreadView>>({});
+  const [activeTask, setActiveTask] = useState<TaskThreadView | null>(null);
 
   const seenEventIds = useRef<Set<string>>(new Set());
   const transportRef = useRef<TimelineTransport | null>(null);
+  const pendingTasks = useMemo(
+    () => Object.values(taskThreads).filter((thread) => thread.state === 'collecting' && Boolean(thread.replyToken)),
+    [taskThreads],
+  );
 
   const appendTextItem = useCallback((role: ChatItem['role'], text: string, label?: string, providerId?: string, runId?: string) => {
     setItems((prev) => [
@@ -115,6 +145,48 @@ export default function HomeScreen() {
         runId,
       },
     ]);
+  }, []);
+
+  const upsertTaskQuestion = useCallback((task: TaskThreadView) => {
+    setTaskThreads((prev) => ({
+      ...prev,
+      [task.taskId]: task,
+    }));
+    setActiveTask((prev) => {
+      if (!prev) return task;
+      if (prev.taskId === task.taskId) return task;
+      return prev;
+    });
+  }, []);
+
+  const upsertTaskState = useCallback((task: TaskThreadView) => {
+    setTaskThreads((prev) => {
+      const existing = prev[task.taskId];
+      const merged: TaskThreadView = {
+        ...(existing || task),
+        ...task,
+        questionId: task.state === 'collecting' ? (task.questionId || existing?.questionId) : undefined,
+        replyToken: task.state === 'collecting' ? (task.replyToken || existing?.replyToken) : undefined,
+        prompt: task.prompt || existing?.prompt,
+      };
+      return {
+        ...prev,
+        [task.taskId]: merged,
+      };
+    });
+
+    setActiveTask((prev) => {
+      if (!prev || prev.taskId !== task.taskId) return prev;
+      const merged: TaskThreadView = {
+        ...prev,
+        ...task,
+        questionId: task.state === 'collecting' ? (task.questionId || prev.questionId) : undefined,
+        replyToken: task.state === 'collecting' ? (task.replyToken || prev.replyToken) : undefined,
+        prompt: task.prompt || prev.prompt,
+      };
+      if (task.state === 'completed' || task.state === 'failed') return null;
+      return merged;
+    });
   }, []);
 
   const appendInteractionItem = useCallback((interaction: InteractionEvent, label: string, providerId?: string, runId?: string) => {
@@ -146,6 +218,29 @@ export default function HomeScreen() {
       }
     }
 
+    if (type === 'provider_extension' && interaction.extensionKind === 'task_question') {
+      upsertTaskQuestion({
+        taskId: interaction.payload.taskId,
+        providerId: interaction.payload.providerId,
+        runId: interaction.payload.runId,
+        state: 'collecting',
+        executionPolicy: 'require_user_confirm',
+        questionId: interaction.payload.questionId,
+        replyToken: interaction.payload.replyToken,
+        prompt: interaction.payload.prompt,
+      });
+    }
+
+    if (type === 'provider_extension' && interaction.extensionKind === 'task_state') {
+      upsertTaskState({
+        taskId: interaction.payload.taskId,
+        providerId: interaction.payload.providerId,
+        runId: interaction.payload.runId,
+        state: interaction.payload.state,
+        executionPolicy: interaction.payload.executionPolicy,
+      });
+    }
+
     setItems((prev) => [
       ...prev,
       {
@@ -157,7 +252,7 @@ export default function HomeScreen() {
         runId,
       },
     ]);
-  }, [appendTextItem]);
+  }, [appendTextItem, upsertTaskQuestion, upsertTaskState]);
 
   const appendTimelineEvent = useCallback((event: TimelineEvent) => {
     if (seenEventIds.current.has(event.eventId)) return;
@@ -217,14 +312,23 @@ export default function HomeScreen() {
     setSessionId(nextSessionId || makeId('session'));
     setCursor(0);
     setItems([]);
+    setTaskThreads({});
+    setActiveTask(null);
     seenEventIds.current.clear();
     setSwitchSuggestion(null);
   }, []);
 
-  const postInteraction = useCallback(async (payload: { actionId: string; providerId: string; runId?: string; data?: Record<string, unknown> }) => {
+  const postInteraction = useCallback(async (payload: {
+    actionId: string;
+    providerId: string;
+    runId?: string;
+    data?: Record<string, unknown>;
+    replyToken?: string;
+    inReplyTo?: UserInteraction['inReplyTo'];
+  }): Promise<FocusedTaskResponse | null> => {
     if (!GATEWAY_BASE_URL) {
       appendTextItem('system', `本地模式已处理动作：${payload.actionId}`, 'local');
-      return;
+      return { accepted: true };
     }
 
     const interaction: UserInteraction = {
@@ -236,6 +340,8 @@ export default function HomeScreen() {
       runId: payload.runId || makeId('run'),
       actionId: payload.actionId,
       payload: payload.data,
+      replyToken: payload.replyToken,
+      inReplyTo: payload.inReplyTo,
       timestampMs: Date.now(),
     };
 
@@ -248,13 +354,26 @@ export default function HomeScreen() {
 
       if (!response.ok) {
         appendTextItem('system', `交互回传失败：${response.status}`, 'engine');
-        return;
+        return null;
       }
 
-      const json = (await response.json()) as { accepted?: boolean; newSessionId?: string };
+      const json = (await response.json()) as FocusedTaskResponse;
       if (json.newSessionId) {
         resetSession(json.newSessionId);
         setToastMessage('已创建新会话');
+      }
+
+      if (json.focusedTask) {
+        const focused: TaskThreadView = {
+          taskId: json.focusedTask.taskId,
+          providerId: json.focusedTask.providerId,
+          runId: json.focusedTask.runId,
+          state: 'collecting',
+          executionPolicy: 'require_user_confirm',
+          replyToken: json.focusedTask.replyToken,
+        };
+        upsertTaskQuestion(focused);
+        setActiveTask(focused);
       }
 
       if (payload.actionId.startsWith('switch_provider:')) {
@@ -262,10 +381,12 @@ export default function HomeScreen() {
       }
 
       void transportRef.current?.syncNow();
+      return json;
     } catch {
       appendTextItem('system', '交互回传异常，请稍后重试', 'engine');
+      return null;
     }
-  }, [appendTextItem, resetSession, sessionId, userId]);
+  }, [appendTextItem, resetSession, sessionId, upsertTaskQuestion, userId]);
 
   const simulateLocalFlow = useCallback((text: string) => {
     const isPlan = /计划|安排|日程|目标|规划/.test(text);
@@ -277,28 +398,32 @@ export default function HomeScreen() {
     }
 
     if (isPlan) {
+      const runId = makeId('run');
+      const taskId = `task:${runId}`;
       const interaction: InteractionEvent = {
         type: 'provider_extension',
-        extensionKind: 'data_collection_request',
+        extensionKind: 'task_question',
         payload: {
           schemaVersion: 'v0',
           providerId: 'plan',
-          taskId: makeId('run'),
-          status: 'pending',
-          dataSchema: {
+          runId,
+          taskId,
+          questionId: `${taskId}:goal`,
+          replyToken: makeId('reply'),
+          prompt: '请告诉我这次计划的核心目标。',
+          answerSchema: {
             type: 'object',
             properties: {
-              goal: { type: 'string', title: '本次目标' },
-              dueDate: { type: 'string', title: '目标日期' },
+              text: { type: 'string', title: '任务目标' },
             },
-            required: ['goal'],
+            required: ['text'],
           },
           uiSchema: {
-            order: ['goal', 'dueDate'],
+            order: ['text'],
           },
         },
       };
-      appendInteractionItem(interaction, 'plan · local', 'plan', makeId('run'));
+      appendInteractionItem(interaction, 'plan · local', 'plan', runId);
     }
 
     if (isWork) {
@@ -306,7 +431,26 @@ export default function HomeScreen() {
     }
   }, [appendInteractionItem, appendTextItem]);
 
-  const handleSend = useCallback(async (text: string) => {
+  const sendTaskReply = useCallback(async (text: string, task: TaskThreadView) => {
+    appendTextItem('user', text, 'app');
+    await postInteraction({
+      actionId: 'answer_task_question',
+      providerId: task.providerId,
+      runId: task.runId,
+      replyToken: task.replyToken,
+      inReplyTo: {
+        providerId: task.providerId,
+        runId: task.runId,
+        taskId: task.taskId,
+        questionId: task.questionId,
+      },
+      data: {
+        text,
+      },
+    });
+  }, [appendTextItem, postInteraction]);
+
+  const sendIngestText = useCallback(async (text: string) => {
     appendTextItem('user', text, 'app');
 
     if (!GATEWAY_BASE_URL) {
@@ -355,6 +499,49 @@ export default function HomeScreen() {
     }
   }, [appendInteractionItem, appendTextItem, sessionId, simulateLocalFlow, userId]);
 
+  const promptSelectTaskAndSend = useCallback((text: string, tasks: TaskThreadView[]) => {
+    Alert.alert(
+      '选择任务后继续',
+      '当前有多个待回复任务，请先选择目标任务。',
+      [
+        ...tasks.map((task) => ({
+          text: `${task.providerId} · ${task.taskId}`,
+          onPress: () => {
+            setActiveTask(task);
+            void postInteraction({
+              actionId: `focus_task:${task.taskId}`,
+              providerId: task.providerId,
+              runId: task.runId,
+            });
+            void sendTaskReply(text, task);
+          },
+        })),
+        { text: '取消', style: 'cancel' },
+      ],
+    );
+  }, [postInteraction, sendTaskReply]);
+
+  const handleSend = useCallback(async (text: string) => {
+    if (activeTask?.replyToken) {
+      await sendTaskReply(text, activeTask);
+      return;
+    }
+
+    if (pendingTasks.length > 1) {
+      promptSelectTaskAndSend(text, pendingTasks);
+      return;
+    }
+
+    if (pendingTasks.length === 1) {
+      const pending = pendingTasks[0];
+      setActiveTask(pending);
+      await sendTaskReply(text, pending);
+      return;
+    }
+
+    await sendIngestText(text);
+  }, [activeTask, pendingTasks, promptSelectTaskAndSend, sendIngestText, sendTaskReply]);
+
   const handleVoiceStart = useCallback(async () => {
     const ok = await voice.start();
     if (!ok) {
@@ -393,12 +580,23 @@ export default function HomeScreen() {
               {event.actions.map((action) => (
                 <Pressable
                   key={action.actionId}
-                  onPress={() => {
-                    void postInteraction({
+                  onPress={async () => {
+                    const result = await postInteraction({
                       actionId: action.actionId,
                       providerId: item.providerId || 'builtin_chat',
                       runId: item.runId,
                     });
+                    if (action.actionId.startsWith('focus_task:') && result?.focusedTask) {
+                      setActiveTask({
+                        taskId: result.focusedTask.taskId,
+                        providerId: result.focusedTask.providerId,
+                        runId: result.focusedTask.runId,
+                        state: 'collecting',
+                        executionPolicy: 'require_user_confirm',
+                        replyToken: result.focusedTask.replyToken,
+                      });
+                      setToastMessage(`已聚焦任务 ${result.focusedTask.taskId}`);
+                    }
                   }}
                   style={({ pressed }) => [
                     styles.actionBtn,
@@ -454,6 +652,109 @@ export default function HomeScreen() {
     }
 
     if (event.type === 'provider_extension') {
+      if (event.extensionKind === 'task_question') {
+        const fields = Object.keys((event.payload.answerSchema?.properties || {}) as Record<string, unknown>);
+        return (
+          <View>
+            <Text variant="label">
+              任务提问 · {event.payload.providerId}
+            </Text>
+            <Text variant="caption" tone="muted" style={{ marginTop: 4 }}>
+              {event.payload.prompt}
+            </Text>
+            {fields.map((field) => (
+              <Text key={field} variant="caption" tone="muted" style={{ marginTop: 2 }}>
+                - {field}
+              </Text>
+            ))}
+            <View style={styles.actionRow}>
+              <Pressable
+                onPress={() => {
+                  const focused: TaskThreadView = {
+                    taskId: event.payload.taskId,
+                    providerId: event.payload.providerId,
+                    runId: event.payload.runId,
+                    state: 'collecting',
+                    executionPolicy: 'require_user_confirm',
+                    questionId: event.payload.questionId,
+                    replyToken: event.payload.replyToken,
+                    prompt: event.payload.prompt,
+                  };
+                  setActiveTask(focused);
+                  setToastMessage(`已聚焦任务 ${focused.taskId}`);
+                  void postInteraction({
+                    actionId: `focus_task:${event.payload.taskId}`,
+                    providerId: event.payload.providerId,
+                    runId: event.payload.runId,
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  {
+                    marginTop: t.space[2],
+                    backgroundColor: pressed ? t.color.primaryActive : t.color.primary,
+                    borderRadius: t.radius.md,
+                  },
+                ]}
+              >
+                <Text variant="caption" style={{ color: t.color.onPrimary }}>
+                  继续此任务
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      }
+
+      if (event.extensionKind === 'task_state') {
+        const stateText: Record<TaskLifecycleState, string> = {
+          collecting: '信息收集中',
+          ready: '已就绪',
+          executing: '执行中',
+          completed: '已完成',
+          failed: '执行失败',
+        };
+
+        return (
+          <View>
+            <Text variant="label">
+              任务状态 · {event.payload.providerId}
+            </Text>
+            <Text variant="caption" tone="muted" style={{ marginTop: 4 }}>
+              任务 {event.payload.taskId}: {stateText[event.payload.state]}
+            </Text>
+            {event.payload.state === 'ready' && event.payload.executionPolicy === 'require_user_confirm' ? (
+              <Pressable
+                onPress={() => {
+                  void postInteraction({
+                    actionId: `execute_task:${event.payload.taskId}`,
+                    providerId: event.payload.providerId,
+                    runId: event.payload.runId,
+                    inReplyTo: {
+                      providerId: event.payload.providerId,
+                      runId: event.payload.runId,
+                      taskId: event.payload.taskId,
+                    },
+                  });
+                }}
+                style={({ pressed }) => [
+                  styles.actionBtn,
+                  {
+                    marginTop: t.space[2],
+                    backgroundColor: pressed ? t.color.primaryActive : t.color.primary,
+                    borderRadius: t.radius.md,
+                  },
+                ]}
+              >
+                <Text variant="caption" style={{ color: t.color.onPrimary }}>
+                  确认执行
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        );
+      }
+
       if (event.extensionKind === 'data_collection_request') {
         const fields = Object.keys((event.payload.dataSchema?.properties || {}) as Record<string, unknown>);
         return (
@@ -507,7 +808,9 @@ export default function HomeScreen() {
         <View>
           <Text variant="label">资料处理结果</Text>
           <Text variant="caption" tone="muted" style={{ marginTop: 4 }}>
-            {JSON.stringify(event.payload.values || {}, null, 2)}
+            {event.extensionKind === 'data_collection_result'
+              ? JSON.stringify(event.payload.values || {}, null, 2)
+              : '{}'}
           </Text>
         </View>
       );
@@ -679,6 +982,69 @@ export default function HomeScreen() {
           </View>
         ) : null}
 
+        {activeTask ? (
+          <View
+            style={[
+              styles.taskFocusWrap,
+              {
+                paddingHorizontal: t.space[4],
+                paddingBottom: t.space[2],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.taskFocusPill,
+                {
+                  borderRadius: t.radius.full,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                当前任务: {activeTask.providerId} · {activeTask.taskId}
+              </Text>
+              <Pressable
+                onPress={() => setActiveTask(null)}
+                style={({ pressed }) => [
+                  styles.taskFocusClear,
+                  { opacity: pressed ? 0.6 : 1 },
+                ]}
+              >
+                <Ionicons name="close" size={14} color={t.color.textSecondary} />
+              </Pressable>
+            </View>
+          </View>
+        ) : pendingTasks.length > 1 ? (
+          <View
+            style={[
+              styles.taskFocusWrap,
+              {
+                paddingHorizontal: t.space[4],
+                paddingBottom: t.space[2],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.taskFocusPill,
+                {
+                  borderRadius: t.radius.full,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                检测到 {pendingTasks.length} 个待处理任务，发送前会先选择目标任务
+              </Text>
+            </View>
+          </View>
+        ) : null}
+
         <View
           style={[
             styles.inputBar,
@@ -699,6 +1065,7 @@ export default function HomeScreen() {
             onVoiceCancel={handleVoiceCancel}
             voiceState={voice.state}
             voiceMetering={voice.metering}
+            placeholder={activeTask ? `回复任务 ${activeTask.taskId}...` : '给 AI 发消息…'}
           />
         </View>
       </View>
@@ -769,6 +1136,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 6,
     paddingHorizontal: 10,
+  },
+  taskFocusWrap: {},
+  taskFocusPill: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    gap: 6,
+  },
+  taskFocusClear: {
+    marginLeft: 6,
+    width: 20,
+    height: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   transportStatusWrap: {},
   transportStatusPill: {

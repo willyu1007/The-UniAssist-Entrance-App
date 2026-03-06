@@ -1,8 +1,8 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Next step: 选定 `work` 或 `reminder` 作为第二专项并冻结契约。
+- State: blocked
+- Next step: 等待 T-009（`ua-multi-provider-task-orchestration`）完成通用编排框架后再恢复。
 
 ## Goal
 把当前“单真实专项可用”升级为“多真实专项可用”，验证统一入口的多路分发与聚合能力。
@@ -13,7 +13,10 @@
 
 ## Context
 - 现有 `plan` 专项已接入并可端到端运行。
-- 需要验证 Top2 并行分发与多路交互收敛在真实专项下的稳定性。
+- 多 provider 通用交互编排尚未完成，直接接入第二专项会导致重复改造。
+
+## Dependency
+- Blocked by: `T-009 ua-multi-provider-task-orchestration`
 
 ## Acceptance criteria (high level)
 - [ ] 第二专项完成 invoke/interact 接入并通过 conformance。

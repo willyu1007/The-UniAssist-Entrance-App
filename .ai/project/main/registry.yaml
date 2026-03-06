@@ -67,11 +67,11 @@ tasks:
     updated: 2026-03-04
   - id: T-007
     slug: ua-second-provider-integration
-    status: planned
+    status: blocked
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-second-provider-integration
-    updated: 2026-02-23
+    updated: 2026-03-06
   - id: T-008
     slug: ua-k8s-staging-foundation
     status: done
@@ -79,3 +79,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-k8s-staging-foundation
     updated: 2026-03-04
+  - id: T-009
+    slug: ua-multi-provider-task-orchestration
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-multi-provider-task-orchestration
+    updated: 2026-03-06

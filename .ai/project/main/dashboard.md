@@ -8,12 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 8 (planned: 1, in-progress: 6, blocked: 0, done: 1, archived: 0)
+- Tasks: 9 (planned: 0, in-progress: 6, blocked: 1, done: 2, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
+| T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 | T-006 ua-v1-internal-security | in-progress | F-000 | dev-docs/active/ua-v1-internal-security |
 | T-008 ua-k8s-staging-foundation | done | F-000 | dev-docs/active/ua-k8s-staging-foundation |
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
@@ -21,5 +23,4 @@ Project: `main`
 | T-002 ua-staging-release-baseline | in-progress | F-000 | dev-docs/active/ua-staging-release-baseline |
 | T-003 ua-observability-alerting | in-progress | F-000 | dev-docs/active/ua-observability-alerting |
 | T-004 ua-worker-reliability-hardening | in-progress | F-000 | dev-docs/active/ua-worker-reliability-hardening |
-| T-007 ua-second-provider-integration | planned | F-000 | dev-docs/active/ua-second-provider-integration |
 <!-- AUTO-GENERATED:END dashboard -->

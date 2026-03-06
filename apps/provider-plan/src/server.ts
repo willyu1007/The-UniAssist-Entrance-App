@@ -1,3 +1,4 @@
+import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import express from 'express';
 
@@ -7,6 +8,8 @@ import type {
   ProviderInteractResponse,
   ProviderInvokeRequest,
   ProviderInvokeResponse,
+  TaskQuestionExtensionEvent,
+  TaskStateExtensionEvent,
 } from '@baseinterface/contracts';
 import {
   createLogger,
@@ -27,25 +30,43 @@ const INTERNAL_AUTH_CONFIG = (() => {
 const logger = createLogger({ service: 'provider-plan' });
 const internalNonceStore = createMemoryNonceStore();
 
-const PLAN_DATA_SCHEMA = {
-  type: 'object',
-  properties: {
-    goal: { type: 'string', title: '本次目标' },
-    dueDate: { type: 'string', title: '目标日期' },
-  },
-  required: ['goal'],
-};
-
-const PLAN_UI_SCHEMA = {
-  order: ['goal', 'dueDate'],
-};
-
 type RawBodyRequest = Request & { rawBody?: string };
 
 type InternalAuthOptions = {
   endpoint: string;
   requiredScopes: string[];
   traceId?: string;
+};
+
+type PlanTaskMemory = {
+  goal?: string;
+  dueDate?: string;
+};
+
+const planTaskMemory = new Map<string, PlanTaskMemory>();
+
+const GOAL_SCHEMA = {
+  type: 'object',
+  properties: {
+    text: { type: 'string', title: '任务目标' },
+  },
+  required: ['text'],
+};
+
+const DUE_DATE_SCHEMA = {
+  type: 'object',
+  properties: {
+    dueDate: { type: 'string', title: '目标日期' },
+  },
+  required: ['dueDate'],
+};
+
+const GOAL_UI_SCHEMA = {
+  order: ['text'],
+};
+
+const DUE_DATE_UI_SCHEMA = {
+  order: ['dueDate'],
 };
 
 function buildAuthError(
@@ -105,19 +126,68 @@ async function guardInternalAuth(
   return false;
 }
 
-function buildCollectionRequest(taskId: string): InteractionEvent {
+function buildTaskQuestion(
+  runId: string,
+  taskId: string,
+  questionId: string,
+  prompt: string,
+  answerSchema: Record<string, unknown>,
+  uiSchema: Record<string, unknown>,
+): TaskQuestionExtensionEvent {
   return {
     type: 'provider_extension',
-    extensionKind: 'data_collection_request',
+    extensionKind: 'task_question',
     payload: {
       schemaVersion: 'v0',
       providerId: 'plan',
+      runId,
       taskId,
-      dataSchema: PLAN_DATA_SCHEMA,
-      uiSchema: PLAN_UI_SCHEMA,
-      status: 'pending',
+      questionId,
+      replyToken: crypto.randomUUID(),
+      prompt,
+      answerSchema,
+      uiSchema,
     },
   };
+}
+
+function buildTaskState(
+  runId: string,
+  taskId: string,
+  state: TaskStateExtensionEvent['payload']['state'],
+  executionPolicy: TaskStateExtensionEvent['payload']['executionPolicy'],
+  metadata?: Record<string, unknown>,
+): TaskStateExtensionEvent {
+  return {
+    type: 'provider_extension',
+    extensionKind: 'task_state',
+    payload: {
+      schemaVersion: 'v0',
+      providerId: 'plan',
+      runId,
+      taskId,
+      state,
+      executionPolicy,
+      metadata,
+    },
+  };
+}
+
+function normalizeTaskId(body: ProviderInteractRequest): string {
+  return body.interaction.inReplyTo?.taskId || body.interaction.runId;
+}
+
+function extractGoalText(payload: Record<string, unknown> | undefined): string | undefined {
+  if (!payload) return undefined;
+  if (typeof payload.text === 'string' && payload.text.trim()) return payload.text.trim();
+  if (typeof payload.goal === 'string' && payload.goal.trim()) return payload.goal.trim();
+  return undefined;
+}
+
+function extractDueDate(payload: Record<string, unknown> | undefined): string | undefined {
+  if (!payload) return undefined;
+  if (typeof payload.dueDate === 'string' && payload.dueDate.trim()) return payload.dueDate.trim();
+  return undefined;
 }
 
 const app = express();
@@ -149,11 +219,11 @@ app.get('/.well-known/uniassist/manifest.json', (_req, res) => {
     schemaVersion: 'v0',
     providerId: 'plan',
     name: 'Plan Provider',
-    version: '0.1.0',
-    description: 'Planning provider for UniAssist v0.',
+    version: '0.2.0',
+    description: 'Planning provider for UniAssist v0 task orchestration.',
     capabilities: {
       inputs: ['text'],
-      interactionEvents: ['ack', 'assistant_message', 'provider_extension', 'request_clarification'],
+      interactionEvents: ['ack', 'assistant_message', 'provider_extension', 'request_clarification', 'card'],
       streaming: true,
     },
     navigation: {
@@ -194,9 +264,12 @@ app.post('/v0/invoke', async (req: RawBodyRequest, res) => {
     return;
   }
 
+  const taskId = `task:${body.run.runId}`;
+  planTaskMemory.set(taskId, {});
+
   const ack: InteractionEvent = {
     type: 'ack',
-    message: 'plan 专项已接收请求，正在准备资料收集表单。',
+    message: 'plan 专项已接收请求，先确认任务目标。',
   };
 
   const response: ProviderInvokeResponse = {
@@ -204,7 +277,16 @@ app.post('/v0/invoke', async (req: RawBodyRequest, res) => {
     runId: body.run.runId,
     providerId: 'plan',
     ack,
-    immediateEvents: [buildCollectionRequest(body.run.runId)],
+    immediateEvents: [
+      buildTaskQuestion(
+        body.run.runId,
+        taskId,
+        `${taskId}:goal`,
+        '请告诉我这次计划的核心目标。',
+        GOAL_SCHEMA,
+        GOAL_UI_SCHEMA,
+      ),
+    ],
   };
 
   res.json(response);
@@ -232,39 +314,59 @@ app.post('/v0/interact', async (req: RawBodyRequest, res) => {
     return;
   }
 
+  const taskId = normalizeTaskId(body);
+  const actionId = body.interaction.actionId;
+  const task = planTaskMemory.get(taskId) || {};
   const events: InteractionEvent[] = [];
 
-  if (body.interaction.actionId.startsWith('submit_data_collection')) {
-    events.push({
-      type: 'provider_extension',
-      extensionKind: 'data_collection_progress',
-      payload: {
-        schemaVersion: 'v0',
-        providerId: 'plan',
-        taskId: body.interaction.runId,
-        progress: { step: 1, total: 1, label: '资料已接收，正在生成计划' },
-        status: 'in_progress',
-      },
-    });
+  if (actionId.startsWith('answer_task_question') || actionId.startsWith('submit_data_collection')) {
+    const goal = extractGoalText(body.interaction.payload);
+    const dueDate = extractDueDate(body.interaction.payload);
 
-    events.push({
-      type: 'provider_extension',
-      extensionKind: 'data_collection_result',
-      payload: {
-        schemaVersion: 'v0',
-        providerId: 'plan',
-        taskId: body.interaction.runId,
-        dataSchema: PLAN_DATA_SCHEMA,
-        uiSchema: PLAN_UI_SCHEMA,
-        values: body.interaction.payload,
-        status: 'completed',
-      },
-    });
+    if (goal && !task.goal) task.goal = goal;
+    if (dueDate && !task.dueDate) task.dueDate = dueDate;
 
-    events.push({
-      type: 'assistant_message',
-      text: '已根据你提交的资料生成初版计划，可继续细化执行步骤。',
-    });
+    if (!task.goal) {
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:goal`, '我还缺少任务目标，请补充。', GOAL_SCHEMA, GOAL_UI_SCHEMA));
+      planTaskMemory.set(taskId, task);
+    } else if (!task.dueDate) {
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:dueDate`, '请补充目标日期（例如 2026-03-31）。', DUE_DATE_SCHEMA, DUE_DATE_UI_SCHEMA));
+      planTaskMemory.set(taskId, task);
+    } else {
+      planTaskMemory.set(taskId, task);
+      events.push(
+        buildTaskState(body.run.runId, taskId, 'ready', 'require_user_confirm', {
+          goal: task.goal,
+          dueDate: task.dueDate,
+          missingFields: [],
+        }),
+      );
+      events.push({
+        type: 'assistant_message',
+        text: '信息已完整，我已准备执行。请确认是否开始执行任务。',
+      });
+    }
+  } else if (actionId.startsWith('execute_task')) {
+    if (!task.goal) {
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:goal`, '执行前需要先确认任务目标。', GOAL_SCHEMA, GOAL_UI_SCHEMA));
+    } else {
+      events.push(buildTaskState(body.run.runId, taskId, 'executing', 'require_user_confirm', {
+        goal: task.goal,
+        dueDate: task.dueDate,
+      }));
+      events.push({
+        type: 'assistant_message',
+        text: `正在执行任务：${task.goal}${task.dueDate ? `（截止 ${task.dueDate}）` : ''}`,
+      });
+      events.push(buildTaskState(body.run.runId, taskId, 'completed', 'require_user_confirm', {
+        goal: task.goal,
+        dueDate: task.dueDate,
+      }));
+      events.push({
+        type: 'assistant_message',
+        text: '任务执行流程已完成，你可以继续追加细化要求。',
+      });
+    }
   } else {
     events.push({
       type: 'ack',

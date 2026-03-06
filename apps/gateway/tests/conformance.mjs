@@ -247,49 +247,258 @@ async function run() {
     assert.ok(hasKind(timelineFallback.json, 'provider_run'));
     assert.ok(hasKind(timelineFallback.json, 'interaction'));
 
-    // 2) 结构化资料收集（request/progress/result）
-    const sessionDataCollection = 's-conf-data';
+    // 2) 多 provider 通用任务协议（task_question/task_state）
+    const sessionTask = 's-conf-task';
     const planIngest = await httpPost(
       `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionDataCollection, text: '请帮我制定本周计划' }),
+      buildInput({ sessionId: sessionTask, text: '请帮我制定本周计划' }),
     );
     assert.equal(planIngest.status, 200);
     const runId = planIngest.json.runs[0].runId;
     assert.equal(planIngest.json.runs[0].providerId, 'plan');
 
-    const requestEvent = await pollUntil(async () => {
-      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionDataCollection}&cursor=0`);
+    const firstQuestion = await pollUntil(async () => {
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
       const interactions = findInteractionEvents(tl.json);
-      return interactions.find((item) => item.event.type === 'provider_extension' && item.event.extensionKind === 'data_collection_request') || null;
+      return interactions.find(
+        (item) => item.event.type === 'provider_extension' && item.event.extensionKind === 'task_question',
+      ) || null;
     });
-    assert.ok(requestEvent.event.payload?.dataSchema);
-    assert.ok(requestEvent.event.payload?.uiSchema);
+    const taskId = firstQuestion.event.payload.taskId;
+    const firstReplyToken = firstQuestion.event.payload.replyToken;
+    assert.ok(taskId);
+    assert.ok(firstReplyToken);
 
-    const interact = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
+    // 带 replyToken 时必须精准命中，providerId/runId 错填也应被网关纠正到目标任务
+    const answerGoal = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
       schemaVersion: 'v0',
       traceId: randomUUID(),
-      sessionId: sessionDataCollection,
+      sessionId: sessionTask,
       userId: 'u-conformance',
-      providerId: 'plan',
-      runId,
-      actionId: 'submit_data_collection',
+      providerId: 'work',
+      runId: randomUUID(),
+      actionId: 'answer_task_question',
+      replyToken: firstReplyToken,
       payload: {
-        goal: '通过 conformance',
-        dueDate: '2026-03-01',
+        text: '通过 conformance',
       },
       timestampMs: nowMs(),
     });
-    assert.equal(interact.status, 200);
-    assert.equal(interact.json.accepted, true);
+    assert.equal(answerGoal.status, 200);
+    assert.equal(answerGoal.json.accepted, true);
+
+    const dueDateQuestion = await pollUntil(async () => {
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
+      const interactions = findInteractionEvents(tl.json);
+      return interactions.find(
+        (item) => (
+          item.event.type === 'provider_extension'
+          && item.event.extensionKind === 'task_question'
+          && item.event.payload?.taskId === taskId
+          && String(item.event.payload?.questionId || '').includes('dueDate')
+        ),
+      ) || null;
+    });
+    const secondReplyToken = dueDateQuestion.event.payload.replyToken;
+    assert.ok(secondReplyToken);
+
+    const answerDueDate = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
+      schemaVersion: 'v0',
+      traceId: randomUUID(),
+      sessionId: sessionTask,
+      userId: 'u-conformance',
+      providerId: 'plan',
+      runId,
+      actionId: 'answer_task_question',
+      replyToken: secondReplyToken,
+      payload: {
+        dueDate: '2026-03-31',
+      },
+      timestampMs: nowMs(),
+    });
+    assert.equal(answerDueDate.status, 200);
+    assert.equal(answerDueDate.json.accepted, true);
+
+    const readyState = await pollUntil(async () => {
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
+      const interactions = findInteractionEvents(tl.json);
+      return interactions.find(
+        (item) => (
+          item.event.type === 'provider_extension'
+          && item.event.extensionKind === 'task_state'
+          && item.event.payload?.taskId === taskId
+          && item.event.payload?.state === 'ready'
+        ),
+      ) || null;
+    });
+    assert.equal(readyState.event.payload.executionPolicy, 'require_user_confirm');
+
+    const execute = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
+      schemaVersion: 'v0',
+      traceId: randomUUID(),
+      sessionId: sessionTask,
+      userId: 'u-conformance',
+      providerId: 'plan',
+      runId,
+      actionId: `execute_task:${taskId}`,
+      timestampMs: nowMs(),
+    });
+    assert.equal(execute.status, 200);
+    assert.equal(execute.json.accepted, true);
 
     await pollUntil(async () => {
-      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionDataCollection}&cursor=0`);
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
       const interactions = findInteractionEvents(tl.json);
-      const extKinds = interactions
-        .filter((item) => item.event.type === 'provider_extension')
-        .map((item) => item.event.extensionKind);
-      return extKinds.includes('data_collection_progress') && extKinds.includes('data_collection_result');
+      const states = interactions
+        .filter((item) => item.event.type === 'provider_extension' && item.event.extensionKind === 'task_state')
+        .filter((item) => item.event.payload?.taskId === taskId)
+        .map((item) => item.event.payload?.state);
+      return states.includes('executing') && states.includes('completed');
     });
+
+    // 2.1) 多 pending 任务时必须先澄清，且 replyToken 可精准分发
+    const sessionAmbiguous = 's-conf-ambiguous';
+    await httpPost(
+      `http://localhost:${ports.gateway}/v0/ingest`,
+      buildInput({ sessionId: sessionAmbiguous, text: '创建会话基线' }),
+    );
+
+    const ambiguousEventsBody = {
+      schemaVersion: 'v0',
+      providerId: 'plan',
+      timestampMs: nowMs(),
+      events: [
+        {
+          kind: 'interaction',
+          traceId: randomUUID(),
+          sessionId: sessionAmbiguous,
+          userId: 'u-conformance',
+          runId: 'run-ambiguous-1',
+          timestampMs: nowMs(),
+          event: {
+            type: 'provider_extension',
+            extensionKind: 'task_question',
+            payload: {
+              schemaVersion: 'v0',
+              providerId: 'plan',
+              runId: 'run-ambiguous-1',
+              taskId: 'task:ambiguous:1',
+              questionId: 'task:ambiguous:1:goal',
+              replyToken: 'reply-ambiguous-1',
+              prompt: '请补充任务 1 的目标。',
+              answerSchema: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                },
+                required: ['text'],
+              },
+              uiSchema: {
+                order: ['text'],
+              },
+            },
+          },
+        },
+        {
+          kind: 'interaction',
+          traceId: randomUUID(),
+          sessionId: sessionAmbiguous,
+          userId: 'u-conformance',
+          runId: 'run-ambiguous-2',
+          timestampMs: nowMs(),
+          event: {
+            type: 'provider_extension',
+            extensionKind: 'task_question',
+            payload: {
+              schemaVersion: 'v0',
+              providerId: 'plan',
+              runId: 'run-ambiguous-2',
+              taskId: 'task:ambiguous:2',
+              questionId: 'task:ambiguous:2:goal',
+              replyToken: 'reply-ambiguous-2',
+              prompt: '请补充任务 2 的目标。',
+              answerSchema: {
+                type: 'object',
+                properties: {
+                  text: { type: 'string' },
+                },
+                required: ['text'],
+              },
+              uiSchema: {
+                order: ['text'],
+              },
+            },
+          },
+        },
+      ],
+    };
+    const ambiguousRaw = JSON.stringify(ambiguousEventsBody);
+    const ambiguousInject = await fetch(`http://localhost:${ports.gateway}/v0/events`, {
+      method: 'POST',
+      headers: {
+        'content-type': 'application/json',
+        ...signInternalHeaders({
+          method: 'POST',
+          path: '/v0/events',
+          rawBody: ambiguousRaw,
+          subject: 'provider-plan',
+          audience: 'gateway',
+          scopes: ['events:write'],
+        }),
+      },
+      body: ambiguousRaw,
+    });
+    assert.equal(ambiguousInject.status, 200);
+    const ambiguousInjectJson = await ambiguousInject.json();
+    assert.equal(ambiguousInjectJson.accepted, 2);
+
+    const ambiguousIngest = await httpPost(
+      `http://localhost:${ports.gateway}/v0/ingest`,
+      buildInput({ sessionId: sessionAmbiguous, text: '这里是回复，但不带 token' }),
+    );
+    assert.equal(ambiguousIngest.status, 200);
+    assert.equal(ambiguousIngest.json.runs.length, 0);
+    assert.equal(ambiguousIngest.json.routing.requiresUserConfirmation, true);
+
+    const ambiguousCard = await pollUntil(async () => {
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionAmbiguous}&cursor=0`);
+      const interactions = findInteractionEvents(tl.json);
+      return interactions.find(
+        (item) => item.event.type === 'card' && String(item.event.title || '').includes('多个待回复任务'),
+      ) || null;
+    });
+    assert.ok((ambiguousCard.event.actions || []).some((action) => String(action.actionId).startsWith('focus_task:')));
+
+    const targetedReply = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
+      schemaVersion: 'v0',
+      traceId: randomUUID(),
+      sessionId: sessionAmbiguous,
+      userId: 'u-conformance',
+      providerId: 'work',
+      runId: randomUUID(),
+      actionId: 'answer_task_question',
+      replyToken: 'reply-ambiguous-2',
+      payload: {
+        text: '聚焦任务 2 的回答',
+      },
+      timestampMs: nowMs(),
+    });
+    assert.equal(targetedReply.status, 200);
+    assert.equal(targetedReply.json.accepted, true);
+
+    const targetedQuestion = await pollUntil(async () => {
+      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionAmbiguous}&cursor=0`);
+      const interactions = findInteractionEvents(tl.json);
+      return interactions.find(
+        (item) => (
+          item.event.type === 'provider_extension'
+          && item.event.extensionKind === 'task_question'
+          && item.event.payload?.taskId === 'task:ambiguous:2'
+          && String(item.event.payload?.questionId || '').includes('dueDate')
+        ),
+      ) || null;
+    });
+    assert.ok(targetedQuestion);
 
     // 3) profileRef 拉取
     const contextPath = '/v0/context/users/profile:u-conformance';
@@ -444,52 +653,31 @@ async function run() {
     );
     await httpPost(
       `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionDrift, text: '工作 汇报 会议 项目' }),
+      buildInput({ sessionId: sessionDrift, text: '电影 音乐 阅读 摄影' }),
     );
     await httpPost(
       `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionDrift, text: '体检 饮食 睡眠 提醒' }),
+      buildInput({ sessionId: sessionDrift, text: '登山 游泳 绘画 厨艺' }),
     );
 
-    const driftTimeline = await httpGet(
-      `http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionDrift}&cursor=0`,
-    );
-    const driftInteractions = findInteractionEvents(driftTimeline.json);
-    const driftCard = driftInteractions.find(
-      (item) => item.event.type === 'card' && (item.event.title || '').includes('话题变化'),
-    );
+    const driftCard = await pollUntil(async () => {
+      const driftTimeline = await httpGet(
+        `http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionDrift}&cursor=0`,
+      );
+      const driftInteractions = findInteractionEvents(driftTimeline.json);
+      return driftInteractions.find(
+        (item) => item.event.type === 'card' && (item.event.title || '').includes('话题变化'),
+      ) || null;
+    });
     assert.ok(driftCard);
     assert.ok((driftCard.event.actions || []).some((action) => action.actionId === 'new_session:auto'));
 
-    // 5) sticky + 手动切换
+    // 5) 手动切换 provider
     const sessionSticky = 's-conf-sticky';
     await httpPost(
       `http://localhost:${ports.gateway}/v0/ingest`,
       buildInput({ sessionId: sessionSticky, text: '帮我做个学习计划' }),
     );
-    await httpPost(
-      `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionSticky, text: '今天工作汇报和项目交付要推进' }),
-    );
-    await httpPost(
-      `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionSticky, text: '这个任务和会议需要持续跟进' }),
-    );
-
-    const switchHint = await pollUntil(async () => {
-      const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionSticky}&cursor=0`);
-      const interactions = findInteractionEvents(tl.json);
-      return interactions.find(
-        (item) =>
-          item.event.type === 'card' &&
-          (item.event.actions || []).some((action) => String(action.actionId).startsWith('switch_provider:')),
-      ) || null;
-    });
-
-    const switchAction = switchHint.event.actions.find((action) =>
-      String(action.actionId).startsWith('switch_provider:'),
-    );
-    assert.ok(switchAction);
 
     const switchRes = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
       schemaVersion: 'v0',
@@ -498,7 +686,7 @@ async function run() {
       userId: 'u-conformance',
       providerId: 'work',
       runId: randomUUID(),
-      actionId: switchAction.actionId,
+      actionId: 'switch_provider:work',
       timestampMs: nowMs(),
     });
     assert.equal(switchRes.status, 200);

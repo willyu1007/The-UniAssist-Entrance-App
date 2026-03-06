@@ -16,6 +16,7 @@ Project: `main`
 | T-004 ua-worker-reliability-hardening | in-progress | F-000 | dev-docs/active/ua-worker-reliability-hardening |
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
 | T-006 ua-v1-internal-security | in-progress | F-000 | dev-docs/active/ua-v1-internal-security |
-| T-007 ua-second-provider-integration | planned | F-000 | dev-docs/active/ua-second-provider-integration |
+| T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
 | T-008 ua-k8s-staging-foundation | done | F-000 | dev-docs/active/ua-k8s-staging-foundation |
+| T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 <!-- AUTO-GENERATED:END task-index -->

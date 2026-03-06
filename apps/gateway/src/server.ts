@@ -8,6 +8,7 @@ import type {
   DomainEvent,
   IngestAck,
   InteractionEvent,
+  ProviderManifest,
   ProviderInteractRequest,
   ProviderInteractResponse,
   ProviderEventsRequest,
@@ -15,6 +16,10 @@ import type {
   ProviderInvokeResponse,
   RoutingCandidate,
   RoutingDecision,
+  TaskExecutionPolicy,
+  TaskLifecycleState,
+  TaskQuestionExtensionEvent,
+  TaskStateExtensionEvent,
   TimelineEvent,
   UnifiedUserInput,
   UserInteraction,
@@ -29,11 +34,10 @@ import {
   type InternalAuthDenyCode,
 } from '@baseinterface/shared';
 import { GatewayObservability } from './observability';
-import { GatewayPersistence, type StoredSession } from './persistence';
+import { GatewayPersistence, type StoredSession, type TaskThreadRecord } from './persistence';
 
 const PORT = Number(process.env.PORT || 8787);
 const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';
-const PLAN_PROVIDER_BASE_URL = (process.env.UNIASSIST_PLAN_PROVIDER_BASE_URL || '').replace(/\/$/, '');
 const FALLBACK_PROVIDER_ID = 'builtin_chat';
 const ROUTE_THRESHOLD = 0.55;
 const STICKY_DEFAULT_BOOST = 0.15;
@@ -41,6 +45,12 @@ const STICKY_DECAY_PER_TURN = 0.03;
 const SESSION_IDLE_MS = 24 * 60 * 60 * 1000;
 const TOPIC_DRIFT_THRESHOLD = 0.3;
 const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'gateway';
+const PROVIDER_TIMEOUT_MS = 5000;
+const PROVIDER_MAX_ATTEMPTS = 3;
+const PROVIDER_RETRY_DELAYS_MS = [300, 900];
+const PROVIDER_CIRCUIT_OPEN_AFTER_FAILURES = 5;
+const PROVIDER_CIRCUIT_OPEN_MS = 30 * 1000;
+const PROVIDER_CIRCUIT_WINDOW_MS = 60 * 1000;
 
 const INTERNAL_AUTH_CONFIG = (() => {
   const config = loadInternalAuthConfigFromEnv(process.env);
@@ -62,6 +72,51 @@ type RawBodyRequest = Request & { rawBody?: string };
 
 type SessionState = StoredSession;
 
+type ProviderRegistryEntry = {
+  providerId: string;
+  serviceId: string;
+  baseUrl?: string;
+  keywords: string[];
+  enabled: boolean;
+  manifest?: ProviderManifest;
+};
+
+type ProviderCallEndpoint = 'invoke' | 'interact';
+
+type ProviderCallErrorCode =
+  | 'PROVIDER_TIMEOUT'
+  | 'PROVIDER_UNAVAILABLE'
+  | 'PROVIDER_REJECTED'
+  | 'PROVIDER_AUTH_DENIED'
+  | 'PROVIDER_INVALID_RESPONSE';
+
+type ProviderCallError = {
+  code: ProviderCallErrorCode;
+  retryable: boolean;
+  statusCode?: number;
+  message: string;
+};
+
+type ProviderCircuitState = {
+  openedAt?: number;
+  failureWindowStartedAt?: number;
+  failureCount: number;
+  halfOpen: boolean;
+};
+
+type TaskThreadState = {
+  taskId: string;
+  sessionId: string;
+  providerId: string;
+  runId: string;
+  state: TaskLifecycleState;
+  executionPolicy: TaskExecutionPolicy;
+  activeQuestionId?: string;
+  activeReplyToken?: string;
+  metadata?: Record<string, unknown>;
+  updatedAt: number;
+};
+
 type UserContextResponse = {
   profile: {
     displayName: string;
@@ -82,11 +137,14 @@ const sessions = new Map<string, SessionState>();
 const timelineBySession = new Map<string, TimelineEvent[]>();
 const sseClients = new Map<string, Set<Response>>();
 const userContextCache = new Map<string, UserContextRecord>();
+const taskThreadsBySession = new Map<string, Map<string, TaskThreadState>>();
 const nonceReplay = new Map<string, number>();
 const internalNonceStore = createMemoryNonceStore();
 const persistence = new GatewayPersistence();
 const logger = createLogger({ service: 'gateway' });
 const observability = new GatewayObservability();
+const providerCircuit = new Map<string, ProviderCircuitState>();
+let manifestRefreshTimer: NodeJS.Timeout | undefined;
 
 app.use((req, res, next) => {
   const startedAt = now();
@@ -109,11 +167,60 @@ app.use('/v0/ingest', (_req, res, next) => {
   next();
 });
 
-const PROVIDER_RULES: Array<{ id: string; keywords: string[] }> = [
-  { id: 'plan', keywords: ['计划', '安排', '日程', '目标', '规划'] },
-  { id: 'work', keywords: ['工作', '任务', '项目', '会议', '汇报', '交付'] },
-  { id: 'reminder', keywords: ['提醒', '记录', '待办', '通知'] },
-];
+function parseProviderRegistryFromEnv(): ProviderRegistryEntry[] {
+  const defaults: ProviderRegistryEntry[] = [
+    {
+      providerId: 'plan',
+      serviceId: 'provider-plan',
+      baseUrl: (process.env.UNIASSIST_PLAN_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
+      keywords: ['计划', '安排', '日程', '目标', '规划'],
+      enabled: true,
+    },
+    {
+      providerId: 'work',
+      serviceId: 'provider-work',
+      baseUrl: (process.env.UNIASSIST_WORK_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
+      keywords: ['工作', '任务', '项目', '会议', '汇报', '交付'],
+      enabled: true,
+    },
+    {
+      providerId: 'reminder',
+      serviceId: 'provider-reminder',
+      baseUrl: (process.env.UNIASSIST_REMINDER_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
+      keywords: ['提醒', '记录', '待办', '通知'],
+      enabled: true,
+    },
+  ];
+
+  const raw = process.env.UNIASSIST_PROVIDER_REGISTRY_JSON?.trim();
+  if (!raw) return defaults;
+
+  try {
+    const parsed = JSON.parse(raw) as Array<{
+      providerId?: string;
+      serviceId?: string;
+      baseUrl?: string;
+      keywords?: string[];
+      enabled?: boolean;
+    }>;
+    const normalized = parsed
+      .filter((item) => Boolean(item?.providerId))
+      .map((item) => ({
+        providerId: String(item.providerId),
+        serviceId: String(item.serviceId || `provider-${item.providerId}`),
+        baseUrl: item.baseUrl ? String(item.baseUrl).replace(/\/$/, '') : undefined,
+        keywords: Array.isArray(item.keywords) ? item.keywords.map((v) => String(v)) : [],
+        enabled: item.enabled !== false,
+      }));
+    return normalized.length > 0 ? normalized : defaults;
+  } catch {
+    return defaults;
+  }
+}
+
+const providerRegistry = new Map<string, ProviderRegistryEntry>(
+  parseProviderRegistryFromEnv().map((entry) => [entry.providerId, entry]),
+);
 
 const PLAN_DATA_SCHEMA = {
   type: 'object',
@@ -329,7 +436,9 @@ function scoreCandidates(session: SessionState, input: UnifiedUserInput): Routin
   const text = input.text || '';
   const lowered = text.toLowerCase();
 
-  const scored = PROVIDER_RULES.map((provider) => {
+  const scored = [...providerRegistry.values()]
+    .filter((provider) => provider.enabled)
+    .map((provider) => {
     let score = 0;
     let hitCount = 0;
 
@@ -343,12 +452,12 @@ function scoreCandidates(session: SessionState, input: UnifiedUserInput): Routin
       score = Math.min(0.95, 0.45 + hitCount * 0.18);
     }
 
-    if (session.stickyProviderId === provider.id) {
+    if (session.stickyProviderId === provider.providerId) {
       score += session.stickyScoreBoost;
     }
 
     return {
-      providerId: provider.id,
+      providerId: provider.providerId,
       score: Number(score.toFixed(3)),
       reason: hitCount > 0 ? `matched_keywords:${hitCount}` : 'no-keyword-match',
       requiresClarification: score > 0 && score < ROUTE_THRESHOLD,
@@ -445,95 +554,463 @@ function buildContextPackage(input: UnifiedUserInput, session: SessionState): Co
   };
 }
 
-function buildPlanCollectionRequestEvent(taskId: string): InteractionEvent {
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function providerAllowedSubjects(): string[] {
+  const subjects = new Set<string>();
+  providerRegistry.forEach((entry) => {
+    if (entry.enabled && entry.serviceId) {
+      subjects.add(entry.serviceId);
+    }
+  });
+  return [...subjects];
+}
+
+function getProviderEntry(providerId: string): ProviderRegistryEntry | undefined {
+  return providerRegistry.get(providerId);
+}
+
+function getTaskMap(sessionId: string): Map<string, TaskThreadState> {
+  const existing = taskThreadsBySession.get(sessionId);
+  if (existing) return existing;
+  const created = new Map<string, TaskThreadState>();
+  taskThreadsBySession.set(sessionId, created);
+  return created;
+}
+
+async function ensureTaskThreadsLoaded(sessionId: string): Promise<void> {
+  const existing = taskThreadsBySession.get(sessionId);
+  if (existing || !persistence.isEnabled()) return;
+  try {
+    const loaded = await persistence.listTaskThreads(sessionId);
+    const map = new Map<string, TaskThreadState>();
+    loaded.forEach((thread) => {
+      map.set(thread.taskId, {
+        taskId: thread.taskId,
+        sessionId: thread.sessionId,
+        providerId: thread.providerId,
+        runId: thread.runId,
+        state: thread.state,
+        executionPolicy: thread.executionPolicy,
+        activeQuestionId: thread.activeQuestionId,
+        activeReplyToken: thread.activeReplyToken,
+        metadata: thread.metadata,
+        updatedAt: thread.updatedAt || now(),
+      });
+    });
+    taskThreadsBySession.set(sessionId, map);
+  } catch (error) {
+    observability.observePersistenceError();
+    logger.error('persistence listTaskThreads failed', serializeError(error));
+    taskThreadsBySession.set(sessionId, new Map<string, TaskThreadState>());
+  }
+}
+
+function persistTaskThreadAsync(thread: TaskThreadState): void {
+  if (!persistence.isEnabled()) return;
+  const record: TaskThreadRecord = {
+    taskId: thread.taskId,
+    sessionId: thread.sessionId,
+    providerId: thread.providerId,
+    runId: thread.runId,
+    state: thread.state,
+    executionPolicy: thread.executionPolicy,
+    activeQuestionId: thread.activeQuestionId,
+    activeReplyToken: thread.activeReplyToken,
+    metadata: thread.metadata,
+    updatedAt: thread.updatedAt,
+  };
+  void persistence.saveTaskThread(record).catch((error: unknown) => {
+    observability.observePersistenceError();
+    logger.error('persistence saveTaskThread failed', serializeError(error));
+  });
+}
+
+function listPendingTaskThreads(sessionId: string): TaskThreadState[] {
+  const map = taskThreadsBySession.get(sessionId);
+  if (!map) return [];
+  return [...map.values()].filter((thread) => thread.state === 'collecting' && thread.activeReplyToken);
+}
+
+function findTaskThreadByReplyToken(sessionId: string, replyToken: string): TaskThreadState | undefined {
+  const map = taskThreadsBySession.get(sessionId);
+  if (!map) return undefined;
+  return [...map.values()].find((thread) => thread.activeReplyToken === replyToken);
+}
+
+function buildTaskQuestionFallback(providerId: string, runId: string, taskId?: string): TaskQuestionExtensionEvent {
+  const finalTaskId = taskId || runId;
   return {
     type: 'provider_extension',
-    extensionKind: 'data_collection_request',
+    extensionKind: 'task_question',
     payload: {
       schemaVersion: 'v0',
-      providerId: 'plan',
-      taskId,
-      status: 'pending',
-      dataSchema: PLAN_DATA_SCHEMA,
+      providerId,
+      runId,
+      taskId: finalTaskId,
+      questionId: `${finalTaskId}:q:default`,
+      replyToken: uuid(),
+      prompt: '请补充任务目标和期望结果。',
+      answerSchema: PLAN_DATA_SCHEMA,
       uiSchema: PLAN_UI_SCHEMA,
     },
   };
 }
 
-async function invokePlanProvider(
+function normalizeProviderInteractionEvent(
+  providerId: string,
+  runId: string,
+  event: InteractionEvent,
+): InteractionEvent {
+  if (event.type !== 'provider_extension') {
+    return event;
+  }
+
+  if (event.extensionKind === 'data_collection_request') {
+    const taskId = event.payload.taskId || runId;
+    return {
+      type: 'provider_extension',
+      extensionKind: 'task_question',
+      payload: {
+        schemaVersion: 'v0',
+        providerId: event.payload.providerId || providerId,
+        runId,
+        taskId,
+        questionId: `${taskId}:q:legacy`,
+        replyToken: uuid(),
+        prompt: '请补充任务所需资料。',
+        answerSchema: event.payload.dataSchema,
+        uiSchema: event.payload.uiSchema,
+        metadata: {
+          legacyExtensionKind: 'data_collection_request',
+          legacyStatus: event.payload.status,
+        },
+      },
+    };
+  }
+
+  if (event.extensionKind === 'data_collection_progress') {
+    return {
+      type: 'provider_extension',
+      extensionKind: 'task_state',
+      payload: {
+        schemaVersion: 'v0',
+        providerId: event.payload.providerId || providerId,
+        runId,
+        taskId: event.payload.taskId || runId,
+        state: 'collecting',
+        executionPolicy: 'require_user_confirm',
+        metadata: {
+          legacyExtensionKind: 'data_collection_progress',
+          progress: event.payload.progress,
+          legacyStatus: event.payload.status,
+        },
+      },
+    };
+  }
+
+  if (event.extensionKind === 'data_collection_result') {
+    return {
+      type: 'provider_extension',
+      extensionKind: 'task_state',
+      payload: {
+        schemaVersion: 'v0',
+        providerId: event.payload.providerId || providerId,
+        runId,
+        taskId: event.payload.taskId || runId,
+        state: 'ready',
+        executionPolicy: 'require_user_confirm',
+        metadata: {
+          legacyExtensionKind: 'data_collection_result',
+          values: event.payload.values,
+          dataSchema: event.payload.dataSchema,
+          uiSchema: event.payload.uiSchema,
+          legacyStatus: event.payload.status,
+        },
+      },
+    };
+  }
+
+  if (event.extensionKind === 'task_question') {
+    return {
+      ...event,
+      payload: {
+        ...event.payload,
+        providerId: event.payload.providerId || providerId,
+        runId: event.payload.runId || runId,
+      },
+    };
+  }
+
+  if (event.extensionKind === 'task_state') {
+    return {
+      ...event,
+      payload: {
+        ...event.payload,
+        providerId: event.payload.providerId || providerId,
+        runId: event.payload.runId || runId,
+      },
+    };
+  }
+
+  return event;
+}
+
+async function refreshProviderManifest(provider: ProviderRegistryEntry): Promise<void> {
+  if (!provider.baseUrl) return;
+  try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 3000);
+    const response = await fetch(`${provider.baseUrl}/.well-known/uniassist/manifest.json`, {
+      method: 'GET',
+      signal: controller.signal,
+    });
+    clearTimeout(timer);
+    if (!response.ok) return;
+    const manifest = (await response.json()) as ProviderManifest;
+    provider.manifest = manifest;
+  } catch {
+    // best effort; keep static registry when manifest unavailable
+  }
+}
+
+async function refreshAllProviderManifests(): Promise<void> {
+  for (const provider of providerRegistry.values()) {
+    if (!provider.enabled) continue;
+    await refreshProviderManifest(provider);
+  }
+}
+
+function circuitKey(providerId: string, endpoint: ProviderCallEndpoint): string {
+  return `${providerId}:${endpoint}`;
+}
+
+function canCallProvider(providerId: string, endpoint: ProviderCallEndpoint): boolean {
+  const key = circuitKey(providerId, endpoint);
+  const state = providerCircuit.get(key);
+  if (!state || !state.openedAt) return true;
+  if (now() - state.openedAt >= PROVIDER_CIRCUIT_OPEN_MS) {
+    state.openedAt = undefined;
+    state.halfOpen = true;
+    providerCircuit.set(key, state);
+    return true;
+  }
+  return false;
+}
+
+function markProviderCallSuccess(providerId: string, endpoint: ProviderCallEndpoint): void {
+  providerCircuit.set(circuitKey(providerId, endpoint), {
+    failureCount: 0,
+    failureWindowStartedAt: undefined,
+    halfOpen: false,
+    openedAt: undefined,
+  });
+}
+
+function markProviderCallFailure(providerId: string, endpoint: ProviderCallEndpoint): void {
+  const key = circuitKey(providerId, endpoint);
+  const state = providerCircuit.get(key) || {
+    failureCount: 0,
+    halfOpen: false,
+  };
+  const current = now();
+  if (!state.failureWindowStartedAt || current - state.failureWindowStartedAt > PROVIDER_CIRCUIT_WINDOW_MS) {
+    state.failureWindowStartedAt = current;
+    state.failureCount = 1;
+  } else {
+    state.failureCount += 1;
+  }
+  if (state.failureCount >= PROVIDER_CIRCUIT_OPEN_AFTER_FAILURES) {
+    state.openedAt = current;
+    state.halfOpen = false;
+  }
+  providerCircuit.set(key, state);
+}
+
+function mapProviderStatusError(statusCode: number): ProviderCallError {
+  if (statusCode === 401 || statusCode === 403) {
+    return {
+      code: 'PROVIDER_AUTH_DENIED',
+      retryable: false,
+      statusCode,
+      message: `provider auth denied: ${statusCode}`,
+    };
+  }
+  if (statusCode >= 400 && statusCode < 500 && statusCode !== 429) {
+    return {
+      code: 'PROVIDER_REJECTED',
+      retryable: false,
+      statusCode,
+      message: `provider rejected request: ${statusCode}`,
+    };
+  }
+  return {
+    code: 'PROVIDER_UNAVAILABLE',
+    retryable: true,
+    statusCode,
+    message: `provider unavailable: ${statusCode}`,
+  };
+}
+
+async function callProviderEndpoint<TResponse>(
+  provider: ProviderRegistryEntry,
+  endpoint: ProviderCallEndpoint,
+  requestBody: ProviderInvokeRequest | ProviderInteractRequest,
+): Promise<TResponse> {
+  if (!provider.baseUrl) {
+    throw {
+      code: 'PROVIDER_UNAVAILABLE',
+      retryable: false,
+      message: `${provider.providerId} baseUrl is not configured`,
+    } satisfies ProviderCallError;
+  }
+
+  if (!canCallProvider(provider.providerId, endpoint)) {
+    throw {
+      code: 'PROVIDER_UNAVAILABLE',
+      retryable: true,
+      message: `${provider.providerId}:${endpoint} circuit is open`,
+    } satisfies ProviderCallError;
+  }
+
+  const path = endpoint === 'invoke' ? '/v0/invoke' : '/v0/interact';
+  const scopes = endpoint === 'invoke' ? ['provider:invoke'] : ['provider:interact'];
+
+  let lastError: ProviderCallError | undefined;
+  for (let attempt = 1; attempt <= PROVIDER_MAX_ATTEMPTS; attempt += 1) {
+    const rawBody = JSON.stringify({
+      ...requestBody,
+      run: {
+        ...requestBody.run,
+        attempt,
+      },
+    });
+
+    const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
+      method: 'POST',
+      path,
+      rawBody,
+      audience: provider.serviceId,
+      scopes,
+    });
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), PROVIDER_TIMEOUT_MS);
+
+    try {
+      const response = await fetch(`${provider.baseUrl}${path}`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          authorization: internalHeaders.authorization,
+          'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
+          'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
+          'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
+          'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
+        },
+        body: rawBody,
+        signal: controller.signal,
+      });
+      clearTimeout(timeout);
+
+      if (!response.ok) {
+        const mapped = mapProviderStatusError(response.status);
+        lastError = mapped;
+        if (!mapped.retryable) {
+          markProviderCallFailure(provider.providerId, endpoint);
+          throw mapped;
+        }
+        if (attempt < PROVIDER_MAX_ATTEMPTS) {
+          const delay = (PROVIDER_RETRY_DELAYS_MS[attempt - 1] || 1200) + Math.floor(Math.random() * 100);
+          await sleep(delay);
+          continue;
+        }
+        markProviderCallFailure(provider.providerId, endpoint);
+        throw mapped;
+      }
+
+      const payload = await response.json() as TResponse;
+      markProviderCallSuccess(provider.providerId, endpoint);
+      return payload;
+    } catch (error) {
+      clearTimeout(timeout);
+      if ((error as { code?: string }).code) {
+        throw error;
+      }
+      const mapped: ProviderCallError = (error as { name?: string }).name === 'AbortError'
+        ? {
+            code: 'PROVIDER_TIMEOUT',
+            retryable: true,
+            message: `${provider.providerId}:${endpoint} timeout`,
+          }
+        : {
+            code: 'PROVIDER_UNAVAILABLE',
+            retryable: true,
+            message: `${provider.providerId}:${endpoint} network error`,
+          };
+      lastError = mapped;
+      if (attempt < PROVIDER_MAX_ATTEMPTS && mapped.retryable) {
+        const delay = (PROVIDER_RETRY_DELAYS_MS[attempt - 1] || 1200) + Math.floor(Math.random() * 100);
+        await sleep(delay);
+        continue;
+      }
+      markProviderCallFailure(provider.providerId, endpoint);
+      throw mapped;
+    }
+  }
+
+  throw lastError || {
+    code: 'PROVIDER_UNAVAILABLE',
+    retryable: true,
+    message: `${provider.providerId}:${endpoint} failed`,
+  };
+}
+
+async function invokeProvider(
+  provider: ProviderRegistryEntry,
   input: UnifiedUserInput,
   context: ContextPackage,
   runId: string,
 ): Promise<InteractionEvent[]> {
-  if (!PLAN_PROVIDER_BASE_URL) {
-    return [buildPlanCollectionRequestEvent(runId)];
-  }
-
   const requestBody: ProviderInvokeRequest = {
     schemaVersion: 'v0',
     input,
     context,
     run: {
       runId,
-      providerId: 'plan',
+      providerId: provider.providerId,
       attempt: 1,
-      idempotencyKey: `${input.traceId}:plan`,
+      idempotencyKey: `${input.traceId}:${provider.providerId}`,
     },
   };
 
   try {
-    const rawBody = JSON.stringify(requestBody);
-    const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
-      method: 'POST',
-      path: '/v0/invoke',
-      rawBody,
-      audience: 'provider-plan',
-      scopes: ['provider:invoke'],
-    });
-    const response = await fetch(`${PLAN_PROVIDER_BASE_URL}/v0/invoke`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: internalHeaders.authorization,
-        'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
-        'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
-        'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
-        'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
-      },
-      body: rawBody,
-    });
-    if (!response.ok) {
-      throw new Error(`provider_invoke_failed:${response.status}`);
-    }
-
-    const payload = (await response.json()) as ProviderInvokeResponse;
-    const output: InteractionEvent[] = [];
-    output.push(payload.ack);
-    if (Array.isArray(payload.immediateEvents)) {
-      output.push(...payload.immediateEvents);
-    }
-    return output;
+    const payload = await callProviderEndpoint<ProviderInvokeResponse>(provider, 'invoke', requestBody);
+    const events: InteractionEvent[] = [payload.ack, ...(payload.immediateEvents || [])];
+    return events.map((event) => normalizeProviderInteractionEvent(provider.providerId, runId, event));
   } catch (error) {
     observability.observeProviderInvokeError();
-    logger.warn('plan provider invoke fallback', serializeError(error));
+    logger.warn('provider invoke fallback', {
+      providerId: provider.providerId,
+      ...(error && typeof error === 'object' ? error : { message: String(error) }),
+    });
     return [
       {
         type: 'assistant_message',
-        text: 'plan 专项暂时不可用，已切换入口内置流程继续处理。',
+        text: `${provider.providerId} 专项暂时不可用，入口将继续承接。`,
       },
-      buildPlanCollectionRequestEvent(runId),
+      buildTaskQuestionFallback(provider.providerId, runId),
     ];
   }
 }
 
-async function interactPlanProvider(
+async function interactProvider(
+  provider: ProviderRegistryEntry,
   interaction: UserInteraction,
   context: ContextPackage,
-): Promise<InteractionEvent[] | null> {
-  if (!PLAN_PROVIDER_BASE_URL) {
-    return null;
-  }
-
+): Promise<InteractionEvent[]> {
   const requestBody: ProviderInteractRequest = {
     schemaVersion: 'v0',
     interaction,
@@ -546,57 +1023,147 @@ async function interactPlanProvider(
   };
 
   try {
-    const rawBody = JSON.stringify(requestBody);
-    const internalHeaders = buildInternalAuthHeaders(INTERNAL_AUTH_CONFIG, {
-      method: 'POST',
-      path: '/v0/interact',
-      rawBody,
-      audience: 'provider-plan',
-      scopes: ['provider:interact'],
-    });
-    const response = await fetch(`${PLAN_PROVIDER_BASE_URL}/v0/interact`, {
-      method: 'POST',
-      headers: {
-        'content-type': 'application/json',
-        authorization: internalHeaders.authorization,
-        'x-uniassist-internal-kid': internalHeaders['x-uniassist-internal-kid'],
-        'x-uniassist-internal-ts': internalHeaders['x-uniassist-internal-ts'],
-        'x-uniassist-internal-nonce': internalHeaders['x-uniassist-internal-nonce'],
-        'x-uniassist-internal-signature': internalHeaders['x-uniassist-internal-signature'],
-      },
-      body: rawBody,
-    });
-    if (!response.ok) {
-      throw new Error(`provider_interact_failed:${response.status}`);
-    }
-    const payload = (await response.json()) as ProviderInteractResponse;
-    return payload.events || [];
+    const payload = await callProviderEndpoint<ProviderInteractResponse>(provider, 'interact', requestBody);
+    return (payload.events || []).map((event) => normalizeProviderInteractionEvent(provider.providerId, interaction.runId, event));
   } catch (error) {
     observability.observeProviderInteractError();
-    logger.warn('plan provider interact fallback', serializeError(error));
+    logger.warn('provider interact fallback', {
+      providerId: provider.providerId,
+      ...(error && typeof error === 'object' ? error : { message: String(error) }),
+    });
     return [
       {
         type: 'error',
-        userMessage: 'plan 专项交互失败，入口将使用本地流程继续。',
+        userMessage: `${provider.providerId} 专项交互失败，入口将使用本地流程继续。`,
         retryable: true,
       },
     ];
   }
 }
 
-async function dispatchPlanProviderRun(
+function updateTaskThread(sessionId: string, thread: TaskThreadState): TaskThreadState {
+  const map = getTaskMap(sessionId);
+  const normalized: TaskThreadState = {
+    ...thread,
+    updatedAt: now(),
+  };
+  map.set(normalized.taskId, normalized);
+  persistTaskThreadAsync(normalized);
+  return normalized;
+}
+
+function buildTaskExecutionConfirmCard(thread: TaskThreadState): InteractionEvent {
+  return {
+    type: 'card',
+    title: `任务已准备就绪（${thread.providerId}）`,
+    body: `任务 ${thread.taskId} 已满足执行条件，是否开始执行？`,
+    actions: [
+      {
+        actionId: `execute_task:${thread.taskId}`,
+        label: '开始执行',
+        style: 'primary',
+      },
+    ],
+  };
+}
+
+async function emitProviderEvents(
   session: SessionState,
   input: UnifiedUserInput,
+  providerId: string,
   runId: string,
-  context: ContextPackage,
+  events: InteractionEvent[],
 ): Promise<void> {
-  const providerEvents = await invokePlanProvider(input, context, runId);
-  providerEvents.forEach((event) => {
+  for (const event of events) {
+    const normalized = normalizeProviderInteractionEvent(providerId, runId, event);
     emitEvent(session, input, 'interaction', {
-      event,
+      event: normalized,
       source: 'provider',
-    }, 'plan', runId);
-  });
+    }, providerId, runId);
+
+    if (normalized.type !== 'provider_extension') continue;
+    if (normalized.extensionKind === 'task_question') {
+      const thread = updateTaskThread(session.sessionId, {
+        taskId: normalized.payload.taskId,
+        sessionId: session.sessionId,
+        providerId: normalized.payload.providerId,
+        runId: normalized.payload.runId,
+        state: 'collecting',
+        executionPolicy: 'require_user_confirm',
+        activeQuestionId: normalized.payload.questionId,
+        activeReplyToken: normalized.payload.replyToken,
+        metadata: normalized.payload.metadata,
+        updatedAt: now(),
+      });
+      void thread;
+    }
+
+    if (normalized.extensionKind === 'task_state') {
+      const active = getTaskMap(session.sessionId).get(normalized.payload.taskId);
+      const thread = updateTaskThread(session.sessionId, {
+        taskId: normalized.payload.taskId,
+        sessionId: session.sessionId,
+        providerId: normalized.payload.providerId,
+        runId: normalized.payload.runId,
+        state: normalized.payload.state,
+        executionPolicy: normalized.payload.executionPolicy,
+        activeQuestionId: normalized.payload.state === 'collecting' ? active?.activeQuestionId : undefined,
+        activeReplyToken: normalized.payload.state === 'collecting' ? active?.activeReplyToken : undefined,
+        metadata: normalized.payload.metadata,
+        updatedAt: now(),
+      });
+
+      if (thread.state === 'ready') {
+        if (thread.executionPolicy === 'auto_execute') {
+          const provider = getProviderEntry(thread.providerId);
+          if (provider) {
+            const executeInteraction: UserInteraction = {
+              schemaVersion: 'v0',
+              traceId: uuid(),
+              sessionId: session.sessionId,
+              userId: input.userId,
+              providerId: thread.providerId,
+              runId: thread.runId,
+              actionId: 'execute_task',
+              payload: { taskId: thread.taskId },
+              inReplyTo: {
+                providerId: thread.providerId,
+                runId: thread.runId,
+                taskId: thread.taskId,
+              },
+              timestampMs: now(),
+            };
+            const context = buildContextPackage(input, session);
+            const executeEvents = await interactProvider(provider, executeInteraction, context);
+            await emitProviderEvents(session, input, thread.providerId, thread.runId, executeEvents);
+          }
+        } else {
+          emitEvent(session, input, 'interaction', {
+            event: buildTaskExecutionConfirmCard(thread),
+            source: 'system',
+          }, thread.providerId, thread.runId);
+        }
+      }
+    }
+  }
+}
+
+function buildPendingTaskSelectionCard(threads: TaskThreadState[]): InteractionEvent {
+  return {
+    type: 'card',
+    title: '检测到多个待回复任务',
+    body: '请先选择你要继续的任务，避免消息分配错误。',
+    actions: threads.map((thread) => ({
+      actionId: `focus_task:${thread.taskId}`,
+      label: `${thread.providerId} · ${thread.taskId}`,
+      style: 'secondary',
+      payload: {
+        taskId: thread.taskId,
+        providerId: thread.providerId,
+        runId: thread.runId,
+      },
+    })),
+  };
 }
 
 type InternalAuthGuardOptions = {
@@ -839,7 +1406,139 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
     timestampMs: input.timestampMs || now(),
   };
 
+  await ensureTaskThreadsLoaded(session.sessionId);
   emitEvent(session, effectiveInput, 'inbound', { input: effectiveInput });
+
+  const pendingThreads = listPendingTaskThreads(session.sessionId);
+  if (pendingThreads.length > 0 && effectiveInput.text?.trim()) {
+    const contextPackage = buildContextPackage(effectiveInput, session);
+
+    if (pendingThreads.length === 1) {
+      const thread = pendingThreads[0];
+      const provider = getProviderEntry(thread.providerId);
+      const routing: RoutingDecision = {
+        schemaVersion: 'v0',
+        traceId: effectiveInput.traceId,
+        sessionId: session.sessionId,
+        candidates: [
+          {
+            providerId: thread.providerId,
+            score: 1,
+            reason: 'pending_task_reply',
+            requiresClarification: false,
+            suggestedMode: 'async',
+          },
+        ],
+        requiresUserConfirmation: false,
+        fallback: 'none',
+        timestampMs: now(),
+      };
+      emitEvent(session, effectiveInput, 'routing_decision', routing as unknown as Record<string, unknown>);
+
+      const runId = thread.runId;
+      emitEvent(session, effectiveInput, 'provider_run', {
+        providerId: thread.providerId,
+        mode: 'async',
+        score: 1,
+        status: 'in-progress',
+        routing_mode: 'normal',
+        idempotency_key: `${effectiveInput.traceId}:${thread.providerId}:pending`,
+        context: contextPackage,
+      }, thread.providerId, runId);
+
+      const forwarded: UserInteraction = {
+        schemaVersion: 'v0',
+        traceId: effectiveInput.traceId,
+        sessionId: session.sessionId,
+        userId: effectiveInput.userId,
+        providerId: thread.providerId,
+        runId,
+        actionId: 'answer_task_question',
+        replyToken: thread.activeReplyToken,
+        inReplyTo: {
+          providerId: thread.providerId,
+          runId: thread.runId,
+          taskId: thread.taskId,
+          questionId: thread.activeQuestionId,
+        },
+        payload: {
+          text: effectiveInput.text,
+        },
+        timestampMs: now(),
+      };
+      emitEvent(session, effectiveInput, 'user_interaction', forwarded as unknown as Record<string, unknown>, thread.providerId, runId);
+
+      if (provider) {
+        const providerEvents = await interactProvider(provider, forwarded, contextPackage);
+        await emitProviderEvents(session, effectiveInput, thread.providerId, runId, providerEvents);
+      } else {
+        emitEvent(session, effectiveInput, 'interaction', {
+          event: {
+            type: 'error',
+            userMessage: `${thread.providerId} 未注册，无法继续该任务。`,
+            retryable: false,
+          },
+          source: 'system',
+        }, thread.providerId, runId);
+      }
+
+      persistSessionAsync(session);
+      res.json({
+        schemaVersion: 'v0',
+        traceId: effectiveInput.traceId,
+        sessionId: session.sessionId,
+        userId: effectiveInput.userId,
+        routing,
+        runs: [{ providerId: thread.providerId, runId, mode: 'async' }],
+        ackEvents: [{ type: 'ack', message: `已将你的回复转发到 ${thread.providerId} 任务。` }],
+        stream: {
+          type: 'sse',
+          href: `/v0/stream?sessionId=${encodeURIComponent(session.sessionId)}&cursor=${session.seq}`,
+          cursor: session.seq,
+        },
+        timestampMs: now(),
+      } satisfies IngestAck);
+      return;
+    }
+
+    const routing: RoutingDecision = {
+      schemaVersion: 'v0',
+      traceId: effectiveInput.traceId,
+      sessionId: session.sessionId,
+      candidates: pendingThreads.map((thread) => ({
+        providerId: thread.providerId,
+        score: 1,
+        reason: `pending_task:${thread.taskId}`,
+        requiresClarification: true,
+        suggestedMode: 'async',
+      })),
+      requiresUserConfirmation: true,
+      fallback: 'none',
+      timestampMs: now(),
+    };
+    emitEvent(session, effectiveInput, 'routing_decision', routing as unknown as Record<string, unknown>);
+    emitEvent(session, effectiveInput, 'interaction', {
+      event: buildPendingTaskSelectionCard(pendingThreads),
+      source: 'system',
+    });
+    persistSessionAsync(session);
+    res.json({
+      schemaVersion: 'v0',
+      traceId: effectiveInput.traceId,
+      sessionId: session.sessionId,
+      userId: effectiveInput.userId,
+      routing,
+      runs: [],
+      ackEvents: [{ type: 'ack', message: '当前存在多个待处理任务，请先选择要继续的任务。' }],
+      stream: {
+        type: 'sse',
+        href: `/v0/stream?sessionId=${encodeURIComponent(session.sessionId)}&cursor=${session.seq}`,
+        cursor: session.seq,
+      },
+      timestampMs: now(),
+    } satisfies IngestAck);
+    return;
+  }
 
   const topicDriftSuggested = updateTopicDrift(session, effectiveInput);
   const candidates = scoreCandidates(session, effectiveInput);
@@ -924,15 +1623,20 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
         message: `已分发到 ${candidate.providerId} 专项处理。`,
       });
 
-      if (candidate.providerId === 'plan') {
-        void dispatchPlanProviderRun(session, effectiveInput, runId, contextPackage);
-      } else {
+      const provider = getProviderEntry(candidate.providerId);
+      if (!provider || !provider.enabled) {
         const msg: InteractionEvent = {
           type: 'assistant_message',
-          text: `${candidate.providerId} 专项已开始处理。`,
+          text: `${candidate.providerId} 专项未注册，入口将先行承接。`,
         };
-        emitEvent(session, effectiveInput, 'interaction', { event: msg, source: 'provider' }, candidate.providerId, runId);
+        emitEvent(session, effectiveInput, 'interaction', { event: msg, source: 'system' }, candidate.providerId, runId);
+        continue;
       }
+
+      void (async () => {
+        const providerEvents = await invokeProvider(provider, effectiveInput, contextPackage, runId);
+        await emitProviderEvents(session, effectiveInput, candidate.providerId, runId, providerEvents);
+      })();
     }
   }
 
@@ -977,15 +1681,15 @@ app.post('/v0/ingest', async (req: RawBodyRequest, res) => {
 });
 
 app.post('/v0/interact', async (req, res) => {
-  const interaction = req.body as UserInteraction;
-  if (!interaction || interaction.schemaVersion !== 'v0') {
+  const requestInteraction = req.body as UserInteraction;
+  if (!requestInteraction || requestInteraction.schemaVersion !== 'v0') {
     res.status(400).json({ accepted: false, reason: 'invalid interaction' });
     return;
   }
 
-  let session = sessions.get(interaction.sessionId);
+  let session = sessions.get(requestInteraction.sessionId);
   if (!session && persistence.isEnabled()) {
-    const persisted = await persistence.loadSession(interaction.sessionId);
+    const persisted = await persistence.loadSession(requestInteraction.sessionId);
     if (persisted) {
       session = persisted;
       sessions.set(session.sessionId, session);
@@ -998,12 +1702,15 @@ app.post('/v0/interact', async (req, res) => {
 
   const inputRef: UnifiedUserInput = {
     schemaVersion: 'v0',
-    traceId: interaction.traceId,
-    userId: interaction.userId,
-    sessionId: interaction.sessionId,
+    traceId: requestInteraction.traceId,
+    userId: requestInteraction.userId,
+    sessionId: requestInteraction.sessionId,
     source: 'app',
     timestampMs: now(),
   };
+
+  await ensureTaskThreadsLoaded(session.sessionId);
+  let interaction: UserInteraction = { ...requestInteraction };
 
   emitEvent(session, inputRef, 'user_interaction', interaction as unknown as Record<string, unknown>, interaction.providerId, interaction.runId);
 
@@ -1041,45 +1748,105 @@ app.post('/v0/interact', async (req, res) => {
     return;
   }
 
-  if (interaction.actionId.startsWith('submit_data_collection')) {
-    const contextPackage = buildContextPackage(inputRef, session);
-    const providerEvents = interaction.providerId === 'plan'
-      ? await interactPlanProvider(interaction, contextPackage)
-      : null;
+  if (interaction.actionId.startsWith('focus_task:')) {
+    const taskId = interaction.actionId.replace('focus_task:', '');
+    const thread = getTaskMap(session.sessionId).get(taskId);
+    if (!thread) {
+      res.status(404).json({ accepted: false, reason: 'task not found' });
+      return;
+    }
+    emitEvent(session, inputRef, 'interaction', {
+      event: {
+        type: 'assistant_message',
+        text: `已聚焦任务 ${taskId}（${thread.providerId}），你可直接继续回复。`,
+      },
+      source: 'system',
+    }, thread.providerId, thread.runId);
+    res.json({
+      accepted: true,
+      focusedTask: {
+        taskId: thread.taskId,
+        providerId: thread.providerId,
+        runId: thread.runId,
+        replyToken: thread.activeReplyToken,
+      },
+    });
+    return;
+  }
 
-    if (providerEvents && providerEvents.length > 0) {
-      providerEvents.forEach((event) => {
-        emitEvent(session, inputRef, 'interaction', { event, source: 'provider' }, interaction.providerId, interaction.runId);
+  const taskMap = getTaskMap(session.sessionId);
+  let thread: TaskThreadState | undefined;
+
+  if (interaction.replyToken) {
+    thread = findTaskThreadByReplyToken(session.sessionId, interaction.replyToken);
+  }
+
+  if (!thread && interaction.inReplyTo?.taskId) {
+    thread = taskMap.get(interaction.inReplyTo.taskId);
+  }
+
+  if (!thread && interaction.actionId.startsWith('execute_task:')) {
+    const taskId = interaction.actionId.replace('execute_task:', '');
+    thread = taskMap.get(taskId);
+  }
+
+  if (
+    !thread
+    && (
+      interaction.actionId.startsWith('submit_data_collection')
+      || interaction.actionId.startsWith('answer_task_question')
+      || interaction.actionId.startsWith('execute_task')
+    )
+  ) {
+    const pending = listPendingTaskThreads(session.sessionId);
+    if (pending.length === 1) {
+      thread = pending[0];
+    } else if (pending.length > 1) {
+      emitEvent(session, inputRef, 'interaction', {
+        event: buildPendingTaskSelectionCard(pending),
+        source: 'system',
       });
+      persistSessionAsync(session);
+      res.json({ accepted: true, reason: 'multiple_pending_tasks' });
+      return;
+    }
+  }
+
+  if (thread) {
+    interaction = {
+      ...interaction,
+      providerId: thread.providerId,
+      runId: thread.runId,
+      replyToken: interaction.replyToken || thread.activeReplyToken,
+      inReplyTo: {
+        providerId: thread.providerId,
+        runId: thread.runId,
+        taskId: thread.taskId,
+        questionId: thread.activeQuestionId,
+      },
+    };
+  }
+
+  if (
+    interaction.actionId.startsWith('submit_data_collection')
+    || interaction.actionId.startsWith('answer_task_question')
+    || interaction.actionId.startsWith('execute_task')
+  ) {
+    const contextPackage = buildContextPackage(inputRef, session);
+    const provider = getProviderEntry(interaction.providerId);
+
+    if (provider && provider.enabled) {
+      const providerEvents = await interactProvider(provider, interaction, contextPackage);
+      await emitProviderEvents(session, inputRef, interaction.providerId, interaction.runId, providerEvents);
     } else {
-      const progress: InteractionEvent = {
-        type: 'provider_extension',
-        extensionKind: 'data_collection_progress',
-        payload: {
-          schemaVersion: 'v0',
-          providerId: interaction.providerId,
-          taskId: interaction.runId,
-          progress: { step: 1, total: 1, label: '资料已接收，正在分析' },
-          status: 'in_progress',
+      emitEvent(session, inputRef, 'interaction', {
+        event: {
+          type: 'error',
+          userMessage: `${interaction.providerId} 未注册，无法处理当前动作。`,
+          retryable: false,
         },
-      };
-
-      const result: InteractionEvent = {
-        type: 'provider_extension',
-        extensionKind: 'data_collection_result',
-        payload: {
-          schemaVersion: 'v0',
-          providerId: interaction.providerId,
-          taskId: interaction.runId,
-          dataSchema: PLAN_DATA_SCHEMA,
-          uiSchema: PLAN_UI_SCHEMA,
-          values: interaction.payload,
-          status: 'completed',
-        },
-      };
-
-      emitEvent(session, inputRef, 'interaction', { event: progress, source: 'provider' }, interaction.providerId, interaction.runId);
-      emitEvent(session, inputRef, 'interaction', { event: result, source: 'provider' }, interaction.providerId, interaction.runId);
+        source: 'system',
+      }, interaction.providerId, interaction.runId);
     }
   }
 
@@ -1089,11 +1856,12 @@ app.post('/v0/interact', async (req, res) => {
 
 app.post('/v0/events', async (req: RawBodyRequest, res) => {
   try {
+    const allowedSubjects = providerAllowedSubjects();
     const authorized = await guardInternalAuth(req, res, {
       endpoint: '/v0/events',
       expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
       requiredScopes: ['events:write'],
-      allowedSubjects: ['provider-plan'],
+      allowedSubjects,
     });
     if (!authorized) return;
 
@@ -1107,13 +1875,22 @@ app.post('/v0/events', async (req: RawBodyRequest, res) => {
     let rejected = 0;
     const errors: Array<{ index: number; code: string; message: string }> = [];
 
-    body.events.forEach((item: ProviderEventsRequest['events'][number], index: number) => {
+    for (let index = 0; index < body.events.length; index += 1) {
+      const item = body.events[index];
       try {
-        if (item.kind === 'interaction') {
-          const session = sessions.get(item.sessionId);
+        if (item.kind === 'interaction' || item.kind === 'task_state') {
+          let session = sessions.get(item.sessionId);
+          if (!session && persistence.isEnabled()) {
+            const persisted = await persistence.loadSession(item.sessionId);
+            if (persisted) {
+              session = persisted;
+              sessions.set(session.sessionId, session);
+            }
+          }
           if (!session) {
             throw new Error('session_not_found');
           }
+          await ensureTaskThreadsLoaded(item.sessionId);
 
           const inputRef: UnifiedUserInput = {
             schemaVersion: 'v0',
@@ -1123,8 +1900,16 @@ app.post('/v0/events', async (req: RawBodyRequest, res) => {
             source: 'api',
             timestampMs: item.timestampMs,
           };
-
-          emitEvent(session, inputRef, 'interaction', { event: item.event, source: 'provider' }, body.providerId, item.runId);
+          const event = item.kind === 'interaction'
+            ? item.event
+            : item.event;
+          await emitProviderEvents(
+            session,
+            inputRef,
+            body.providerId,
+            item.runId,
+            [event as InteractionEvent],
+          );
         } else {
           const event = item.event as DomainEvent;
           const sessionId = event.sessionId || uuid();
@@ -1158,7 +1943,7 @@ app.post('/v0/events', async (req: RawBodyRequest, res) => {
         rejected += 1;
         errors.push({ index, code: 'EVENT_REJECTED', message: String(error) });
       }
-    });
+    }
 
     res.json({ schemaVersion: 'v0', accepted, rejected, errors: errors.length ? errors : undefined });
   } catch (error) {
@@ -1222,7 +2007,7 @@ app.get('/v0/context/users/:profileRef', async (req, res) => {
     endpoint: '/v0/context/users/:profileRef',
     expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
     requiredScopes: ['context:read'],
-    allowedSubjects: ['provider-plan'],
+    allowedSubjects: providerAllowedSubjects(),
   });
   if (!authorized) return;
 
@@ -1293,10 +2078,18 @@ const server = app.listen(PORT, async () => {
       requestedReplayBackend: INTERNAL_AUTH_CONFIG.replayBackend,
     });
   }
+  await refreshAllProviderManifests();
+  manifestRefreshTimer = setInterval(() => {
+    void refreshAllProviderManifests();
+  }, 5 * 60 * 1000);
   logger.info('gateway listening', { port: PORT });
 });
 
 async function shutdown(): Promise<void> {
+  if (manifestRefreshTimer) {
+    clearInterval(manifestRefreshTimer);
+    manifestRefreshTimer = undefined;
+  }
   await persistence.close().catch((error: unknown) => {
     observability.observePersistenceError();
     logger.error('persistence close failed', serializeError(error));

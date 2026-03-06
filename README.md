@@ -48,6 +48,26 @@
 - `GET /metrics` (Prometheus text)
 - `GET /.well-known/uniassist/manifest.json`
 
+## Task Orchestration Protocol (T-009)
+
+统一入口已支持多 Provider 通用任务编排，核心为双通道模型：
+- 体验通道：`ack/assistant_message/card/request_clarification`
+- 任务通道：`provider_extension.task_question` 与 `provider_extension.task_state`
+
+关键约束：
+- `task_question` 必填：`providerId/runId/taskId/questionId/replyToken/prompt/answerSchema/uiSchema`
+- `task_state` 必填：`providerId/runId/taskId/state/executionPolicy`
+  - `state`: `collecting|ready|executing|completed|failed`
+  - `executionPolicy`: `auto_execute|require_user_confirm`
+- `UserInteraction` 支持 `replyToken` 与 `inReplyTo`，用于精确回投到指定任务线程
+- 兼容窗口内仍接受旧 `data_collection_*` 事件，网关会归一化到 `task_question/task_state`
+
+网关分发优先级：
+1. `replyToken` 命中  
+2. 单 pending 任务自动命中  
+3. 多 pending 返回任务选择卡片  
+4. 普通语义路由
+
 ## Workspace Structure
 
 ```txt
@@ -304,4 +324,4 @@ STAGING_GATEWAY_BASE_URL=http://localhost:8787 pnpm observability:drill:staging
 - 配置 `REDIS_URL` 后，gateway 会写入 outbox；由 `apps/worker` 重试投递到 Redis Streams
 - `apps/worker` 同时消费全局 stream（consumer group）并回写 outbox consumed 状态
 - 外部入口启用最低安全：HMAC + timestamp + nonce 防重放
-- 内部完整签名/JWT 属于后续版本目标
+- 内部服务鉴权已支持 JWT+HMAC（`off|audit|enforce`），`/v0/events` 与 `/v0/context` 默认按 scope+subject 校验

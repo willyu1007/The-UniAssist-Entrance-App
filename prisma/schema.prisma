@@ -99,3 +99,22 @@ model OutboxEvent {
   @@index([status, nextRetryAt], map: "idx_outbox_events_status_next_retry")
   @@map("outbox_events")
 }
+
+model TaskThread {
+  taskId           String   @id @map("task_id")
+  sessionId        String   @map("session_id")
+  providerId       String   @map("provider_id")
+  runId            String   @map("run_id")
+  state            String
+  executionPolicy  String   @map("execution_policy")
+  activeQuestionId String?  @map("active_question_id")
+  activeReplyToken String?  @map("active_reply_token")
+  metadata         Json?
+  updatedAt        DateTime @updatedAt @map("updated_at")
+  createdAt        DateTime @default(now()) @map("created_at")
+
+  @@index([sessionId], map: "idx_task_threads_session_id")
+  @@index([sessionId, state], map: "idx_task_threads_session_state")
+  @@index([activeReplyToken], map: "idx_task_threads_active_reply_token")
+  @@map("task_threads")
+}

@@ -178,6 +178,15 @@ export type CoreInteractionEvent =
 
 export type JsonSchema = Record<string, unknown>;
 
+export type TaskExecutionPolicy = 'auto_execute' | 'require_user_confirm';
+
+export type TaskLifecycleState =
+  | 'collecting'
+  | 'ready'
+  | 'executing'
+  | 'completed'
+  | 'failed';
+
 export type DataCollectionRequestExtensionEvent = {
   type: 'provider_extension';
   extensionKind: 'data_collection_request';
@@ -221,10 +230,44 @@ export type DataCollectionResultExtensionEvent = {
   };
 };
 
+export type TaskQuestionExtensionEvent = {
+  type: 'provider_extension';
+  extensionKind: 'task_question';
+  payload: {
+    schemaVersion: SchemaVersion;
+    providerId: string;
+    runId: string;
+    taskId: string;
+    questionId: string;
+    replyToken: string;
+    prompt: string;
+    answerSchema: JsonSchema;
+    uiSchema: Record<string, unknown>;
+    metadata?: Record<string, unknown>;
+  };
+};
+
+export type TaskStateExtensionEvent = {
+  type: 'provider_extension';
+  extensionKind: 'task_state';
+  payload: {
+    schemaVersion: SchemaVersion;
+    providerId: string;
+    runId: string;
+    taskId: string;
+    state: TaskLifecycleState;
+    executionPolicy: TaskExecutionPolicy;
+    missingFields?: string[];
+    metadata?: Record<string, unknown>;
+  };
+};
+
 export type ProviderExtensionInteractionEvent =
   | DataCollectionRequestExtensionEvent
   | DataCollectionProgressExtensionEvent
-  | DataCollectionResultExtensionEvent;
+  | DataCollectionResultExtensionEvent
+  | TaskQuestionExtensionEvent
+  | TaskStateExtensionEvent;
 
 export type InteractionEvent = CoreInteractionEvent | ProviderExtensionInteractionEvent;
 
@@ -237,6 +280,13 @@ export type UserInteraction = {
   runId: string;
   actionId: string;
   payload?: Record<string, unknown>;
+  replyToken?: string;
+  inReplyTo?: {
+    providerId: string;
+    runId: string;
+    taskId: string;
+    questionId?: string;
+  };
   timestampMs: number;
 };
 
@@ -405,6 +455,15 @@ export type ProviderEventsRequest = {
         userId: string;
         runId: string;
         event: InteractionEvent;
+        timestampMs: number;
+      }
+    | {
+        kind: 'task_state';
+        traceId: string;
+        sessionId: string;
+        userId: string;
+        runId: string;
+        event: TaskStateExtensionEvent;
         timestampMs: number;
       }
     | {
