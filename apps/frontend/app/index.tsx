@@ -125,6 +125,8 @@ export default function HomeScreen() {
   const [transportState, setTransportState] = useState<TimelineTransportState>('closed');
   const [taskThreads, setTaskThreads] = useState<Record<string, TaskThreadView>>({});
   const [activeTask, setActiveTask] = useState<TaskThreadView | null>(null);
+  const [pendingReplyDraft, setPendingReplyDraft] = useState<string | null>(null);
+  const [pendingTaskPickerVisible, setPendingTaskPickerVisible] = useState(false);
 
   const seenEventIds = useRef<Set<string>>(new Set());
   const transportRef = useRef<TimelineTransport | null>(null);
@@ -314,6 +316,8 @@ export default function HomeScreen() {
     setItems([]);
     setTaskThreads({});
     setActiveTask(null);
+    setPendingReplyDraft(null);
+    setPendingTaskPickerVisible(false);
     seenEventIds.current.clear();
     setSwitchSuggestion(null);
   }, []);
@@ -504,27 +508,20 @@ export default function HomeScreen() {
     }
   }, [appendInteractionItem, appendTextItem, sessionId, simulateLocalFlow, userId]);
 
-  const promptSelectTaskAndSend = useCallback((text: string, tasks: TaskThreadView[]) => {
-    Alert.alert(
-      '选择任务后继续',
-      '当前有多个待回复任务，请先选择目标任务。',
-      [
-        ...tasks.map((task) => ({
-          text: `${task.providerId} · ${task.taskId}`,
-          onPress: () => {
-            setActiveTask(task);
-            void postInteraction({
-              actionId: `focus_task:${task.taskId}`,
-              providerId: task.providerId,
-              runId: task.runId,
-            });
-            void sendTaskReply(text, task);
-          },
-        })),
-        { text: '取消', style: 'cancel' },
-      ],
-    );
-  }, [postInteraction, sendTaskReply]);
+  const handlePickPendingTask = useCallback((task: TaskThreadView) => {
+    const queuedText = pendingReplyDraft;
+    setActiveTask(task);
+    setPendingTaskPickerVisible(false);
+    setPendingReplyDraft(null);
+    void postInteraction({
+      actionId: `focus_task:${task.taskId}`,
+      providerId: task.providerId,
+      runId: task.runId,
+    });
+    if (queuedText) {
+      void sendTaskReply(queuedText, task);
+    }
+  }, [pendingReplyDraft, postInteraction, sendTaskReply]);
 
   const handleSend = useCallback(async (text: string) => {
     if (activeTask?.replyToken) {
@@ -533,7 +530,9 @@ export default function HomeScreen() {
     }
 
     if (pendingTasks.length > 1) {
-      promptSelectTaskAndSend(text, pendingTasks);
+      setPendingReplyDraft(text);
+      setPendingTaskPickerVisible(true);
+      setToastMessage('请先选择要继续的任务');
       return;
     }
 
@@ -545,7 +544,7 @@ export default function HomeScreen() {
     }
 
     await sendIngestText(text);
-  }, [activeTask, pendingTasks, promptSelectTaskAndSend, sendIngestText, sendTaskReply]);
+  }, [activeTask, pendingTasks, sendIngestText, sendTaskReply]);
 
   const handleVoiceStart = useCallback(async () => {
     const ok = await voice.start();
@@ -1022,6 +1021,69 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           </View>
+        ) : pendingTaskPickerVisible && pendingTasks.length > 1 ? (
+          <View
+            style={[
+              styles.taskFocusWrap,
+              {
+                paddingHorizontal: t.space[4],
+                paddingBottom: t.space[2],
+              },
+            ]}
+          >
+            <View
+              style={[
+                styles.pendingPickerBox,
+                {
+                  borderRadius: t.radius.md,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                选择任务后发送{pendingReplyDraft ? '：' : ''}
+                {pendingReplyDraft ? `「${pendingReplyDraft}」` : ''}
+              </Text>
+              <View style={styles.actionRow}>
+                {pendingTasks.map((task) => (
+                  <Pressable
+                    key={task.taskId}
+                    onPress={() => handlePickPendingTask(task)}
+                    style={({ pressed }) => [
+                      styles.actionBtn,
+                      {
+                        backgroundColor: pressed ? t.color.surfaceElevated : t.color.surface,
+                        borderColor: t.color.border,
+                        borderWidth: t.border.width.sm,
+                        borderRadius: t.radius.md,
+                      },
+                    ]}
+                  >
+                    <Text variant="caption">{task.providerId} · {task.taskId}</Text>
+                  </Pressable>
+                ))}
+                <Pressable
+                  onPress={() => {
+                    setPendingTaskPickerVisible(false);
+                    setPendingReplyDraft(null);
+                  }}
+                  style={({ pressed }) => [
+                    styles.actionBtn,
+                    {
+                      backgroundColor: pressed ? t.color.surfaceElevated : t.color.surface,
+                      borderColor: t.color.border,
+                      borderWidth: t.border.width.sm,
+                      borderRadius: t.radius.md,
+                    },
+                  ]}
+                >
+                  <Text variant="caption" tone="muted">取消</Text>
+                </Pressable>
+              </View>
+            </View>
+          </View>
         ) : pendingTasks.length > 1 ? (
           <View
             style={[
@@ -1157,6 +1219,11 @@ const styles = StyleSheet.create({
     height: 20,
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  pendingPickerBox: {
+    alignSelf: 'stretch',
+    paddingVertical: 8,
+    paddingHorizontal: 10,
   },
   transportStatusWrap: {},
   transportStatusPill: {

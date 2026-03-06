@@ -547,7 +547,7 @@ function sleep(ms: number): Promise<void> {
 function providerAllowedSubjects(): string[] {
   const subjects = new Set<string>();
   providerRegistry.forEach((entry) => {
-    if (entry.enabled && entry.serviceId) {
+    if (entry.enabled && entry.serviceId && entry.baseUrl) {
       subjects.add(entry.serviceId);
     }
   });
