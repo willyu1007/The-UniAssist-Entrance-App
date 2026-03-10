@@ -93,3 +93,87 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/split-monolith-gateway-frontend
     updated: 2026-03-06
+  - id: T-011
+    slug: ua-openclaw-collab-platform
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-openclaw-collab-platform
+    updated: 2026-03-11
+  - id: T-012
+    slug: ua-workflow-core-skeleton-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-workflow-core-skeleton-design
+    updated: 2026-03-11
+  - id: T-013
+    slug: ua-builder-draft-sot-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-builder-draft-sot-design
+    updated: 2026-03-11
+  - id: T-014
+    slug: ua-connector-action-layer-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-connector-action-layer-design
+    updated: 2026-03-11
+  - id: T-015
+    slug: ua-control-console-foundation-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-control-console-foundation-design
+    updated: 2026-03-11
+  - id: T-016
+    slug: ua-convex-projection-evaluation
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-convex-projection-evaluation
+    updated: 2026-03-11
+  - id: T-017
+    slug: ua-teaching-assessment-scenario-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-teaching-assessment-scenario-design
+    updated: 2026-03-11
+  - id: T-018
+    slug: ua-workflow-data-plane-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-workflow-data-plane-design
+    updated: 2026-03-11
+  - id: T-019
+    slug: ua-agent-lifecycle-and-trigger-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-agent-lifecycle-and-trigger-design
+    updated: 2026-03-11
+  - id: T-020
+    slug: ua-external-runtime-bridge-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-external-runtime-bridge-design
+    updated: 2026-03-11
+  - id: T-021
+    slug: ua-policy-secret-scope-governance-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-policy-secret-scope-governance-design
+    updated: 2026-03-11
+  - id: T-022
+    slug: ua-rnd-collab-validation-scenario-design
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-rnd-collab-validation-scenario-design
+    updated: 2026-03-11

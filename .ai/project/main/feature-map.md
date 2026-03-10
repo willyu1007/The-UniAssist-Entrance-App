@@ -22,4 +22,16 @@ Project: `main`
 | T-008 ua-k8s-staging-foundation | done | dev-docs/active/ua-k8s-staging-foundation |
 | T-009 ua-multi-provider-task-orchestration | done | dev-docs/active/ua-multi-provider-task-orchestration |
 | T-010 split-monolith-gateway-frontend | done | dev-docs/active/split-monolith-gateway-frontend |
+| T-011 ua-openclaw-collab-platform | in-progress | dev-docs/active/ua-openclaw-collab-platform |
+| T-012 ua-workflow-core-skeleton-design | in-progress | dev-docs/active/ua-workflow-core-skeleton-design |
+| T-013 ua-builder-draft-sot-design | in-progress | dev-docs/active/ua-builder-draft-sot-design |
+| T-014 ua-connector-action-layer-design | in-progress | dev-docs/active/ua-connector-action-layer-design |
+| T-015 ua-control-console-foundation-design | in-progress | dev-docs/active/ua-control-console-foundation-design |
+| T-016 ua-convex-projection-evaluation | in-progress | dev-docs/active/ua-convex-projection-evaluation |
+| T-017 ua-teaching-assessment-scenario-design | in-progress | dev-docs/active/ua-teaching-assessment-scenario-design |
+| T-018 ua-workflow-data-plane-design | in-progress | dev-docs/active/ua-workflow-data-plane-design |
+| T-019 ua-agent-lifecycle-and-trigger-design | in-progress | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
+| T-020 ua-external-runtime-bridge-design | in-progress | dev-docs/active/ua-external-runtime-bridge-design |
+| T-021 ua-policy-secret-scope-governance-design | in-progress | dev-docs/active/ua-policy-secret-scope-governance-design |
+| T-022 ua-rnd-collab-validation-scenario-design | in-progress | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 <!-- AUTO-GENERATED:END feature-map -->

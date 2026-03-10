@@ -8,12 +8,24 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 10 (planned: 0, in-progress: 6, blocked: 1, done: 3, archived: 0)
+- Tasks: 22 (planned: 0, in-progress: 18, blocked: 1, done: 3, archived: 0)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-011 ua-openclaw-collab-platform | in-progress | F-000 | dev-docs/active/ua-openclaw-collab-platform |
+| T-012 ua-workflow-core-skeleton-design | in-progress | F-000 | dev-docs/active/ua-workflow-core-skeleton-design |
+| T-013 ua-builder-draft-sot-design | in-progress | F-000 | dev-docs/active/ua-builder-draft-sot-design |
+| T-014 ua-connector-action-layer-design | in-progress | F-000 | dev-docs/active/ua-connector-action-layer-design |
+| T-015 ua-control-console-foundation-design | in-progress | F-000 | dev-docs/active/ua-control-console-foundation-design |
+| T-016 ua-convex-projection-evaluation | in-progress | F-000 | dev-docs/active/ua-convex-projection-evaluation |
+| T-017 ua-teaching-assessment-scenario-design | in-progress | F-000 | dev-docs/active/ua-teaching-assessment-scenario-design |
+| T-018 ua-workflow-data-plane-design | in-progress | F-000 | dev-docs/active/ua-workflow-data-plane-design |
+| T-019 ua-agent-lifecycle-and-trigger-design | in-progress | F-000 | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
+| T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
+| T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
+| T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 | T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
 | T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 | T-010 split-monolith-gateway-frontend | done | F-000 | dev-docs/active/split-monolith-gateway-frontend |
@@ -22,6 +34,4 @@ Project: `main`
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
 | T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
 | T-002 ua-staging-release-baseline | in-progress | F-000 | dev-docs/active/ua-staging-release-baseline |
-| T-003 ua-observability-alerting | in-progress | F-000 | dev-docs/active/ua-observability-alerting |
-| T-004 ua-worker-reliability-hardening | in-progress | F-000 | dev-docs/active/ua-worker-reliability-hardening |
 <!-- AUTO-GENERATED:END dashboard -->

@@ -1,0 +1,99 @@
+# 04 Verification
+
+## Automated checks
+- Planning/gov sync:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+
+### Results
+- 2026-03-10:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - 分配任务 ID `T-011`
+      - 更新 `registry.yaml`, `dashboard.md`, `feature-map.md`, `task-index.md`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - `.ai-task.yaml` 已存在且治理索引无报错
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - 为 6 个后续设计子包分配任务 ID：`T-013`, `T-014`, `T-015`, `T-016`, `T-017`, `T-018`
+      - 更新 `registry.yaml`, `dashboard.md`, `feature-map.md`, `task-index.md`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 后续设计子包治理校验通过
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-011` 状态与总包摘要已同步为 `in-progress`
+      - `T-013 / T-015 / T-017` 的状态更新已回写到治理索引
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 总包与子包状态、顺序和冻结边界摘要一致
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-011` 总包已同步 implementation tranche 顺序与 admission criteria
+      - 治理索引与 `in-progress` 状态保持一致
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - tranche 顺序、已冻结子包列表和 roadmap 描述无冲突
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - 注册补充设计子包 `T-019`, `T-020`, `T-021`, `T-022`
+      - 总包已回写“full v0.2 coverage 仍需补充设计包收敛”的判断
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 新增补充设计子包与总包 tranche / coverage 描述一致
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-012 / T-018` 状态推进到 `in-progress`
+      - 总包已回写“规划层已完整覆盖 v0.2 主体需求”的审计结论
+      - `T-021` 的审批状态机已重新对齐到 `T-018` canonical definition
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 总包、子包状态与 canonical 语义定义无冲突
+- 2026-03-11:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-011` 已回写 `8+1` implementation bundle 结构
+      - roadmap、plan、architecture、implementation notes、pitfalls 已同步到治理索引
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - `I1-I4` tranche 与 `B1-B9` bundle 结构之间无治理层冲突
+
+## Manual smoke checks
+- Confirm the task bundle exists with:
+  - `roadmap.md`
+  - `00-overview.md`
+  - `01-plan.md`
+  - `02-architecture.md`
+  - `03-implementation-notes.md`
+  - `04-verification.md`
+  - `05-pitfalls.md`
+- Confirm the roadmap answers:
+  - 为什么要升级
+  - 先做什么
+  - implementation tranche 为什么是 `I1 -> I2 -> I3 -> I4`
+  - 为什么 implementation 需要 `8+1` bundles，而不是直接按 tranche 或设计子包数量开包
+  - 为什么教学场景优先
+  - 探索型 agent 如何被收敛
+  - 控制台为什么独立成 Web
+  - Convex 为什么不作为主数据面
+
+## Rollout / Backout (if applicable)
+- Rollout:
+  - 先完成任务总包与治理注册，再继续阶段性设计与实施讨论
+- Backout:
+  - 若规划方向发生根本变化，归档该任务并新开任务，而不是在原 bundle 内混入完全不同的目标

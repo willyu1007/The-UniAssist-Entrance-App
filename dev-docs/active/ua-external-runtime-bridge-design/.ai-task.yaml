@@ -1,0 +1,6 @@
+version: 1
+task_id: T-020
+project: main
+slug: ua-external-runtime-bridge-design
+status: in-progress
+updated: "2026-03-11"
