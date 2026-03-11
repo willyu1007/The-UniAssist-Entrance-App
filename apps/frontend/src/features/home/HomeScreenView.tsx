@@ -23,9 +23,29 @@ import { FEATURES, GATEWAY_BASE_URL, LOGO_SIZE, logoIcon } from './constants';
 import { InteractionBody } from './InteractionBody';
 import type { HomeController } from './useHomeController';
 
+function draftStatusText(status: string): string {
+  switch (status) {
+    case 'created':
+      return '已创建';
+    case 'collecting_input':
+      return '信息收集中';
+    case 'synthesized':
+      return '已合成';
+    case 'editable':
+      return '可编辑';
+    case 'publishable':
+      return '可发布';
+    case 'published':
+      return '已发布';
+    default:
+      return status;
+  }
+}
+
 export function HomeScreenView({ controller }: { controller: HomeController }) {
   const t = useThemeTokens();
   const insets = useSafeAreaInsets();
+  const builderDraftCount = Object.keys(controller.builderDrafts).length;
 
   return (
     <KeyboardAvoidingView
@@ -84,6 +104,73 @@ export function HomeScreenView({ controller }: { controller: HomeController }) {
           </View>
         ) : null}
 
+        <View
+          style={[
+            styles.builderStripWrap,
+            {
+              paddingHorizontal: t.space[4],
+              paddingBottom: t.space[2],
+            },
+          ]}
+        >
+          <Pressable
+            onPress={() => {
+              void controller.handleBuilderQuickEntry();
+            }}
+            style={({ pressed }) => [
+              styles.builderEntryButton,
+              {
+                borderRadius: t.radius.full,
+                backgroundColor: pressed ? t.color.primaryActive : t.color.primary,
+              },
+            ]}
+          >
+            <Ionicons name="construct-outline" size={14} color={t.color.onPrimary} />
+            <Text variant="caption" style={{ color: t.color.onPrimary, marginLeft: t.space[1] }}>
+              打开 Workflow Builder
+            </Text>
+          </Pressable>
+
+          {controller.activeBuilderDraft ? (
+            <View
+              style={[
+                styles.builderStatusPill,
+                {
+                  borderRadius: t.radius.full,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                当前草稿: {controller.activeBuilderDraft.name || controller.activeBuilderDraft.workflowKey || controller.activeBuilderDraft.draftId.slice(0, 8)}
+                {' · '}
+                {draftStatusText(controller.activeBuilderDraft.status)}
+                {controller.activeBuilderDraft.publishable ? ' · 可发布' : ''}
+              </Text>
+            </View>
+          ) : null}
+
+          {builderDraftCount > 1 ? (
+            <View
+              style={[
+                styles.builderStatusPill,
+                {
+                  borderRadius: t.radius.full,
+                  borderColor: t.color.border,
+                  borderWidth: t.border.width.sm,
+                  backgroundColor: t.color.surface,
+                },
+              ]}
+            >
+              <Text variant="caption" tone="muted">
+                当前会话已关联 {builderDraftCount} 条 Builder 草稿
+              </Text>
+            </View>
+          ) : null}
+        </View>
+
         <FlatList
           data={controller.items}
           keyExtractor={(item) => item.id}
@@ -97,6 +184,9 @@ export function HomeScreenView({ controller }: { controller: HomeController }) {
             <View style={styles.emptyConversation}>
               <Text variant="body" tone="muted">
                 发送消息开始对话（统一入口引擎模式）
+              </Text>
+              <Text variant="caption" tone="muted" style={{ marginTop: t.space[2] }}>
+                也可以点上方按钮，或使用 `@builder ` 前缀进入 Workflow Builder。
               </Text>
             </View>
           }
@@ -432,6 +522,21 @@ const styles = StyleSheet.create({
   transportStatusPill: {
     alignSelf: 'flex-start',
     paddingVertical: 4,
+    paddingHorizontal: 10,
+  },
+  builderStripWrap: {
+    gap: 8,
+  },
+  builderEntryButton: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+  },
+  builderStatusPill: {
+    alignSelf: 'flex-start',
+    paddingVertical: 6,
     paddingHorizontal: 10,
   },
 });

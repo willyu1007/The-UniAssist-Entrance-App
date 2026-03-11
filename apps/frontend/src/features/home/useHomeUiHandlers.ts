@@ -1,7 +1,7 @@
-import { useCallback, type MutableRefObject } from 'react';
+import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from 'react';
 
 import { makeId } from './helpers';
-import type { ChatItem, SwitchSuggestion, TaskThreadView } from './types';
+import type { BuilderDraftView, ChatItem, SwitchSuggestion, TaskThreadView } from './types';
 
 type Params = {
   sessionId: string;
@@ -10,6 +10,7 @@ type Params = {
   setItems: (items: ChatItem[]) => void;
   setTaskThreads: (next: Record<string, TaskThreadView>) => void;
   setActiveTask: (task: TaskThreadView | null) => void;
+  setBuilderDrafts: Dispatch<SetStateAction<Record<string, BuilderDraftView>>>;
   setPendingReplyDraft: (draft: string | null) => void;
   setPendingTaskPickerVisible: (visible: boolean) => void;
   seenEventIds: MutableRefObject<Set<string>>;
@@ -25,6 +26,7 @@ export function useHomeUiHandlers(params: Params) {
     setItems,
     setTaskThreads,
     setActiveTask,
+    setBuilderDrafts,
     setPendingReplyDraft,
     setPendingTaskPickerVisible,
     seenEventIds,
@@ -38,6 +40,7 @@ export function useHomeUiHandlers(params: Params) {
     setItems([]);
     setTaskThreads({});
     setActiveTask(null);
+    setBuilderDrafts({});
     setPendingReplyDraft(null);
     setPendingTaskPickerVisible(false);
     seenEventIds.current.clear();
@@ -45,6 +48,7 @@ export function useHomeUiHandlers(params: Params) {
   }, [
     seenEventIds,
     setActiveTask,
+    setBuilderDrafts,
     setCursor,
     setItems,
     setPendingReplyDraft,

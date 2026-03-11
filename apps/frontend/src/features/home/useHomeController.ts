@@ -7,7 +7,17 @@ import { makeId, parseInteractionFromPayload, sourceLabel } from './helpers';
 import { simulateLocalFlow } from './localFlow';
 import { useHomeUiHandlers } from './useHomeUiHandlers';
 import { useHomeVoiceHandlers } from './useHomeVoiceHandlers';
-import type { FocusedTaskResponse, ChatItem, SwitchSuggestion, TaskThreadView } from './types';
+import type { BuilderDraftView, FocusedTaskResponse, ChatItem, SwitchSuggestion, TaskThreadView } from './types';
+
+function isBuilderDraftPayload(value: unknown): value is BuilderDraftView & { kind: 'builder_draft' } {
+  if (!value || typeof value !== 'object') return false;
+  const record = value as Record<string, unknown>;
+  return record.kind === 'builder_draft'
+    && typeof record.draftId === 'string'
+    && typeof record.status === 'string'
+    && typeof record.publishable === 'boolean'
+    && typeof record.isActive === 'boolean';
+}
 
 export function useHomeController() {
   const voice = useVoiceRecorder();
@@ -24,6 +34,7 @@ export function useHomeController() {
   const [transportState, setTransportState] = useState<TimelineTransportState>('closed');
   const [taskThreads, setTaskThreads] = useState<Record<string, TaskThreadView>>({});
   const [activeTask, setActiveTask] = useState<TaskThreadView | null>(null);
+  const [builderDrafts, setBuilderDrafts] = useState<Record<string, BuilderDraftView>>({});
   const [pendingReplyDraft, setPendingReplyDraft] = useState<string | null>(null);
   const [pendingTaskPickerVisible, setPendingTaskPickerVisible] = useState(false);
   const seenEventIds = useRef<Set<string>>(new Set());
@@ -31,6 +42,10 @@ export function useHomeController() {
   const pendingTasks = useMemo(
     () => Object.values(taskThreads).filter((thread) => thread.state === 'collecting' && Boolean(thread.replyToken)),
     [taskThreads],
+  );
+  const activeBuilderDraft = useMemo(
+    () => Object.values(builderDrafts).find((draft) => draft.isActive) || null,
+    [builderDrafts],
   );
 
   const appendTextItem = useCallback((role: ChatItem['role'], text: string, label?: string, providerId?: string, runId?: string) => {
@@ -113,6 +128,36 @@ export function useHomeController() {
           actionId: switchAction.actionId,
           providerId: switchAction.actionId.replace('switch_provider:', ''),
           runId,
+        });
+      }
+
+      const nextBuilderDrafts = interaction.actions
+        .map((action) => action.payload)
+        .filter(isBuilderDraftPayload)
+        .reduce<Record<string, BuilderDraftView>>((acc, payload) => {
+          acc[payload.draftId] = {
+            draftId: payload.draftId,
+            name: typeof payload.name === 'string' ? payload.name : undefined,
+            workflowKey: typeof payload.workflowKey === 'string' ? payload.workflowKey : undefined,
+            status: payload.status,
+            publishable: payload.publishable,
+            isActive: payload.isActive,
+          };
+          return acc;
+        }, {});
+      if (Object.keys(nextBuilderDrafts).length > 0) {
+        setBuilderDrafts((prev) => {
+          const merged = { ...prev };
+          const hasActive = Object.values(nextBuilderDrafts).some((draft) => draft.isActive);
+          if (hasActive) {
+            for (const draft of Object.values(merged)) {
+              draft.isActive = false;
+            }
+          }
+          for (const [draftId, draft] of Object.entries(nextBuilderDrafts)) {
+            merged[draftId] = draft;
+          }
+          return { ...merged };
         });
       }
     }
@@ -216,6 +261,7 @@ export function useHomeController() {
     setActiveTask,
     setPendingReplyDraft,
     setPendingTaskPickerVisible,
+    setBuilderDrafts,
     seenEventIds,
     setSwitchSuggestion,
     setToastMessage,
@@ -319,8 +365,13 @@ export function useHomeController() {
     });
   }, [appendTextItem, postInteraction]);
 
-  const sendIngestText = useCallback(async (text: string) => {
-    appendTextItem('user', text, 'app');
+  const sendIngestText = useCallback(async (text: string, options?: {
+    raw?: Record<string, unknown>;
+    echoText?: boolean;
+  }) => {
+    if (options?.echoText !== false && text.trim()) {
+      appendTextItem('user', text, 'app');
+    }
 
     if (!GATEWAY_BASE_URL) {
       runLocalFlow(text);
@@ -334,6 +385,7 @@ export function useHomeController() {
       sessionId,
       source: 'app',
       text,
+      raw: options?.raw,
       timestampMs: Date.now(),
       locale: 'zh-CN',
       timezone: 'Asia/Shanghai',
@@ -367,6 +419,15 @@ export function useHomeController() {
       appendTextItem('system', '请求失败，请检查 Gateway 连接。', 'engine');
     }
   }, [appendInteractionItem, appendTextItem, runLocalFlow, sessionId, userId]);
+
+  const handleBuilderQuickEntry = useCallback(async () => {
+    await sendIngestText('', {
+      raw: {
+        entryMode: 'workflow_builder',
+      },
+      echoText: false,
+    });
+  }, [sendIngestText]);
 
   const handlePickPendingTask = useCallback((task: TaskThreadView) => {
     const queuedText = pendingReplyDraft;
@@ -429,6 +490,8 @@ export function useHomeController() {
     sessionId,
     activeTask,
     setActiveTask,
+    builderDrafts,
+    activeBuilderDraft,
     pendingTasks,
     pendingReplyDraft,
     pendingTaskPickerVisible,
@@ -443,6 +506,7 @@ export function useHomeController() {
     postInteraction,
     resetSession,
     handlePickPendingTask,
+    handleBuilderQuickEntry,
   };
 }
 

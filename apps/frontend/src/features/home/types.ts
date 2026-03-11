@@ -20,6 +20,15 @@ export type SwitchSuggestion = {
   runId?: string;
 };
 
+export type BuilderDraftView = {
+  draftId: string;
+  name?: string;
+  workflowKey?: string;
+  status: string;
+  publishable: boolean;
+  isActive: boolean;
+};
+
 export type TaskThreadView = {
   taskId: string;
   providerId: string;

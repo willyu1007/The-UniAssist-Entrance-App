@@ -23,6 +23,17 @@ export function InteractionBody({
 }: Props) {
   const t = useThemeTokens();
 
+  const getActionProviderId = (payload: unknown): string => {
+    if (payload && typeof payload === 'object' && typeof (payload as { providerId?: unknown }).providerId === 'string') {
+      return (payload as { providerId: string }).providerId;
+    }
+    return item.providerId || 'builtin_chat';
+  };
+
+  const getActionPayload = (payload: unknown): Record<string, unknown> | undefined => {
+    return payload && typeof payload === 'object' ? payload as Record<string, unknown> : undefined;
+  };
+
   if (!item.interaction) return null;
   const event = item.interaction;
 
@@ -39,8 +50,9 @@ export function InteractionBody({
                 onPress={async () => {
                   const result = await postInteraction({
                     actionId: action.actionId,
-                    providerId: item.providerId || 'builtin_chat',
+                    providerId: getActionProviderId(action.payload),
                     runId: item.runId,
+                    data: getActionPayload(action.payload),
                   });
                   if (action.actionId.startsWith('focus_task:') && result?.focusedTask) {
                     setActiveTask({
