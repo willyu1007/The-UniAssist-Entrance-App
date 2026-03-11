@@ -7,7 +7,13 @@ import type {
   UnifiedUserInput,
   UserInteraction,
 } from '@baseinterface/contracts';
+import { isWorkflowDraftTerminal, type WorkflowDraftRecord } from '@baseinterface/workflow-contracts';
 
+import {
+  BUILDER_ENTRY_MODE,
+  BUILDER_PROVIDER_ID,
+} from '../gateway-builder-client';
+import { buildBuilderProjectionEvents } from '../gateway-builder-events';
 import {
   FALLBACK_PROVIDER_ID,
   ROUTE_THRESHOLD,
@@ -26,6 +32,32 @@ import type { ProviderRegistryEntry, RawBodyRequest } from '../gateway-types';
 
 function isWorkflowThread(metadata: Record<string, unknown> | undefined): boolean {
   return metadata?.origin === 'workflow';
+}
+
+function getBuilderEntry(input: UnifiedUserInput): { mode: 'quick_entry' | 'text_entry'; text?: string } | undefined {
+  const rawEntryMode = input.raw && typeof input.raw.entryMode === 'string' ? input.raw.entryMode : undefined;
+  if (rawEntryMode === BUILDER_ENTRY_MODE) {
+    return { mode: 'quick_entry' };
+  }
+
+  const text = input.text?.trim();
+  if (!text) return undefined;
+  const lowered = text.toLowerCase();
+  if (lowered === '@builder') {
+    return { mode: 'text_entry' };
+  }
+  if (lowered.startsWith('@builder ')) {
+    return {
+      mode: 'text_entry',
+      text: text.slice('@builder '.length).trim(),
+    };
+  }
+  return undefined;
+}
+
+function getActiveDraft(drafts: WorkflowDraftRecord[], sessionLinks: Array<{ draftId: string; isActive: boolean }>): WorkflowDraftRecord | undefined {
+  const activeDraftId = sessionLinks.find((link) => link.isActive)?.draftId;
+  return drafts.find((draft) => draft.draftId === activeDraftId);
 }
 
 export function registerIngestRoute(
@@ -292,6 +324,140 @@ export function registerIngestRoute(
         timestampMs: services.now(),
       } satisfies IngestAck);
       return;
+    }
+
+    const builderEntry = getBuilderEntry(effectiveInput);
+    if (builderEntry) {
+      try {
+        const listed = await services.builderClient.listDrafts(session.sessionId);
+        const activeDraft = getActiveDraft(listed.drafts, listed.sessionLinks);
+        const shouldCreateDraft = !activeDraft || isWorkflowDraftTerminal(activeDraft.status);
+
+        const builderResponse = shouldCreateDraft
+          ? await services.builderClient.createDraft({
+            schemaVersion: 'v1',
+            sessionId: session.sessionId,
+            userId: effectiveInput.userId,
+            source: builderEntry.mode === 'quick_entry' ? 'builder_quick_entry' : 'builder_text_entry',
+            initialText: builderEntry.text,
+          })
+          : builderEntry.text
+            ? await services.builderClient.intakeDraft(activeDraft.draftId, {
+              schemaVersion: 'v1',
+              sessionId: session.sessionId,
+              userId: effectiveInput.userId,
+              text: builderEntry.text,
+              source: 'chat_intake',
+            })
+            : await services.builderClient.focusDraft(activeDraft.draftId, {
+              schemaVersion: 'v1',
+              sessionId: session.sessionId,
+              userId: effectiveInput.userId,
+            });
+
+        const routing: RoutingDecision = {
+          schemaVersion: 'v0',
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          candidates: [
+            {
+              providerId: BUILDER_PROVIDER_ID,
+              score: 1,
+              reason: builderEntry.mode === 'quick_entry' ? 'builder_quick_entry' : 'builder_text_entry',
+              requiresClarification: false,
+              suggestedMode: 'async',
+            },
+          ],
+          requiresUserConfirmation: false,
+          fallback: 'none',
+          timestampMs: services.now(),
+        };
+
+        services.timelineService.emitEvent(session, effectiveInput, 'routing_decision', routing as unknown as Record<string, unknown>);
+        const projectionEvents = buildBuilderProjectionEvents(
+          builderResponse,
+          shouldCreateDraft
+            ? '已创建并聚焦新的 Builder 草稿。'
+            : builderEntry.text
+              ? '已追加到当前 Builder 草稿。'
+              : '已聚焦当前 Builder 草稿。',
+        );
+        for (const event of projectionEvents) {
+          services.timelineService.emitEvent(
+            session,
+            effectiveInput,
+            'interaction',
+            { event, source: 'system' },
+            BUILDER_PROVIDER_ID,
+            builderResponse.draft.draftId,
+          );
+        }
+
+        services.sessionService.persistSessionAsync(session);
+        res.json({
+          schemaVersion: 'v0',
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          userId: effectiveInput.userId,
+          routing,
+          runs: [],
+          ackEvents: [
+            {
+              type: 'ack',
+              message: 'Builder 草稿已更新。',
+            },
+          ],
+          stream: {
+            type: 'sse',
+            href: `/v0/stream?sessionId=${encodeURIComponent(session.sessionId)}&cursor=${session.seq}`,
+            cursor: session.seq,
+          },
+          timestampMs: services.now(),
+        } satisfies IngestAck);
+        return;
+      } catch (error) {
+        services.logger.warn('builder entry failed', {
+          sessionId: session.sessionId,
+          error: services.serializeError(error),
+        });
+        services.timelineService.emitEvent(session, effectiveInput, 'interaction', {
+          event: {
+            type: 'error',
+            userMessage: 'Builder 草稿暂时不可用，请稍后重试。',
+            retryable: true,
+          },
+          source: 'system',
+        }, BUILDER_PROVIDER_ID);
+        services.sessionService.persistSessionAsync(session);
+        res.json({
+          schemaVersion: 'v0',
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          userId: effectiveInput.userId,
+          routing: {
+            schemaVersion: 'v0',
+            traceId: effectiveInput.traceId,
+            sessionId: session.sessionId,
+            candidates: [],
+            requiresUserConfirmation: false,
+            fallback: 'none',
+            timestampMs: services.now(),
+          },
+          runs: [],
+          ackEvents: [{
+            type: 'error',
+            userMessage: 'Builder 草稿暂时不可用，请稍后重试。',
+            retryable: true,
+          }],
+          stream: {
+            type: 'sse',
+            href: `/v0/stream?sessionId=${encodeURIComponent(session.sessionId)}&cursor=${session.seq}`,
+            cursor: session.seq,
+          },
+          timestampMs: services.now(),
+        } satisfies IngestAck);
+        return;
+      }
     }
 
     const workflowEntry = services.workflowClient.matchWorkflowEntry(effectiveInput.text);

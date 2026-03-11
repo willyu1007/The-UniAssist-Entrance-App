@@ -181,15 +181,15 @@ async function run() {
     UNIASSIST_INTERNAL_AUTH_SIGNING_KID: internalAuth.kid,
   };
 
-  const provider = startService('provider-plan', ['--filter', '@baseinterface/provider-plan', 'start'], {
+  const provider = startService('provider-sample', ['--filter', '@baseinterface/provider-sample', 'start'], {
     PORT: String(ports.provider),
-    UNIASSIST_SERVICE_ID: 'provider-plan',
+    UNIASSIST_SERVICE_ID: 'provider-sample',
     ...internalEnv,
   });
   const gateway = startService('gateway', ['--filter', '@baseinterface/gateway', 'start'], {
     PORT: String(ports.gateway),
     UNIASSIST_SERVICE_ID: 'gateway',
-    UNIASSIST_PLAN_PROVIDER_BASE_URL: `http://localhost:${ports.provider}`,
+    UNIASSIST_SAMPLE_PROVIDER_BASE_URL: `http://localhost:${ports.provider}`,
     ...internalEnv,
   });
   const adapter = startService('adapter-wechat', ['--filter', '@baseinterface/adapter-wechat', 'start'], {
@@ -251,13 +251,13 @@ async function run() {
 
     // 2) 多 provider 通用任务协议（task_question/task_state）
     const sessionTask = 's-conf-task';
-    const planIngest = await httpPost(
+    const sampleIngest = await httpPost(
       `http://localhost:${ports.gateway}/v0/ingest`,
-      buildInput({ sessionId: sessionTask, text: '请帮我制定本周计划' }),
+      buildInput({ sessionId: sessionTask, text: '请帮我做一个教学样例评估' }),
     );
-    assert.equal(planIngest.status, 200);
-    const runId = planIngest.json.runs[0].runId;
-    assert.equal(planIngest.json.runs[0].providerId, 'plan');
+    assert.equal(sampleIngest.status, 200);
+    const runId = sampleIngest.json.runs[0].runId;
+    assert.equal(sampleIngest.json.runs[0].providerId, 'sample');
 
     const firstQuestion = await pollUntil(async () => {
       const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
@@ -277,19 +277,19 @@ async function run() {
       traceId: randomUUID(),
       sessionId: sessionTask,
       userId: 'u-conformance',
-      providerId: 'work',
+      providerId: 'sample',
       runId: randomUUID(),
       actionId: 'answer_task_question',
       replyToken: firstReplyToken,
       payload: {
-        text: '通过 conformance',
+        text: 'Alex',
       },
       timestampMs: nowMs(),
     });
     assert.equal(answerGoal.status, 200);
     assert.equal(answerGoal.json.accepted, true);
 
-    const dueDateQuestion = await pollUntil(async () => {
+    const materialsQuestion = await pollUntil(async () => {
       const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
       const interactions = findInteractionEvents(tl.json);
       return interactions.find(
@@ -297,29 +297,29 @@ async function run() {
           item.event.type === 'provider_extension'
           && item.event.extensionKind === 'task_question'
           && item.event.payload?.taskId === taskId
-          && String(item.event.payload?.questionId || '').includes('dueDate')
+          && String(item.event.payload?.questionId || '').includes('materials')
         ),
       ) || null;
     });
-    const secondReplyToken = dueDateQuestion.event.payload.replyToken;
+    const secondReplyToken = materialsQuestion.event.payload.replyToken;
     assert.ok(secondReplyToken);
 
-    const answerDueDate = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
+    const answerMaterials = await httpPost(`http://localhost:${ports.gateway}/v0/interact`, {
       schemaVersion: 'v0',
       traceId: randomUUID(),
       sessionId: sessionTask,
       userId: 'u-conformance',
-      providerId: 'plan',
+      providerId: 'sample',
       runId,
       actionId: 'answer_task_question',
       replyToken: secondReplyToken,
       payload: {
-        dueDate: '2026-03-31',
+        materialsSummary: '课堂观察与作业摘要',
       },
       timestampMs: nowMs(),
     });
-    assert.equal(answerDueDate.status, 200);
-    assert.equal(answerDueDate.json.accepted, true);
+    assert.equal(answerMaterials.status, 200);
+    assert.equal(answerMaterials.json.accepted, true);
 
     const readyState = await pollUntil(async () => {
       const tl = await httpGet(`http://localhost:${ports.gateway}/v0/timeline?sessionId=${sessionTask}&cursor=0`);
@@ -340,7 +340,7 @@ async function run() {
       traceId: randomUUID(),
       sessionId: sessionTask,
       userId: 'u-conformance',
-      providerId: 'plan',
+      providerId: 'sample',
       runId,
       actionId: `execute_task:${taskId}`,
       timestampMs: nowMs(),
@@ -367,7 +367,7 @@ async function run() {
 
     const ambiguousEventsBody = {
       schemaVersion: 'v0',
-      providerId: 'plan',
+      providerId: 'sample',
       timestampMs: nowMs(),
       events: [
         {
@@ -382,7 +382,7 @@ async function run() {
             extensionKind: 'task_question',
             payload: {
               schemaVersion: 'v0',
-              providerId: 'plan',
+              providerId: 'sample',
               runId: 'run-ambiguous-1',
               taskId: 'task:ambiguous:1',
               questionId: 'task:ambiguous:1:goal',
@@ -413,7 +413,7 @@ async function run() {
             extensionKind: 'task_question',
             payload: {
               schemaVersion: 'v0',
-              providerId: 'plan',
+              providerId: 'sample',
               runId: 'run-ambiguous-2',
               taskId: 'task:ambiguous:2',
               questionId: 'task:ambiguous:2:goal',
@@ -443,7 +443,7 @@ async function run() {
           method: 'POST',
           path: '/v0/events',
           rawBody: ambiguousRaw,
-          subject: 'provider-plan',
+          subject: 'provider-sample',
           audience: 'gateway',
           scopes: ['events:write'],
         }),
@@ -476,7 +476,7 @@ async function run() {
       traceId: randomUUID(),
       sessionId: sessionAmbiguous,
       userId: 'u-conformance',
-      providerId: 'work',
+      providerId: 'sample',
       runId: randomUUID(),
       actionId: 'answer_task_question',
       replyToken: 'reply-ambiguous-2',
@@ -496,7 +496,7 @@ async function run() {
           item.event.type === 'provider_extension'
           && item.event.extensionKind === 'task_question'
           && item.event.payload?.taskId === 'task:ambiguous:2'
-          && String(item.event.payload?.questionId || '').includes('dueDate')
+          && String(item.event.payload?.questionId || '').includes('materials')
         ),
       ) || null;
     });
@@ -507,7 +507,7 @@ async function run() {
     const contextOk = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
       method: 'GET',
       path: contextPath,
-      subject: 'provider-plan',
+      subject: 'provider-sample',
       audience: 'gateway',
       scopes: ['context:read'],
     }));
@@ -519,7 +519,7 @@ async function run() {
     const contextForbidden = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
       method: 'GET',
       path: contextPath,
-      subject: 'provider-plan',
+      subject: 'provider-sample',
       audience: 'gateway',
       scopes: ['provider:invoke'],
     }));
@@ -530,7 +530,7 @@ async function run() {
     // 3.1) /v0/events scope
     const eventsBody = {
       schemaVersion: 'v0',
-      providerId: 'plan',
+      providerId: 'sample',
       timestampMs: nowMs(),
       events: [
         {
@@ -538,7 +538,7 @@ async function run() {
           event: {
             schemaVersion: 'v0',
             userId: 'u-conformance',
-            providerId: 'plan',
+            providerId: 'sample',
             eventType: 'progress',
             title: 'conformance event',
             body: 'security scope check',
@@ -556,7 +556,7 @@ async function run() {
           method: 'POST',
           path: '/v0/events',
           rawBody: eventsRaw,
-          subject: 'provider-plan',
+          subject: 'provider-sample',
           audience: 'gateway',
           scopes: ['events:write'],
         }),
@@ -574,7 +574,7 @@ async function run() {
       method: 'POST',
       path: '/v0/events',
       rawBody: eventsRaw,
-      subject: 'provider-plan',
+      subject: 'provider-sample',
       audience: 'gateway',
       scopes: ['events:write'],
       nonce: replayNonce,
@@ -608,7 +608,7 @@ async function run() {
           method: 'POST',
           path: '/v0/events',
           rawBody: eventsRaw,
-          subject: 'provider-plan',
+          subject: 'provider-sample',
           audience: 'gateway',
           scopes: ['context:read'],
         }),
@@ -626,8 +626,8 @@ async function run() {
     const contextWrongAudience = await httpGet(`http://localhost:${ports.gateway}${contextPath}`, signInternalHeaders({
       method: 'GET',
       path: contextPath,
-      subject: 'provider-plan',
-      audience: 'provider-plan',
+      subject: 'provider-sample',
+      audience: 'provider-sample',
       scopes: ['context:read'],
     }));
     assert.equal(contextWrongAudience.status, 401);

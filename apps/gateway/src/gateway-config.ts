@@ -43,10 +43,10 @@ export function uuid(): string {
 export function parseProviderRegistryFromEnv(): ProviderRegistryEntry[] {
   const defaults: ProviderRegistryEntry[] = [
     {
-      providerId: 'plan',
-      serviceId: 'provider-plan',
-      baseUrl: (process.env.UNIASSIST_PLAN_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
-      keywords: ['计划', '安排', '日程', '目标', '规划'],
+      providerId: 'sample',
+      serviceId: 'provider-sample',
+      baseUrl: (process.env.UNIASSIST_SAMPLE_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
+      keywords: ['示例', '样例', '教学', '评估', '材料', '课堂'],
       enabled: true,
     },
     {
@@ -106,7 +106,7 @@ export function parseWorkflowEntryRegistryFromEnv(): WorkflowEntryRegistryEntry[
           ? item.matchKeywords.map((value) => String(value))
           : [],
         enabled: item.enabled !== false,
-        defaultExecutorId: typeof item.defaultExecutorId === 'string' ? item.defaultExecutorId : 'compat-plan',
+        defaultExecutorId: typeof item.defaultExecutorId === 'string' ? item.defaultExecutorId : 'compat-sample',
         defaultTemplateVersionRef:
           typeof item.defaultTemplateVersionRef === 'string' ? item.defaultTemplateVersionRef : undefined,
       }));

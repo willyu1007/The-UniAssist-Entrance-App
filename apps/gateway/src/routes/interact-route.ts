@@ -2,6 +2,8 @@ import type { Express } from 'express';
 
 import type { InteractionEvent, UnifiedUserInput, UserInteraction } from '@baseinterface/contracts';
 
+import { BUILDER_PROVIDER_ID } from '../gateway-builder-client';
+import { buildBuilderProjectionEvents } from '../gateway-builder-events';
 import { STICKY_DEFAULT_BOOST } from '../gateway-config';
 import { buildContextPackage } from '../gateway-routing';
 import type { GatewayServiceBundle } from '../gateway-services';
@@ -14,6 +16,13 @@ function isWorkflowThread(metadata: Record<string, unknown> | undefined): boolea
 
 function isWorkflowAction(actionId: string): boolean {
   return actionId.startsWith('approve_request:') || actionId.startsWith('reject_request:');
+}
+
+function isBuilderAction(actionId: string): boolean {
+  return actionId.startsWith('builder_focus:')
+    || actionId.startsWith('builder_synthesize:')
+    || actionId.startsWith('builder_validate:')
+    || actionId.startsWith('builder_publish:');
 }
 
 export function registerInteractRoute(
@@ -118,6 +127,80 @@ export function registerInteractRoute(
           replyToken: thread.activeReplyToken,
         },
       });
+      return;
+    }
+
+    if (isBuilderAction(interaction.actionId)) {
+      const draftId = interaction.actionId.split(':')[1];
+      if (!draftId) {
+        res.status(400).json({ accepted: false, reason: 'builder draftId required' });
+        return;
+      }
+
+      try {
+        const builderResponse = interaction.actionId.startsWith('builder_focus:')
+          ? await services.builderClient.focusDraft(draftId, {
+            schemaVersion: 'v1',
+            sessionId: interaction.sessionId,
+            userId: interaction.userId,
+          })
+          : interaction.actionId.startsWith('builder_synthesize:')
+            ? await services.builderClient.synthesizeDraft(draftId, {
+              schemaVersion: 'v1',
+              sessionId: interaction.sessionId,
+              userId: interaction.userId,
+            })
+            : interaction.actionId.startsWith('builder_validate:')
+              ? await services.builderClient.validateDraft(draftId, {
+                schemaVersion: 'v1',
+                sessionId: interaction.sessionId,
+                userId: interaction.userId,
+              })
+              : await services.builderClient.publishDraft(draftId, {
+                schemaVersion: 'v1',
+                sessionId: interaction.sessionId,
+                userId: interaction.userId,
+              });
+
+        const events = buildBuilderProjectionEvents(
+          builderResponse,
+          interaction.actionId.startsWith('builder_focus:')
+            ? '已切换当前 Builder 草稿。'
+            : interaction.actionId.startsWith('builder_synthesize:')
+              ? '已完成 Builder 草稿合成。'
+              : interaction.actionId.startsWith('builder_validate:')
+                ? '已完成 Builder 草稿校验。'
+                : '已完成 Builder 草稿发布。',
+        );
+
+        for (const event of events) {
+          services.timelineService.emitEvent(
+            session,
+            inputRef,
+            'interaction',
+            { event, source: 'system' },
+            BUILDER_PROVIDER_ID,
+            builderResponse.draft.draftId,
+          );
+        }
+      } catch (error) {
+        services.logger.warn('builder interact failed', {
+          actionId: interaction.actionId,
+          sessionId: interaction.sessionId,
+          error: services.serializeError(error),
+        });
+        services.timelineService.emitEvent(session, inputRef, 'interaction', {
+          event: {
+            type: 'error',
+            userMessage: 'Builder 草稿暂时无法处理当前动作。',
+            retryable: true,
+          },
+          source: 'system',
+        }, BUILDER_PROVIDER_ID, draftId);
+      }
+
+      services.sessionService.persistSessionAsync(session);
+      res.json({ accepted: true });
       return;
     }
 

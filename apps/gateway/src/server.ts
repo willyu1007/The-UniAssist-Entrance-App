@@ -20,6 +20,7 @@ import {
   uuid,
 } from './gateway-config';
 import { createAuthGuards } from './gateway-auth';
+import { createBuilderClient } from './gateway-builder-client';
 import { createProviderClient } from './gateway-provider-client';
 import { createEmitProviderEvents } from './gateway-provider-events';
 import { createSessionService } from './gateway-sessions';
@@ -85,6 +86,10 @@ const providerClient = createProviderClient({
   normalizeProviderInteractionEvent: taskThreadService.normalizeProviderInteractionEvent,
 });
 
+const builderClient = createBuilderClient({
+  baseUrl: WORKFLOW_PLATFORM_API_BASE_URL,
+});
+
 const workflowClient = createWorkflowClient({
   enabled: WORKFLOW_ENTRY_ENABLED,
   baseUrl: WORKFLOW_PLATFORM_API_BASE_URL,
@@ -120,6 +125,7 @@ const services: GatewayServiceBundle = {
   timelineService,
   taskThreadService,
   providerClient,
+  builderClient,
   workflowClient,
   authGuards,
   userContextService,

@@ -1,6 +1,7 @@
 import type { InteractionEvent, UnifiedUserInput, UserInteraction } from '@baseinterface/contracts';
 
 import type { AuthGuards } from './gateway-auth';
+import type { BuilderClient } from './gateway-builder-client';
 import type { ProviderClient } from './gateway-provider-client';
 import type { SessionService } from './gateway-sessions';
 import type { TaskThreadService } from './gateway-task-threads';
@@ -27,6 +28,7 @@ export type GatewayServiceBundle = {
   timelineService: TimelineService;
   taskThreadService: TaskThreadService;
   providerClient: ProviderClient;
+  builderClient: BuilderClient;
   workflowClient: WorkflowClient;
   authGuards: AuthGuards;
   userContextService: UserContextService;
