@@ -127,7 +127,7 @@ async function main() {
   const internalAuthKid = process.env.STAGING_INTERNAL_AUTH_KID || '';
   const internalAuthSecret = process.env.STAGING_INTERNAL_AUTH_SECRET || '';
   const internalAuthIssuer = process.env.STAGING_INTERNAL_AUTH_ISSUER || 'uniassist-internal';
-  const contextSubject = process.env.STAGING_CONTEXT_SUBJECT || 'provider-plan';
+  const contextSubject = process.env.STAGING_CONTEXT_SUBJECT || 'provider-sample';
   const timeoutMs = toInt(process.env.STAGING_VERIFY_TIMEOUT_MS, 30_000);
 
   const health = {
@@ -135,7 +135,7 @@ async function main() {
   };
 
   if (providerBase) {
-    health.providerPlan = await assertHealth(providerBase, 'provider-plan');
+    health.providerPlan = await assertHealth(providerBase, 'provider-sample');
   }
   if (adapterBase) {
     health.adapterWechat = await assertHealth(adapterBase, 'adapter-wechat');

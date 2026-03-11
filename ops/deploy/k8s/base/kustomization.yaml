@@ -11,8 +11,8 @@ resources:
   - redis-service.yaml
   - gateway-deployment.yaml
   - gateway-service.yaml
-  - provider-plan-deployment.yaml
-  - provider-plan-service.yaml
+  - provider-sample-deployment.yaml
+  - provider-sample-service.yaml
   - adapter-wechat-deployment.yaml
   - adapter-wechat-service.yaml
   - worker-deployment.yaml

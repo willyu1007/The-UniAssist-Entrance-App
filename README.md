@@ -19,7 +19,7 @@
 - v0 合同层已落地：`packages/contracts`
 - v0 网关已落地：`apps/gateway`
 - 微信适配层骨架已落地：`apps/adapter-wechat`
-- `plan` 专项 Provider 已落地：`apps/provider-plan`
+- `plan` 专项 Provider 已落地：`apps/provider-sample`
 - delivery worker 已落地：`apps/worker`（outbox retry + Redis consumer）
 - 前端已接入统一时间线与扩展事件渲染：`apps/frontend`
 - 前端 transport 已统一：SSE 主通道 + polling fallback（自动回切）
@@ -75,7 +75,7 @@ apps/
   frontend/          Expo App (统一入口 UI)
   gateway/           入口网关（路由、兜底、会话、事件流）
   adapter-wechat/    微信适配层（入站归一化与回传骨架）
-  provider-plan/     示例专项（invoke/interact/manifest）
+  provider-sample/     示例专项（invoke/interact/manifest）
   worker/            投递工作进程（outbox retry + stream consumer）
 packages/
   contracts/         v0 协议类型与 JSON Schema
@@ -119,7 +119,7 @@ pnpm --filter @baseinterface/gateway start
 pnpm --filter @baseinterface/adapter-wechat start
 
 # Plan provider (default :8890)
-pnpm --filter @baseinterface/provider-plan start
+pnpm --filter @baseinterface/provider-sample start
 
 # Worker (default no port)
 pnpm --filter @baseinterface/worker start
@@ -154,7 +154,7 @@ pnpm k8s:kind:down
 
 ```bash
 EXPO_PUBLIC_GATEWAY_BASE_URL=http://localhost:8787
-UNIASSIST_PLAN_PROVIDER_BASE_URL=http://localhost:8890
+UNIASSIST_SAMPLE_PROVIDER_BASE_URL=http://localhost:8890
 ```
 
 ### Gateway Persistence Environment
@@ -178,7 +178,7 @@ UNIASSIST_OUTBOX_INLINE_DISPATCH=false
 内部服务调用支持 `off|audit|enforce` 三种模式，默认 `off`。建议先在 staging 使用 `audit`，验证通过后切 `enforce`。
 
 ```bash
-# set on gateway / provider-plan / adapter-wechat
+# set on gateway / provider-sample / adapter-wechat
 UNIASSIST_SERVICE_ID=gateway
 UNIASSIST_INTERNAL_AUTH_MODE=off
 UNIASSIST_INTERNAL_AUTH_ISSUER=uniassist-internal
@@ -217,7 +217,7 @@ STREAM_CONSUMER_BATCH_SIZE=100
 pnpm --filter @baseinterface/contracts typecheck
 pnpm --filter @baseinterface/gateway typecheck
 pnpm --filter @baseinterface/adapter-wechat typecheck
-pnpm --filter @baseinterface/provider-plan typecheck
+pnpm --filter @baseinterface/provider-sample typecheck
 pnpm --filter @baseinterface/worker typecheck
 pnpm --filter @baseinterface/frontend typecheck
 pnpm test:conformance
@@ -234,7 +234,7 @@ pnpm smoke:redis:e2e
 ```
 
 脚本会自动：
-- 启动 `provider-plan` / `gateway` / `worker`
+- 启动 `provider-sample` / `gateway` / `worker`
 - 发起一次 ingest，验证 outbox 从 pending 流转到 consumed
 - 注入一条 `failed` outbox 记录，验证 retry 路径可恢复并最终 consumed
 - 注入一次 `NOGROUP` 竞态并验证 worker 自动恢复 consumer group
@@ -285,7 +285,7 @@ STAGING_ADAPTER_WECHAT_BASE_URL=http://localhost:8788 \
 STAGING_INTERNAL_AUTH_KID=kid-main \
 STAGING_INTERNAL_AUTH_SECRET=replace-with-strong-secret \
 STAGING_INTERNAL_AUTH_ISSUER=uniassist-internal \
-STAGING_CONTEXT_SUBJECT=provider-plan \
+STAGING_CONTEXT_SUBJECT=provider-sample \
 pnpm release:verify:staging
 ```
 

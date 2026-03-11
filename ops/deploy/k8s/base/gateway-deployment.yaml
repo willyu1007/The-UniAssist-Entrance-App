@@ -32,8 +32,8 @@ spec:
               value: gateway
             - name: PORT
               value: "8787"
-            - name: UNIASSIST_PLAN_PROVIDER_BASE_URL
-              value: http://provider-plan:8890
+            - name: UNIASSIST_SAMPLE_PROVIDER_BASE_URL
+              value: http://provider-sample:8890
           readinessProbe:
             httpGet:
               path: /health

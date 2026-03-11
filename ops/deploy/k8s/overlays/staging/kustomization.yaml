@@ -8,8 +8,8 @@ images:
   - name: uniassist/gateway
     newName: ghcr.io/willyu1007/the-ua-entrance-app/gateway
     newTag: staging-latest
-  - name: uniassist/provider-plan
-    newName: ghcr.io/willyu1007/the-ua-entrance-app/provider-plan
+  - name: uniassist/provider-sample
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/provider-sample
     newTag: staging-latest
   - name: uniassist/adapter-wechat
     newName: ghcr.io/willyu1007/the-ua-entrance-app/adapter-wechat
@@ -41,12 +41,12 @@ patches:
       kind: Deployment
       name: gateway
       namespace: uniassist-staging
-  - path: provider-plan-resources.patch.yaml
+  - path: provider-sample-resources.patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
-      name: provider-plan
+      name: provider-sample
       namespace: uniassist-staging
   - path: adapter-wechat-resources.patch.yaml
     target:

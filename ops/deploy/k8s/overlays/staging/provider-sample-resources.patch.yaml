@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: provider-plan
+  name: provider-sample
   namespace: uniassist-staging
 spec:
   replicas: 2
   template:
     spec:
       containers:
-        - name: provider-plan
+        - name: provider-sample
           resources:
             requests:
               cpu: "150m"

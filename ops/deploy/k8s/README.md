@@ -2,7 +2,7 @@
 
 ## Layout
 
-- `base/`: 共享基础清单（namespace/config/secret + postgres/redis + gateway/provider-plan/adapter-wechat/worker）
+- `base/`: 共享基础清单（namespace/config/secret + postgres/redis + gateway/provider-sample/adapter-wechat/worker）
 - `overlays/kind/`: kind 本地覆盖（gateway/adapter NodePort）
 - `overlays/staging/`: staging 覆盖（外部 DB/Redis、镜像仓库、资源配额）
 - `kind/cluster.yaml`: kind 集群配置（把 NodePort 映射到宿主机 8787/8788）

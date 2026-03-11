@@ -36,7 +36,7 @@ pnpm k8s:kind:up
 ```
 
 This script will:
-- build four local images (`gateway`, `provider-plan`, `adapter-wechat`, `worker`)
+- build four local images (`gateway`, `provider-sample`, `adapter-wechat`, `worker`)
 - create `uniassist-kind` cluster (if absent)
 - load images into cluster
 - apply `ops/deploy/k8s/overlays/kind`

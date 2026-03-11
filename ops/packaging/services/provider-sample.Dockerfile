@@ -13,4 +13,4 @@ RUN pnpm install --frozen-lockfile
 
 EXPOSE 8890
 
-CMD ["pnpm", "--filter", "@baseinterface/provider-plan", "start"]
+CMD ["pnpm", "--filter", "@baseinterface/provider-sample", "start"]

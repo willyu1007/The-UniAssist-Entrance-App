@@ -1,23 +1,23 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: provider-plan
+  name: provider-sample
   namespace: uniassist-staging
   labels:
-    app: provider-plan
+    app: provider-sample
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: provider-plan
+      app: provider-sample
   template:
     metadata:
       labels:
-        app: provider-plan
+        app: provider-sample
     spec:
       containers:
-        - name: provider-plan
-          image: uniassist/provider-plan:local
+        - name: provider-sample
+          image: uniassist/provider-sample:local
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8890
@@ -29,7 +29,7 @@ spec:
                 name: uniassist-secrets
           env:
             - name: UNIASSIST_SERVICE_ID
-              value: provider-plan
+              value: provider-sample
             - name: PORT
               value: "8890"
           readinessProbe:

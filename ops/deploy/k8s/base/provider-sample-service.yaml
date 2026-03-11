@@ -1,13 +1,13 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: provider-plan
+  name: provider-sample
   namespace: uniassist-staging
   labels:
-    app: provider-plan
+    app: provider-sample
 spec:
   selector:
-    app: provider-plan
+    app: provider-sample
   ports:
     - name: http
       port: 8890

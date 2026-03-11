@@ -14,9 +14,9 @@ const overlayPath = path.join(repoRoot, 'ops/deploy/k8s/overlays/kind');
 const services = [
   { id: 'gateway', image: 'uniassist/gateway:local', dockerfile: 'ops/packaging/services/gateway.Dockerfile' },
   {
-    id: 'provider-plan',
-    image: 'uniassist/provider-plan:local',
-    dockerfile: 'ops/packaging/services/provider-plan.Dockerfile',
+    id: 'provider-sample',
+    image: 'uniassist/provider-sample:local',
+    dockerfile: 'ops/packaging/services/provider-sample.Dockerfile',
   },
   {
     id: 'adapter-wechat',
@@ -134,7 +134,7 @@ async function main() {
   console.log('[k8s-kind-up] applying manifests');
   await run('kubectl', ['apply', '-k', overlayPath]);
 
-  const deployments = ['postgres', 'redis', 'provider-plan', 'gateway', 'adapter-wechat', 'worker'];
+  const deployments = ['postgres', 'redis', 'provider-sample', 'gateway', 'adapter-wechat', 'worker'];
   for (const deployment of deployments) {
     console.log(`[k8s-kind-up] waiting rollout: ${deployment}`);
     await waitForRollout(deployment);

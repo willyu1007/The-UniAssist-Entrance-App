@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Services: `gateway`, `worker`, `provider-plan`, `adapter-wechat`
+- Services: `gateway`, `worker`, `provider-sample`, `adapter-wechat`
 - Dependencies: Postgres, Redis
 
 ## Prerequisites
@@ -31,7 +31,7 @@ If any step fails: stop rollout and fix before retry.
 
 ## Rollout order
 
-1. Deploy `provider-plan`
+1. Deploy `provider-sample`
 2. Deploy `adapter-wechat`
 3. Deploy `gateway`
 4. Deploy `worker`
@@ -53,7 +53,7 @@ STAGING_ADAPTER_WECHAT_BASE_URL=... \
 STAGING_INTERNAL_AUTH_KID=... \
 STAGING_INTERNAL_AUTH_SECRET=... \
 STAGING_INTERNAL_AUTH_ISSUER=uniassist-internal \
-STAGING_CONTEXT_SUBJECT=provider-plan \
+STAGING_CONTEXT_SUBJECT=provider-sample \
 pnpm release:verify:staging
 ```
 
@@ -102,7 +102,7 @@ Trigger rollback if any of the following occurs:
 
 Rollback steps:
 1. Stop new worker instances first (prevent additional write/consume drift).
-2. Revert `gateway/provider-plan/adapter-wechat/worker` to previous stable revision.
+2. Revert `gateway/provider-sample/adapter-wechat/worker` to previous stable revision.
 3. Re-apply previous env set and restart in rollout order.
 4. Re-run post-release verification command.
 5. Record incident timeline and root cause.
