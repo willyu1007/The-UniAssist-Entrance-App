@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-11T02:40:07.423Z",
+  "updatedAt": "2026-03-11T22:45:42.590Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -88,6 +88,17 @@
           "unique": false
         },
         {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "status",
           "type": "String",
           "nullable": false,
@@ -134,6 +145,14 @@
         {
           "type": "index",
           "fields": [
+            "runId"
+          ],
+          "name": null,
+          "map": "idx_actor_memberships_run_id"
+        },
+        {
+          "type": "index",
+          "fields": [
             "toActorId"
           ],
           "name": null,
@@ -154,7 +173,7 @@
           "dbName": "actor_id",
           "dbType": null,
           "default": null,
-          "primaryKey": true,
+          "primaryKey": false,
           "unique": false
         },
         {
@@ -202,6 +221,17 @@
           "unique": false
         },
         {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "status",
           "type": "String",
           "nullable": false,
@@ -240,10 +270,27 @@
         {
           "type": "index",
           "fields": [
+            "runId"
+          ],
+          "name": null,
+          "map": "idx_actor_profiles_run_id"
+        },
+        {
+          "type": "index",
+          "fields": [
             "workspaceId"
           ],
           "name": null,
           "map": "idx_actor_profiles_workspace_id"
+        },
+        {
+          "type": "primary",
+          "fields": [
+            "runId",
+            "actorId"
+          ],
+          "name": null,
+          "map": null
         }
       ]
     },
@@ -899,6 +946,133 @@
       ]
     },
     {
+      "name": "DraftRevision",
+      "dbName": "draft_revisions",
+      "schema": null,
+      "columns": [
+        {
+          "name": "actorId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "actor_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "changeSummary",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "change_summary",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "draftId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "draft_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "revisionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "revision_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "revisionNumber",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "revision_number",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "source",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "specSnapshotJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "spec_snapshot_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "validationSummaryJson",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "validation_summary_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "draftId",
+            "createdAt"
+          ],
+          "name": null,
+          "map": "idx_draft_revisions_draft_created_at"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "draftId",
+            "revisionNumber"
+          ],
+          "name": null,
+          "map": "draft_revisions_draft_revision_number_key"
+        }
+      ]
+    },
+    {
       "name": "OutboxEvent",
       "dbName": "outbox_events",
       "schema": null,
@@ -1249,6 +1423,134 @@
           ],
           "name": null,
           "map": "idx_provider_runs_session_id"
+        }
+      ]
+    },
+    {
+      "name": "RecipeDraft",
+      "dbName": "recipe_drafts",
+      "schema": null,
+      "columns": [
+        {
+          "name": "assumptionsJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "assumptions_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "normalizedStepsJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "normalized_steps_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "recipeDraftId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "recipe_draft_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "reviewerNotesJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "reviewer_notes_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceArtifactId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "source_artifact_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sourceRefsJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "source_refs_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "title",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "status"
+          ],
+          "name": null,
+          "map": "idx_recipe_drafts_status"
         }
       ]
     },
@@ -1842,6 +2144,277 @@
       ]
     },
     {
+      "name": "WorkflowDraft",
+      "dbName": "workflow_drafts",
+      "schema": null,
+      "columns": [
+        {
+          "name": "activeRevisionNumber",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "active_revision_number",
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "basedOnTemplateVersionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "based_on_template_version_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "currentSpecJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "current_spec_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "draftId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "draft_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "latestValidationSummaryJson",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "latest_validation_summary_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "publishable",
+          "type": "Boolean",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": "false",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "publishedTemplateVersionId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "published_template_version_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "workflowKey",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "workflow_key",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "status"
+          ],
+          "name": null,
+          "map": "idx_workflow_drafts_status"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "workflowKey"
+          ],
+          "name": null,
+          "map": "idx_workflow_drafts_workflow_key"
+        }
+      ]
+    },
+    {
+      "name": "WorkflowDraftSessionLink",
+      "dbName": "workflow_draft_session_links",
+      "schema": null,
+      "columns": [
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "draftId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "draft_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "isActive",
+          "type": "Boolean",
+          "nullable": false,
+          "list": false,
+          "dbName": "is_active",
+          "dbType": null,
+          "default": "false",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastFocusedAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "last_focused_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "userId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "user_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "draftId"
+          ],
+          "name": null,
+          "map": "idx_workflow_draft_session_links_draft_id"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "sessionId",
+            "isActive"
+          ],
+          "name": null,
+          "map": "idx_workflow_draft_session_links_session_active"
+        },
+        {
+          "type": "primary",
+          "fields": [
+            "sessionId",
+            "draftId"
+          ],
+          "name": null,
+          "map": "workflow_draft_session_links_pkey"
+        }
+      ]
+    },
+    {
       "name": "WorkflowNodeRun",
       "dbName": "workflow_node_runs",
       "schema": null,
@@ -2110,6 +2683,17 @@
           "nullable": true,
           "list": false,
           "dbName": "current_node_run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "metadataJson",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "metadata_json",
           "dbType": null,
           "default": null,
           "primaryKey": false,

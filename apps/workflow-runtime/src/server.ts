@@ -4,6 +4,8 @@ import express from 'express';
 import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@baseinterface/shared';
 import { createCompatExecutorClient } from '@baseinterface/executor-sdk';
 import type {
+  WorkflowArtifactDetailResponse,
+  WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
@@ -104,15 +106,16 @@ app.post('/internal/runtime/resume-run', async (req: RawBodyRequest, res) => {
 app.get('/internal/runtime/runs/:runId', async (req: RawBodyRequest, res) => {
   const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
   if (!authorized) return;
-  const snapshot = runtimeService.getRun(req.params.runId);
+  const snapshot = await runtimeService.getRun(req.params.runId);
   if (!snapshot) {
     res.status(404).json({ error: 'run not found' });
     return;
   }
-  res.json({
+  const response: WorkflowRunQueryResponse = {
     schemaVersion: 'v1',
     run: snapshot,
-  });
+  };
+  res.json(response);
 });
 
 app.get('/internal/runtime/approvals', async (req: RawBodyRequest, res) => {
@@ -120,22 +123,32 @@ app.get('/internal/runtime/approvals', async (req: RawBodyRequest, res) => {
   if (!authorized) return;
   res.json({
     schemaVersion: 'v1',
-    approvals: runtimeService.listApprovals(),
+    approvals: await runtimeService.listApprovals(),
   });
 });
 
 app.get('/internal/runtime/artifacts/:artifactId', async (req: RawBodyRequest, res) => {
   const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
   if (!authorized) return;
-  const artifact = runtimeService.getArtifact(req.params.artifactId);
+  const artifact = await runtimeService.getArtifact(req.params.artifactId);
   if (!artifact) {
     res.status(404).json({ error: 'artifact not found' });
     return;
   }
-  res.json({
+  const response: WorkflowArtifactDetailResponse = {
     schemaVersion: 'v1',
     artifact,
-  });
+    typedPayload: artifact.payloadJson,
+    lineage: (
+      artifact.metadataJson
+      && typeof artifact.metadataJson.lineage === 'object'
+      && artifact.metadataJson.lineage !== null
+      && Array.isArray(artifact.metadataJson.lineage) === false
+    )
+      ? artifact.metadataJson.lineage as Record<string, unknown>
+      : {},
+  };
+  res.json(response);
 });
 
 const server = app.listen(PORT, () => {

@@ -1,6 +1,8 @@
 import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
 import type {
+  WorkflowArtifactDetailResponse,
   WorkflowCommandResponse,
+  WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
@@ -36,7 +38,7 @@ export class RuntimeClient {
     return this.post('/internal/runtime/resume-run', body, this.runtimeServiceId);
   }
 
-  async getRun(runId: string): Promise<Record<string, unknown>> {
+  async getRun(runId: string): Promise<WorkflowRunQueryResponse> {
     return this.get(`/internal/runtime/runs/${encodeURIComponent(runId)}`, this.runtimeServiceId);
   }
 
@@ -44,11 +46,11 @@ export class RuntimeClient {
     return this.get('/internal/runtime/approvals', this.runtimeServiceId);
   }
 
-  async getArtifact(artifactId: string): Promise<Record<string, unknown>> {
+  async getArtifact(artifactId: string): Promise<WorkflowArtifactDetailResponse> {
     return this.get(`/internal/runtime/artifacts/${encodeURIComponent(artifactId)}`, this.runtimeServiceId);
   }
 
-  private async post(path: string, body: unknown, audience: string) {
+  private async post<T>(path: string, body: unknown, audience: string): Promise<T> {
     const rawBody = JSON.stringify(body);
     const headers = buildInternalAuthHeaders(this.internalAuthConfig, {
       method: 'POST',
@@ -75,13 +77,13 @@ export class RuntimeClient {
       if (!response.ok) {
         throw new Error(`runtime responded ${response.status}`);
       }
-      return await response.json() as WorkflowCommandResponse;
+      return await response.json() as T;
     } finally {
       clearTimeout(timer);
     }
   }
 
-  private async get(path: string, audience: string) {
+  private async get<T>(path: string, audience: string): Promise<T> {
     const headers = buildInternalAuthHeaders(this.internalAuthConfig, {
       method: 'GET',
       path,
@@ -104,7 +106,7 @@ export class RuntimeClient {
       if (!response.ok) {
         throw new Error(`runtime responded ${response.status}`);
       }
-      return await response.json() as Record<string, unknown>;
+      return await response.json() as T;
     } finally {
       clearTimeout(timer);
     }

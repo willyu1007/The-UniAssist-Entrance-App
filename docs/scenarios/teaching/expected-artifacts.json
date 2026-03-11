@@ -1,0 +1,48 @@
+{
+  "pendingApprovalArtifacts": [
+    {
+      "artifactType": "ObservationArtifact",
+      "state": "validated"
+    },
+    {
+      "artifactType": "AssessmentDraft",
+      "state": "review_required"
+    },
+    {
+      "artifactType": "EvidencePack",
+      "state": "validated"
+    },
+    {
+      "artifactType": "AnalysisRecipeCandidate",
+      "state": "validated"
+    }
+  ],
+  "approvedArtifacts": [
+    {
+      "artifactType": "AssessmentDraft",
+      "state": "published"
+    },
+    {
+      "artifactType": "ReviewableDelivery",
+      "state": "published"
+    }
+  ],
+  "deliveryRules": {
+    "approver": "teacherActor",
+    "targetsFromAudiences": [
+      "parent",
+      "student",
+      "group"
+    ],
+    "excludedMembershipStatus": [
+      "pending_confirmation"
+    ]
+  },
+  "recipeCapture": {
+    "source": "run_derived_recipe",
+    "requiredArtifacts": [
+      "AnalysisRecipeCandidate",
+      "EvidencePack"
+    ]
+  }
+}

@@ -97,6 +97,223 @@ export type WorkflowTemplateSpec = {
   metadata?: Record<string, unknown>;
 };
 
+export type WorkflowDraftStatus =
+  | 'created'
+  | 'collecting_input'
+  | 'synthesized'
+  | 'editable'
+  | 'validating'
+  | 'publishable'
+  | 'published'
+  | 'superseded'
+  | 'archived';
+
+export type RecipeDraftStatus =
+  | 'captured'
+  | 'structured'
+  | 'review_required'
+  | 'approved_for_promotion'
+  | 'promoted'
+  | 'rejected'
+  | 'archived';
+
+export type DraftSource =
+  | 'builder_quick_entry'
+  | 'builder_text_entry'
+  | 'chat_intake'
+  | 'builder_synthesize'
+  | 'builder_validate'
+  | 'builder_publish'
+  | 'console_edit'
+  | 'run_derived_recipe';
+
+export type WorkflowDraftSpec = {
+  schemaVersion: WorkflowSchemaVersion;
+  workflowKey?: string;
+  name?: string;
+  compatProviderId?: string;
+  entryNode?: string;
+  nodes?: WorkflowNodeSpec[];
+  metadata?: Record<string, unknown>;
+  requirements?: string[];
+};
+
+export type DraftValidationSummary = {
+  isPublishable: boolean;
+  errors: string[];
+  warnings: string[];
+  checkedAt: number;
+};
+
+export type WorkflowDraftRecord = {
+  draftId: string;
+  workflowKey?: string;
+  name?: string;
+  status: WorkflowDraftStatus;
+  basedOnTemplateVersionId?: string;
+  publishedTemplateVersionId?: string;
+  currentSpec: WorkflowDraftSpec;
+  latestValidationSummary?: DraftValidationSummary;
+  publishable: boolean;
+  activeRevisionNumber: number;
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type DraftRevisionRecord = {
+  revisionId: string;
+  draftId: string;
+  revisionNumber: number;
+  source: DraftSource;
+  actorId: string;
+  changeSummary: string;
+  specSnapshot: WorkflowDraftSpec;
+  validationSummary?: DraftValidationSummary;
+  createdAt: number;
+};
+
+export type WorkflowDraftSessionLinkRecord = {
+  sessionId: string;
+  draftId: string;
+  userId: string;
+  isActive: boolean;
+  createdAt: number;
+  updatedAt: number;
+  lastFocusedAt?: number;
+};
+
+export type RecipeDraftRecord = {
+  recipeDraftId: string;
+  title?: string;
+  status: RecipeDraftStatus;
+  sourceArtifactId?: string;
+  sourceRefs: Array<Record<string, unknown>>;
+  normalizedSteps: Array<Record<string, unknown>>;
+  assumptions: string[];
+  reviewerNotes: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
+export type ObservationArtifactPayload = {
+  subjectRef: string;
+  subjectType: string;
+  materialRefs: string[];
+  observations: string[];
+  parserWarnings: string[];
+};
+
+export type AssessmentDraftPayload = {
+  subjectRef: string;
+  subjectType: string;
+  findings: string[];
+  strengths: string[];
+  concerns: string[];
+  recommendedActions: string[];
+};
+
+export type EvidencePackPayload = {
+  subjectRef: string;
+  subjectType: string;
+  sourceArtifactRefs: string[];
+  observationRefs: string[];
+  supportingExcerpts: string[];
+  confidenceNotes: string[];
+};
+
+export type ReviewableDeliveryPayload = {
+  presentationRef: string;
+  audienceType: string;
+  approvedContentSlots: string[];
+  redactions: string[];
+};
+
+export type AnalysisRecipeCandidatePayload = {
+  title: string;
+  normalizedSteps: string[];
+  assumptions: string[];
+  reviewerNotes: string[];
+  evidenceRefs: string[];
+};
+
+export type TeachingValidationArtifactPayload =
+  | ObservationArtifactPayload
+  | AssessmentDraftPayload
+  | EvidencePackPayload
+  | ReviewableDeliveryPayload
+  | AnalysisRecipeCandidatePayload;
+
+export type WorkflowCompatArtifactSeed = {
+  artifactType: string;
+  state?: ArtifactState;
+  schemaRef?: string;
+  payload: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
+export type WorkflowCompatActorProfileSeed = {
+  actorId: string;
+  workspaceId: string;
+  status: ActorProfileRecord['status'];
+  displayName: string;
+  actorType: ActorProfileRecord['actorType'];
+  payloadJson?: Record<string, unknown>;
+};
+
+export type WorkflowCompatActorMembershipSeed = {
+  actorMembershipId: string;
+  fromActorId: string;
+  toActorId: string;
+  relationType: string;
+  status: ActorMembershipStatus;
+  confirmedAt?: number;
+  payloadJson?: Record<string, unknown>;
+};
+
+export type WorkflowCompatAudienceSelectorSeed = {
+  audienceSelectorId: string;
+  status: AudienceSelectorState;
+  selectorJson: Record<string, unknown>;
+};
+
+export type WorkflowCompatDeliverySpecSeed = {
+  deliverySpecId: string;
+  audienceSelectorId: string;
+  reviewRequired: boolean;
+  deliveryMode: DeliveryMode;
+  status: DeliverySpecStatus;
+  configJson?: Record<string, unknown>;
+};
+
+export type WorkflowCompatDeliveryTargetSeed = {
+  deliveryTargetId: string;
+  deliverySpecId: string;
+  targetActorId?: string;
+  status: DeliveryTargetStatus;
+  payloadJson?: Record<string, unknown>;
+};
+
+export type WorkflowCompatCompletionMetadata = {
+  artifacts?: WorkflowCompatArtifactSeed[];
+  actorProfiles?: WorkflowCompatActorProfileSeed[];
+  actorMemberships?: WorkflowCompatActorMembershipSeed[];
+  audienceSelector?: WorkflowCompatAudienceSelectorSeed;
+  deliverySpec?: WorkflowCompatDeliverySpecSeed;
+  deliveryTargets?: WorkflowCompatDeliveryTargetSeed[];
+};
+
+export type WorkflowCompatContextEnvelope = {
+  nodeKey: string;
+  nodeType: WorkflowNodeType;
+  nodeConfig?: Record<string, unknown>;
+  runInput?: Record<string, unknown>;
+  upstreamArtifactRefs: Array<{
+    artifactId: string;
+    artifactType: string;
+    state: ArtifactState;
+  }>;
+};
+
 export type WorkflowTemplateRecord = {
   workflowId: string;
   workflowKey: string;
@@ -191,6 +408,7 @@ export type WorkflowApprovalDecisionRecord = {
 };
 
 export type ActorProfileRecord = {
+  runId: string;
   actorId: string;
   workspaceId: string;
   status: 'active' | 'inactive' | 'archived';
@@ -202,6 +420,7 @@ export type ActorProfileRecord = {
 };
 
 export type ActorMembershipRecord = {
+  runId: string;
   actorMembershipId: string;
   fromActorId: string;
   toActorId: string;
@@ -247,7 +466,13 @@ export type WorkflowRunSnapshot = {
   run: WorkflowRunRecord;
   nodeRuns: WorkflowNodeRunRecord[];
   approvals: WorkflowApprovalRequestRecord[];
+  approvalDecisions: WorkflowApprovalDecisionRecord[];
   artifacts: WorkflowArtifactRecord[];
+  actorProfiles: ActorProfileRecord[];
+  actorMemberships: ActorMembershipRecord[];
+  audienceSelectors: AudienceSelectorRecord[];
+  deliverySpecs: DeliverySpecRecord[];
+  deliveryTargets: DeliveryTargetRecord[];
 };
 
 export type WorkflowFormalEventBase = {
@@ -338,6 +563,104 @@ export type WorkflowCreateResponse = {
   version: WorkflowTemplateVersionRecord;
 };
 
+export type WorkflowDraftCreateRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  sessionId: string;
+  userId: string;
+  workflowKey?: string;
+  name?: string;
+  basedOnTemplateVersionId?: string;
+  source?: DraftSource;
+  initialText?: string;
+};
+
+export type WorkflowDraftFocusRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  sessionId: string;
+  userId: string;
+};
+
+export type WorkflowDraftIntakeRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  sessionId: string;
+  userId: string;
+  text: string;
+  source?: DraftSource;
+};
+
+export type WorkflowDraftMutateResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  draft: WorkflowDraftRecord;
+  revision: DraftRevisionRecord;
+  sessionDrafts: WorkflowDraftRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
+export type WorkflowDraftFocusResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  draft: WorkflowDraftRecord;
+  sessionDrafts: WorkflowDraftRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
+export type WorkflowDraftListResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  drafts: WorkflowDraftRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
+export type WorkflowDraftDetailResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  draft: WorkflowDraftRecord;
+  revisions: DraftRevisionRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
+export type WorkflowDraftPublishRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  sessionId: string;
+  userId: string;
+};
+
+export type WorkflowDraftPublishResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  draft: WorkflowDraftRecord;
+  workflow: WorkflowTemplateRecord;
+  version: WorkflowTemplateVersionRecord;
+  sessionDrafts: WorkflowDraftRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
+export type RecipeDraftCreateRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  title?: string;
+  sourceRefs?: Array<Record<string, unknown>>;
+  normalizedSteps?: Array<Record<string, unknown>>;
+  assumptions?: string[];
+  reviewerNotes?: string[];
+  status?: RecipeDraftStatus;
+};
+
+export type RecipeDraftUpdateRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  title?: string;
+  sourceRefs?: Array<Record<string, unknown>>;
+  normalizedSteps?: Array<Record<string, unknown>>;
+  assumptions?: string[];
+  reviewerNotes?: string[];
+  status?: RecipeDraftStatus;
+};
+
+export type RecipeDraftResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  recipeDraft: RecipeDraftRecord;
+};
+
+export type RecipeDraftListResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  recipeDrafts: RecipeDraftRecord[];
+};
+
 export type WorkflowStartRequest = {
   schemaVersion: WorkflowSchemaVersion;
   traceId: string;
@@ -365,6 +688,20 @@ export type WorkflowCommandResponse = {
   schemaVersion: WorkflowSchemaVersion;
   run: WorkflowRunSnapshot;
   events: WorkflowFormalEvent[];
+  capturedRecipeDrafts?: RecipeDraftRecord[];
+};
+
+export type WorkflowRunQueryResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  run: WorkflowRunSnapshot;
+  capturedRecipeDrafts?: RecipeDraftRecord[];
+};
+
+export type WorkflowArtifactDetailResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  artifact: WorkflowArtifactRecord;
+  typedPayload: Record<string, unknown>;
+  lineage: Record<string, unknown>;
 };
 
 export type WorkflowRuntimeStartRunRequest = {
@@ -416,4 +753,12 @@ export function isWorkflowRunTerminal(status: WorkflowRunStatus): boolean {
 
 export function isWorkflowNodeTerminal(status: WorkflowNodeRunStatus): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
+}
+
+export function isWorkflowDraftTerminal(status: WorkflowDraftStatus): boolean {
+  return status === 'published' || status === 'superseded' || status === 'archived';
+}
+
+export function isRecipeDraftTerminal(status: RecipeDraftStatus): boolean {
+  return status === 'promoted' || status === 'rejected' || status === 'archived';
 }

@@ -8,20 +8,20 @@ datasource db {
 }
 
 model Session {
-  sessionId            String   @id @map("session_id")
-  userId               String   @map("user_id")
+  sessionId            String    @id @map("session_id")
+  userId               String    @map("user_id")
   seq                  BigInt
-  lastActivityAt       DateTime @map("last_activity_at")
-  lastUserText         String?  @map("last_user_text")
-  topicDriftStreak     Int      @default(0) @map("topic_drift_streak")
-  stickyProviderId     String?  @map("sticky_provider_id")
-  stickyWeight         Decimal  @default(0.150) @db.Decimal(5, 3) @map("sticky_weight")
-  switchLeadProviderId String?  @map("switch_lead_provider_id")
-  switchLeadStreak     Int      @default(0) @map("switch_lead_streak")
+  lastActivityAt       DateTime  @map("last_activity_at")
+  lastUserText         String?   @map("last_user_text")
+  topicDriftStreak     Int       @default(0) @map("topic_drift_streak")
+  stickyProviderId     String?   @map("sticky_provider_id")
+  stickyWeight         Decimal   @default(0.150) @map("sticky_weight") @db.Decimal(5, 3)
+  switchLeadProviderId String?   @map("switch_lead_provider_id")
+  switchLeadStreak     Int       @default(0) @map("switch_lead_streak")
   lastSwitchTs         DateTime? @map("last_switch_ts")
-  topicState           Json?    @map("topic_state")
-  createdAt            DateTime @default(now()) @map("created_at")
-  updatedAt            DateTime @updatedAt @map("updated_at")
+  topicState           Json?     @map("topic_state")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
 
   @@index([userId], map: "idx_sessions_user_id")
   @@index([lastActivityAt], map: "idx_sessions_last_activity_at")
@@ -29,19 +29,19 @@ model Session {
 }
 
 model TimelineEvent {
-  eventId        String   @id @map("event_id")
-  traceId        String   @map("trace_id")
-  sessionId      String   @map("session_id")
-  userId         String   @map("user_id")
-  providerId     String?  @map("provider_id")
-  runId          String?  @map("run_id")
-  seq            BigInt
-  timestampMs    BigInt   @map("timestamp_ms")
-  kind           String
-  extensionKind  String?  @map("extension_kind")
-  renderSchemaRef String? @map("render_schema_ref")
-  payload        Json
-  createdAt      DateTime @default(now()) @map("created_at")
+  eventId         String   @id @map("event_id")
+  traceId         String   @map("trace_id")
+  sessionId       String   @map("session_id")
+  userId          String   @map("user_id")
+  providerId      String?  @map("provider_id")
+  runId           String?  @map("run_id")
+  seq             BigInt
+  timestampMs     BigInt   @map("timestamp_ms")
+  kind            String
+  extensionKind   String?  @map("extension_kind")
+  renderSchemaRef String?  @map("render_schema_ref")
+  payload         Json
+  createdAt       DateTime @default(now()) @map("created_at")
 
   @@unique([sessionId, seq], map: "timeline_events_session_seq_key")
   @@index([sessionId, seq], map: "idx_timeline_events_session_seq")
@@ -121,13 +121,13 @@ model TaskThread {
 }
 
 model WorkflowTemplate {
-  workflowId        String   @id @map("workflow_id")
-  workflowKey       String   @unique @map("workflow_key")
-  name              String
-  compatProviderId  String   @map("compat_provider_id")
-  status            String
-  createdAt         DateTime @default(now()) @map("created_at")
-  updatedAt         DateTime @updatedAt @map("updated_at")
+  workflowId       String   @id @map("workflow_id")
+  workflowKey      String   @unique @map("workflow_key")
+  name             String
+  compatProviderId String   @map("compat_provider_id")
+  status           String
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([status], map: "idx_workflow_templates_status")
   @@map("workflow_templates")
@@ -146,6 +146,72 @@ model WorkflowTemplateVersion {
   @@map("workflow_template_versions")
 }
 
+model WorkflowDraft {
+  draftId                     String   @id @map("draft_id")
+  workflowKey                 String?  @map("workflow_key")
+  name                        String?
+  status                      String
+  basedOnTemplateVersionId    String?  @map("based_on_template_version_id")
+  publishedTemplateVersionId  String?  @map("published_template_version_id")
+  currentSpecJson             Json     @map("current_spec_json")
+  latestValidationSummaryJson Json?    @map("latest_validation_summary_json")
+  publishable                 Boolean  @default(false)
+  activeRevisionNumber        Int      @default(0) @map("active_revision_number")
+  createdAt                   DateTime @default(now()) @map("created_at")
+  updatedAt                   DateTime @updatedAt @map("updated_at")
+
+  @@index([status], map: "idx_workflow_drafts_status")
+  @@index([workflowKey], map: "idx_workflow_drafts_workflow_key")
+  @@map("workflow_drafts")
+}
+
+model DraftRevision {
+  revisionId            String   @id @map("revision_id")
+  draftId               String   @map("draft_id")
+  revisionNumber        Int      @map("revision_number")
+  source                String
+  actorId               String   @map("actor_id")
+  changeSummary         String   @map("change_summary")
+  specSnapshotJson      Json     @map("spec_snapshot_json")
+  validationSummaryJson Json?    @map("validation_summary_json")
+  createdAt             DateTime @default(now()) @map("created_at")
+
+  @@unique([draftId, revisionNumber], map: "draft_revisions_draft_revision_number_key")
+  @@index([draftId, createdAt], map: "idx_draft_revisions_draft_created_at")
+  @@map("draft_revisions")
+}
+
+model WorkflowDraftSessionLink {
+  sessionId     String    @map("session_id")
+  draftId       String    @map("draft_id")
+  userId        String    @map("user_id")
+  isActive      Boolean   @default(false) @map("is_active")
+  lastFocusedAt DateTime? @map("last_focused_at")
+  createdAt     DateTime  @default(now()) @map("created_at")
+  updatedAt     DateTime  @updatedAt @map("updated_at")
+
+  @@id([sessionId, draftId], map: "workflow_draft_session_links_pkey")
+  @@index([sessionId, isActive], map: "idx_workflow_draft_session_links_session_active")
+  @@index([draftId], map: "idx_workflow_draft_session_links_draft_id")
+  @@map("workflow_draft_session_links")
+}
+
+model RecipeDraft {
+  recipeDraftId       String   @id @map("recipe_draft_id")
+  title               String?
+  status              String
+  sourceArtifactId    String?  @unique(map: "uq_recipe_drafts_source_artifact_id") @map("source_artifact_id")
+  sourceRefsJson      Json     @map("source_refs_json")
+  normalizedStepsJson Json     @map("normalized_steps_json")
+  assumptionsJson     Json     @map("assumptions_json")
+  reviewerNotesJson   Json     @map("reviewer_notes_json")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@index([status], map: "idx_recipe_drafts_status")
+  @@map("recipe_drafts")
+}
+
 model WorkflowRun {
   runId             String    @id @map("run_id")
   templateId        String    @map("template_id")
@@ -155,6 +221,7 @@ model WorkflowRun {
   userId            String    @map("user_id")
   compatProviderId  String    @map("compat_provider_id")
   currentNodeRunId  String?   @map("current_node_run_id")
+  metadataJson      Json?     @map("metadata_json")
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
   completedAt       DateTime? @map("completed_at")
@@ -165,24 +232,24 @@ model WorkflowRun {
 }
 
 model WorkflowNodeRun {
-  nodeRunId         String    @id @map("node_run_id")
-  runId             String    @map("run_id")
-  nodeKey           String    @map("node_key")
-  nodeType          String    @map("node_type")
-  status            String
-  executorId        String?   @map("executor_id")
-  attempt           Int       @default(1)
-  inputJson         Json?     @map("input_json")
-  outputArtifactId  String?   @map("output_artifact_id")
-  waitKey           String?   @map("wait_key")
-  taskId            String?   @map("task_id")
-  questionId        String?   @map("question_id")
-  replyToken        String?   @map("reply_token")
-  compatTaskState   String?   @map("compat_task_state")
-  executionPolicy   String?   @map("execution_policy")
-  metadataJson      Json?     @map("metadata_json")
-  createdAt         DateTime  @default(now()) @map("created_at")
-  updatedAt         DateTime  @updatedAt @map("updated_at")
+  nodeRunId        String   @id @map("node_run_id")
+  runId            String   @map("run_id")
+  nodeKey          String   @map("node_key")
+  nodeType         String   @map("node_type")
+  status           String
+  executorId       String?  @map("executor_id")
+  attempt          Int      @default(1)
+  inputJson        Json?    @map("input_json")
+  outputArtifactId String?  @map("output_artifact_id")
+  waitKey          String?  @map("wait_key")
+  taskId           String?  @map("task_id")
+  questionId       String?  @map("question_id")
+  replyToken       String?  @map("reply_token")
+  compatTaskState  String?  @map("compat_task_state")
+  executionPolicy  String?  @map("execution_policy")
+  metadataJson     Json?    @map("metadata_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
 
   @@index([runId], map: "idx_workflow_node_runs_run_id")
   @@index([runId, status], map: "idx_workflow_node_runs_run_status")
@@ -190,16 +257,16 @@ model WorkflowNodeRun {
 }
 
 model Artifact {
-  artifactId    String   @id @map("artifact_id")
-  runId         String   @map("run_id")
-  nodeRunId     String?  @map("node_run_id")
-  artifactType  String   @map("artifact_type")
-  state         String
-  schemaRef     String?  @map("schema_ref")
-  payloadJson   Json     @map("payload_json")
-  metadataJson  Json?    @map("metadata_json")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  artifactId   String   @id @map("artifact_id")
+  runId        String   @map("run_id")
+  nodeRunId    String?  @map("node_run_id")
+  artifactType String   @map("artifact_type")
+  state        String
+  schemaRef    String?  @map("schema_ref")
+  payloadJson  Json     @map("payload_json")
+  metadataJson Json?    @map("metadata_json")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
 
   @@index([runId], map: "idx_artifacts_run_id")
   @@index([nodeRunId], map: "idx_artifacts_node_run_id")
@@ -237,21 +304,25 @@ model ApprovalDecision {
 }
 
 model ActorProfile {
-  actorId       String   @id @map("actor_id")
-  workspaceId   String   @map("workspace_id")
-  status        String
-  displayName   String   @map("display_name")
-  actorType     String   @map("actor_type")
-  payloadJson   Json?    @map("payload_json")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
+  runId       String   @map("run_id")
+  actorId     String   @map("actor_id")
+  workspaceId String   @map("workspace_id")
+  status      String
+  displayName String   @map("display_name")
+  actorType   String   @map("actor_type")
+  payloadJson Json?    @map("payload_json")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
+  @@id([runId, actorId])
+  @@index([runId], map: "idx_actor_profiles_run_id")
   @@index([workspaceId], map: "idx_actor_profiles_workspace_id")
   @@map("actor_profiles")
 }
 
 model ActorMembership {
   actorMembershipId String    @id @map("actor_membership_id")
+  runId             String    @map("run_id")
   fromActorId       String    @map("from_actor_id")
   toActorId         String    @map("to_actor_id")
   relationType      String    @map("relation_type")
@@ -261,6 +332,7 @@ model ActorMembership {
   createdAt         DateTime  @default(now()) @map("created_at")
   updatedAt         DateTime  @updatedAt @map("updated_at")
 
+  @@index([runId], map: "idx_actor_memberships_run_id")
   @@index([fromActorId], map: "idx_actor_memberships_from_actor_id")
   @@index([toActorId], map: "idx_actor_memberships_to_actor_id")
   @@map("actor_memberships")

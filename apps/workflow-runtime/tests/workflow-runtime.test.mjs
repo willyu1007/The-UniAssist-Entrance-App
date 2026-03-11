@@ -126,6 +126,22 @@ async function postInternal(url, path, body, subject = 'workflow-platform-api') 
   return { status: response.status, json };
 }
 
+async function getInternal(url, path, subject = 'workflow-platform-api') {
+  const response = await fetch(`${url}${path}`, {
+    method: 'GET',
+    headers: {
+      ...signInternalHeaders({
+        method: 'GET',
+        path,
+        subject,
+        audience: 'workflow-runtime',
+      }),
+    },
+  });
+  const json = await response.json();
+  return { status: response.status, json };
+}
+
 function buildTemplate(versionId, spec) {
   return {
     template: {
@@ -149,7 +165,7 @@ function buildTemplate(versionId, spec) {
   };
 }
 
-test('workflow runtime supports executor resume and approval gate flows', async (t) => {
+test('workflow runtime runs the B3 teaching validation workflow end-to-end', async (t) => {
   const internalEnv = {
     UNIASSIST_INTERNAL_AUTH_MODE: internalAuth.mode,
     UNIASSIST_INTERNAL_AUTH_ISSUER: internalAuth.issuer,
@@ -157,15 +173,15 @@ test('workflow runtime supports executor resume and approval gate flows', async 
     UNIASSIST_INTERNAL_AUTH_SIGNING_KID: internalAuth.kid,
   };
 
-  const provider = startService('provider-plan', ['--filter', '@baseinterface/provider-plan', 'start'], {
+  const provider = startService('provider-sample', ['--filter', '@baseinterface/provider-sample', 'start'], {
     PORT: String(ports.provider),
-    UNIASSIST_SERVICE_ID: 'provider-plan',
+    UNIASSIST_SERVICE_ID: 'provider-sample',
     ...internalEnv,
   });
   const runtime = startService('workflow-runtime', ['--filter', '@baseinterface/workflow-runtime', 'start'], {
     PORT: String(ports.runtime),
     UNIASSIST_SERVICE_ID: 'workflow-runtime',
-    UNIASSIST_PLAN_PROVIDER_BASE_URL: `http://127.0.0.1:${ports.provider}`,
+    UNIASSIST_SAMPLE_PROVIDER_BASE_URL: `http://127.0.0.1:${ports.provider}`,
     ...internalEnv,
   });
 
@@ -184,17 +200,43 @@ test('workflow runtime supports executor resume and approval gate flows', async 
 
   const runtimeBaseUrl = `http://127.0.0.1:${ports.runtime}`;
 
-  const executorSpec = {
+  const teachingSpec = {
     schemaVersion: 'v1',
-    workflowKey: 'plan-b1-executor',
-    name: 'Plan Executor Flow',
-    compatProviderId: 'plan',
-    entryNode: 'collect',
+    workflowKey: 'sample-b3-teaching',
+    name: 'Teaching Validation Sample',
+    compatProviderId: 'sample',
+    entryNode: 'parse_materials',
     nodes: [
       {
-        nodeKey: 'collect',
+        nodeKey: 'parse_materials',
         nodeType: 'executor',
-        executorId: 'compat-plan',
+        executorId: 'compat-sample',
+        transitions: {
+          success: 'generate_assessment',
+        },
+      },
+      {
+        nodeKey: 'generate_assessment',
+        nodeType: 'executor',
+        executorId: 'compat-sample',
+        transitions: {
+          success: 'teacher_review',
+        },
+      },
+      {
+        nodeKey: 'teacher_review',
+        nodeType: 'approval_gate',
+        transitions: {
+          approved: 'fanout_delivery',
+        },
+        config: {
+          reviewArtifactTypes: ['AssessmentDraft', 'EvidencePack'],
+        },
+      },
+      {
+        nodeKey: 'fanout_delivery',
+        nodeType: 'executor',
+        executorId: 'compat-sample',
         transitions: {
           success: 'finish',
         },
@@ -206,124 +248,120 @@ test('workflow runtime supports executor resume and approval gate flows', async 
     ],
   };
 
-  const executorTemplate = buildTemplate('ver-executor', executorSpec);
-  const startResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
+  const teachingTemplate = buildTemplate('ver-teaching', teachingSpec);
+  const teachingInput = {
     schemaVersion: 'v1',
     traceId: randomUUID(),
-    sessionId: 's-runtime-executor',
+    sessionId: 's-runtime-teaching',
     userId: 'u-runtime',
-    ...executorTemplate,
-    inputText: '请帮我制定本周计划',
-  });
-
-  assert.equal(startResponse.status, 200);
-  assert.equal(startResponse.json.run.run.status, 'waiting_input');
-  const firstQuestion = startResponse.json.events.find((event) => event.kind === 'waiting_input');
-  assert.ok(firstQuestion);
-  assert.equal(firstQuestion.payload.taskId, `task:${startResponse.json.run.run.runId}`);
-
-  const goalResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 's-runtime-executor',
-    userId: 'u-runtime',
-    runId: startResponse.json.run.run.runId,
-    compatProviderId: 'plan',
-    actionId: 'answer_task_question',
-    replyToken: firstQuestion.payload.replyToken,
-    taskId: firstQuestion.payload.taskId,
-    payload: {
-      text: '完成 B1 平台骨架',
-    },
-  });
-
-  assert.equal(goalResponse.status, 200);
-  assert.equal(goalResponse.json.run.run.status, 'waiting_input');
-  const dueDateQuestion = goalResponse.json.events.find((event) => event.kind === 'waiting_input');
-  assert.ok(dueDateQuestion);
-  assert.match(dueDateQuestion.payload.questionId, /dueDate/i);
-
-  const dueDateResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 's-runtime-executor',
-    userId: 'u-runtime',
-    runId: startResponse.json.run.run.runId,
-    compatProviderId: 'plan',
-    actionId: 'answer_task_question',
-    replyToken: dueDateQuestion.payload.replyToken,
-    taskId: dueDateQuestion.payload.taskId,
-    payload: {
-      text: '2026-03-31',
-      dueDate: '2026-03-31',
-    },
-  });
-
-  assert.equal(dueDateResponse.status, 200);
-  assert.equal(dueDateResponse.json.run.run.status, 'paused');
-  assert.ok(dueDateResponse.json.events.some((event) => event.kind === 'node_state' && event.payload.compatTaskState === 'ready'));
-
-  const executeResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 's-runtime-executor',
-    userId: 'u-runtime',
-    runId: startResponse.json.run.run.runId,
-    compatProviderId: 'plan',
-    actionId: 'execute_task',
-    taskId: dueDateQuestion.payload.taskId,
-  });
-
-  assert.equal(executeResponse.status, 200);
-  assert.equal(executeResponse.json.run.run.status, 'completed');
-  assert.ok(executeResponse.json.events.some((event) => event.kind === 'artifact_created'));
-
-  const approvalSpec = {
-    schemaVersion: 'v1',
-    workflowKey: 'plan-b1-approval',
-    name: 'Approval Flow',
-    compatProviderId: 'plan',
-    entryNode: 'approve',
-    nodes: [
-      {
-        nodeKey: 'approve',
-        nodeType: 'approval_gate',
-        transitions: {
-          approved: 'finish',
-        },
+    ...teachingTemplate,
+    inputPayload: {
+      subject: {
+        subjectRef: 'student:case-1',
+        subjectType: 'student',
+        displayName: 'Alex',
       },
-      {
-        nodeKey: 'finish',
-        nodeType: 'end',
+      materials: [
+        '课堂观察记录',
+        '作业提交摘要',
+      ],
+      teacherActor: {
+        actorId: 'teacher:primary',
+        displayName: 'Ms. Li',
       },
-    ],
+      audiences: [
+        { audienceType: 'parent', actorId: 'parent:case-1', displayName: 'Parent Case 1' },
+        { audienceType: 'student', actorId: 'student:case-1', displayName: 'Alex' },
+        { audienceType: 'group', actorId: 'group:class-a', displayName: 'Class A', actorType: 'cohort' },
+      ],
+      temporaryCollaborators: [
+        { actorId: 'assistant:temp-1', displayName: 'Assistant Temp 1' },
+      ],
+    },
   };
 
-  const approvalTemplate = buildTemplate('ver-approval', approvalSpec);
-  const approvalStart = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 's-runtime-approval',
-    userId: 'u-runtime',
-    ...approvalTemplate,
-  });
-
-  assert.equal(approvalStart.status, 200);
-  assert.equal(approvalStart.json.run.run.status, 'waiting_approval');
-  const approvalRequested = approvalStart.json.events.find((event) => event.kind === 'approval_requested');
+  const startResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', teachingInput);
+  assert.equal(startResponse.status, 200);
+  assert.equal(startResponse.json.run.run.status, 'waiting_approval');
+  assert.deepEqual(
+    startResponse.json.run.artifacts.map((artifact) => artifact.artifactType),
+    ['ObservationArtifact', 'AssessmentDraft', 'EvidencePack', 'AnalysisRecipeCandidate'],
+  );
+  assert.equal(
+    startResponse.json.run.artifacts.find((artifact) => artifact.artifactType === 'AssessmentDraft')?.state,
+    'review_required',
+  );
+  const approvalRequested = startResponse.json.events.find((event) => event.kind === 'approval_requested');
   assert.ok(approvalRequested);
+
+  const recipeArtifact = startResponse.json.run.artifacts.find((artifact) => artifact.artifactType === 'AnalysisRecipeCandidate');
+  assert.ok(recipeArtifact);
+  const recipeArtifactResponse = await getInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/artifacts/${recipeArtifact.artifactId}`,
+  );
+  assert.equal(recipeArtifactResponse.status, 200);
+  assert.equal(recipeArtifactResponse.json.artifact.artifactType, 'AnalysisRecipeCandidate');
+  assert.equal(recipeArtifactResponse.json.typedPayload.title, 'Alex 评估配方候选');
+  assert.equal(recipeArtifactResponse.json.lineage.nodeKey, 'generate_assessment');
 
   const approvalResume = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
     schemaVersion: 'v1',
     traceId: randomUUID(),
-    sessionId: 's-runtime-approval',
+    sessionId: 's-runtime-teaching',
     userId: 'u-runtime',
-    runId: approvalStart.json.run.run.runId,
-    compatProviderId: 'plan',
+    runId: startResponse.json.run.run.runId,
+    compatProviderId: 'sample',
     actionId: `approve_request:${approvalRequested.payload.approvalRequestId}`,
   });
 
   assert.equal(approvalResume.status, 200);
   assert.equal(approvalResume.json.run.run.status, 'completed');
   assert.ok(approvalResume.json.events.some((event) => event.kind === 'approval_decided'));
+  assert.equal(
+    approvalResume.json.run.artifacts.find((artifact) => artifact.artifactType === 'AssessmentDraft')?.state,
+    'published',
+  );
+  assert.ok(approvalResume.json.run.artifacts.some((artifact) => artifact.artifactType === 'ReviewableDelivery'));
+  assert.equal(approvalResume.json.run.deliveryTargets.length, 3);
+  assert.equal(
+    approvalResume.json.run.deliveryTargets.some((target) => target.targetActorId === 'assistant:temp-1'),
+    false,
+  );
+  assert.equal(
+    approvalResume.json.run.actorMemberships.some((membership) => membership.status === 'pending_confirmation'),
+    true,
+  );
+
+  const runQuery = await getInternal(runtimeBaseUrl, `/internal/runtime/runs/${startResponse.json.run.run.runId}`);
+  assert.equal(runQuery.status, 200);
+  assert.equal(runQuery.json.run.approvalDecisions.length, 1);
+  assert.equal(runQuery.json.run.deliveryTargets.length, 3);
+  assert.equal(runQuery.json.run.actorProfiles.length, 5);
+
+  const rejectStart = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
+    ...teachingInput,
+    traceId: randomUUID(),
+    sessionId: 's-runtime-teaching-reject',
+  });
+  assert.equal(rejectStart.status, 200);
+  const rejectApproval = rejectStart.json.events.find((event) => event.kind === 'approval_requested');
+  assert.ok(rejectApproval);
+
+  const rejectResume = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
+    schemaVersion: 'v1',
+    traceId: randomUUID(),
+    sessionId: 's-runtime-teaching-reject',
+    userId: 'u-runtime',
+    runId: rejectStart.json.run.run.runId,
+    compatProviderId: 'sample',
+    actionId: `reject_request:${rejectApproval.payload.approvalRequestId}`,
+  });
+  assert.equal(rejectResume.status, 200);
+  assert.equal(rejectResume.json.run.run.status, 'failed');
+  assert.equal(
+    rejectResume.json.run.artifacts.some((artifact) => artifact.artifactType === 'ReviewableDelivery'),
+    false,
+  );
+  assert.equal(rejectResume.json.run.deliveryTargets.length, 0);
 });

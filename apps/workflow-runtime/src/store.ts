@@ -1,4 +1,9 @@
 import type {
+  ActorMembershipRecord,
+  ActorProfileRecord,
+  AudienceSelectorRecord,
+  DeliverySpecRecord,
+  DeliveryTargetRecord,
   WorkflowApprovalDecisionRecord,
   WorkflowApprovalRequestRecord,
   WorkflowArtifactRecord,
@@ -17,6 +22,11 @@ export type InternalRunState = {
   approvals: WorkflowApprovalRequestRecord[];
   decisions: WorkflowApprovalDecisionRecord[];
   artifacts: WorkflowArtifactRecord[];
+  actorProfiles: ActorProfileRecord[];
+  actorMemberships: ActorMembershipRecord[];
+  audienceSelectors: AudienceSelectorRecord[];
+  deliverySpecs: DeliverySpecRecord[];
+  deliveryTargets: DeliveryTargetRecord[];
 };
 
 export class RuntimeStore {
@@ -61,7 +71,13 @@ export class RuntimeStore {
       run: state.run,
       nodeRuns: state.nodeRuns,
       approvals: state.approvals,
+      approvalDecisions: state.decisions,
       artifacts: state.artifacts,
+      actorProfiles: state.actorProfiles,
+      actorMemberships: state.actorMemberships,
+      audienceSelectors: state.audienceSelectors,
+      deliverySpecs: state.deliverySpecs,
+      deliveryTargets: state.deliveryTargets,
     };
   }
 }

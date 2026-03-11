@@ -13,6 +13,7 @@ export const INTERNAL_AUTH_CONFIG = (() => {
 })();
 export const WORKFLOW_RUNTIME_BASE_URL = (process.env.UNIASSIST_WORKFLOW_RUNTIME_BASE_URL || 'http://127.0.0.1:8792').replace(/\/$/, '');
 export const WORKFLOW_RUNTIME_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID || 'workflow-runtime';
+export const DATABASE_URL = process.env.DATABASE_URL || '';
 
 export function now(): number {
   return Date.now();
