@@ -184,3 +184,17 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/archive/ua-platform-foundation-implementation
     updated: 2026-03-11
+  - id: T-024
+    slug: ua-builder-draft-publish-implementation
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-builder-draft-publish-implementation
+    updated: 2026-03-11
+  - id: T-025
+    slug: ua-teaching-validation-implementation
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-teaching-validation-implementation
+    updated: 2026-03-11
