@@ -6,6 +6,7 @@ import type { SessionService } from './gateway-sessions';
 import type { TaskThreadService } from './gateway-task-threads';
 import type { TimelineService } from './gateway-timeline';
 import type { UserContextService } from './gateway-user-context';
+import type { WorkflowClient } from './gateway-workflow-client';
 import type { GatewayObservability } from './observability';
 import type { GatewayPersistence } from './persistence';
 import type { SessionState, TaskThreadState } from './gateway-types';
@@ -26,6 +27,7 @@ export type GatewayServiceBundle = {
   timelineService: TimelineService;
   taskThreadService: TaskThreadService;
   providerClient: ProviderClient;
+  workflowClient: WorkflowClient;
   authGuards: AuthGuards;
   userContextService: UserContextService;
   now: () => number;

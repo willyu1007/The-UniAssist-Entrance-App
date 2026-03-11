@@ -1,0 +1,27 @@
+{
+  "name": "@baseinterface/workflow-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@baseinterface/contracts": "workspace:*",
+    "@baseinterface/executor-sdk": "workspace:*",
+    "@baseinterface/shared": "workspace:*",
+    "@baseinterface/workflow-contracts": "workspace:*",
+    "express": "^4.21.2",
+    "pg": "^8.16.3"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.8",
+    "@types/pg": "^8.15.5",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.2"
+  }
+}

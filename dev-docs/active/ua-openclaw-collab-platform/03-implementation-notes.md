@@ -63,10 +63,10 @@
 - 当前无偏离 roadmap 的事项。
 
 ## Follow-up TODOs
+- `B1 / ua-platform-foundation-implementation` 已由 `T-023` 完成并通过本地 admission checks
 - 保持 `T-011` 与 `T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016` 的冻结结论一致
 - 保持 `T-019 / T-021 / T-020 / T-022` 的冻结结论与 `B5-B8` 映射保持一致
-- 优先为 `B1 / ua-platform-foundation-implementation` 开 implementation bundle
-- 在 `B1` admission criteria 满足后，再为 `B2 / ua-builder-draft-publish-implementation` 开 implementation bundle
+- 下一步应为 `B2 / ua-builder-draft-publish-implementation` 开 implementation bundle
 - 仅在 `B2` 稳定后，才并行启动 `B3 / ua-teaching-validation-implementation` 与 `B4 / ua-control-console-foundation-implementation`
 - 在 `B3/B4` 稳定后，再进入 `B5 / ua-agent-governance-implementation`
 - 将 `B9 / ua-convex-projection-experiment` 明确维持为条件实验包，不作为主线 implementation 的阻塞项

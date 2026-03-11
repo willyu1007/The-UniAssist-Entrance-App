@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 
 import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
+import type { WorkflowEntryRegistryEntry } from '@baseinterface/workflow-contracts';
 import type { ProviderRegistryEntry } from './gateway-types';
 
 export const PORT = Number(process.env.PORT || 8787);
@@ -19,6 +20,9 @@ export const PROVIDER_RETRY_DELAYS_MS = [300, 900];
 export const PROVIDER_CIRCUIT_OPEN_AFTER_FAILURES = 5;
 export const PROVIDER_CIRCUIT_OPEN_MS = 30 * 1000;
 export const PROVIDER_CIRCUIT_WINDOW_MS = 60 * 1000;
+export const WORKFLOW_ENTRY_ENABLED = process.env.UNIASSIST_WORKFLOW_ENTRY_ENABLED === 'true';
+export const WORKFLOW_PLATFORM_API_BASE_URL =
+  (process.env.UNIASSIST_WORKFLOW_PLATFORM_API_BASE_URL || 'http://127.0.0.1:8791').replace(/\/$/, '');
 
 export const INTERNAL_AUTH_CONFIG = (() => {
   const config = loadInternalAuthConfigFromEnv(process.env);
@@ -84,5 +88,29 @@ export function parseProviderRegistryFromEnv(): ProviderRegistryEntry[] {
     return normalized.length > 0 ? normalized : defaults;
   } catch {
     return defaults;
+  }
+}
+
+export function parseWorkflowEntryRegistryFromEnv(): WorkflowEntryRegistryEntry[] {
+  const raw = process.env.UNIASSIST_WORKFLOW_ENTRY_REGISTRY_JSON?.trim();
+  if (!raw) return [];
+
+  try {
+    const parsed = JSON.parse(raw) as Array<Record<string, unknown>>;
+    return parsed
+      .filter((item) => typeof item.compatProviderId === 'string' && typeof item.workflowKey === 'string')
+      .map((item) => ({
+        compatProviderId: String(item.compatProviderId),
+        workflowKey: String(item.workflowKey),
+        matchKeywords: Array.isArray(item.matchKeywords)
+          ? item.matchKeywords.map((value) => String(value))
+          : [],
+        enabled: item.enabled !== false,
+        defaultExecutorId: typeof item.defaultExecutorId === 'string' ? item.defaultExecutorId : 'compat-plan',
+        defaultTemplateVersionRef:
+          typeof item.defaultTemplateVersionRef === 'string' ? item.defaultTemplateVersionRef : undefined,
+      }));
+  } catch {
+    return [];
   }
 }

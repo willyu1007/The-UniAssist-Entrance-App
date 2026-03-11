@@ -1,0 +1,23 @@
+import crypto from 'node:crypto';
+
+import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
+
+export const PORT = Number(process.env.PORT || 8791);
+export const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'workflow-platform-api';
+export const INTERNAL_AUTH_CONFIG = (() => {
+  const config = loadInternalAuthConfigFromEnv(process.env);
+  if (config.serviceId === 'unknown') {
+    config.serviceId = INTERNAL_AUTH_DEFAULT_SERVICE_ID;
+  }
+  return config;
+})();
+export const WORKFLOW_RUNTIME_BASE_URL = (process.env.UNIASSIST_WORKFLOW_RUNTIME_BASE_URL || 'http://127.0.0.1:8792').replace(/\/$/, '');
+export const WORKFLOW_RUNTIME_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID || 'workflow-runtime';
+
+export function now(): number {
+  return Date.now();
+}
+
+export function uuid(): string {
+  return crypto.randomUUID();
+}

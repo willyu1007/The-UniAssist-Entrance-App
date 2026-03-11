@@ -32,4 +32,5 @@ Project: `main`
 | T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
 | T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
 | T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
+| T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
 <!-- AUTO-GENERATED:END task-index -->

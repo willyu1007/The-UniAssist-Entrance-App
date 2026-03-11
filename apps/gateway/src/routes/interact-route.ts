@@ -5,6 +5,16 @@ import type { InteractionEvent, UnifiedUserInput, UserInteraction } from '@basei
 import { STICKY_DEFAULT_BOOST } from '../gateway-config';
 import { buildContextPackage } from '../gateway-routing';
 import type { GatewayServiceBundle } from '../gateway-services';
+import { translateWorkflowFormalEvents } from '../gateway-workflow-events';
+import type { TaskThreadState } from '../gateway-types';
+
+function isWorkflowThread(metadata: Record<string, unknown> | undefined): boolean {
+  return metadata?.origin === 'workflow';
+}
+
+function isWorkflowAction(actionId: string): boolean {
+  return actionId.startsWith('approve_request:') || actionId.startsWith('reject_request:');
+}
 
 export function registerInteractRoute(
   app: Express,
@@ -112,7 +122,7 @@ export function registerInteractRoute(
     }
 
     const taskMap = services.taskThreadService.getTaskMap(session.sessionId);
-    let thread;
+    let thread: TaskThreadState | undefined;
 
     if (interaction.replyToken) {
       thread = services.taskThreadService.findTaskThreadByReplyToken(session.sessionId, interaction.replyToken);
@@ -162,6 +172,75 @@ export function registerInteractRoute(
           questionId: thread.activeQuestionId,
         },
       };
+    }
+
+    const useWorkflowPath = Boolean(
+      (thread && isWorkflowThread(thread.metadata))
+      || isWorkflowAction(interaction.actionId),
+    );
+
+    if (useWorkflowPath) {
+      if (!interaction.runId) {
+        res.status(400).json({ accepted: false, reason: 'workflow runId required' });
+        return;
+      }
+
+      try {
+        const workflowResponse = await services.workflowClient.resumeWorkflowRun({
+          traceId: interaction.traceId,
+          sessionId: interaction.sessionId,
+          userId: interaction.userId,
+          runId: interaction.runId,
+          actionId: interaction.actionId,
+          replyToken: interaction.replyToken,
+          taskId: interaction.inReplyTo?.taskId,
+          payload: interaction.payload,
+        });
+        const translated = translateWorkflowFormalEvents(
+          workflowResponse.run.run.compatProviderId,
+          workflowResponse.run.run.runId,
+          workflowResponse.events,
+        );
+        await emitProviderEvents(
+          session,
+          inputRef,
+          workflowResponse.run.run.compatProviderId,
+          workflowResponse.run.run.runId,
+          translated,
+        );
+      } catch (error) {
+        services.logger.warn('workflow interact failed', {
+          providerId: interaction.providerId,
+          runId: interaction.runId,
+          actionId: interaction.actionId,
+          error: services.serializeError(error),
+        });
+        if (thread) {
+          services.taskThreadService.updateTaskThread(session.sessionId, {
+            ...thread,
+            state: 'failed',
+            activeQuestionId: undefined,
+            activeReplyToken: undefined,
+            metadata: {
+              ...(thread.metadata || {}),
+              reason: 'workflow_interact_failed',
+            },
+            updatedAt: services.now(),
+          });
+        }
+        services.timelineService.emitEvent(session, inputRef, 'interaction', {
+          event: {
+            type: 'error',
+            userMessage: `${interaction.providerId} workflow 暂时无法处理当前动作。`,
+            retryable: true,
+          },
+          source: 'system',
+        }, interaction.providerId, interaction.runId);
+      }
+
+      services.sessionService.persistSessionAsync(session);
+      res.json({ accepted: true });
+      return;
     }
 
     if (

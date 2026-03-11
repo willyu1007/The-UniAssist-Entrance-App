@@ -12,8 +12,11 @@ import {
   ADAPTER_SECRET,
   INTERNAL_AUTH_CONFIG,
   PORT,
+  WORKFLOW_ENTRY_ENABLED,
+  WORKFLOW_PLATFORM_API_BASE_URL,
   now,
   parseProviderRegistryFromEnv,
+  parseWorkflowEntryRegistryFromEnv,
   uuid,
 } from './gateway-config';
 import { createAuthGuards } from './gateway-auth';
@@ -23,6 +26,7 @@ import { createSessionService } from './gateway-sessions';
 import type { GatewayServiceBundle } from './gateway-services';
 import { createTaskThreadService } from './gateway-task-threads';
 import { createTimelineService } from './gateway-timeline';
+import { createWorkflowClient } from './gateway-workflow-client';
 import type { RawBodyRequest } from './gateway-types';
 import { createUserContextService } from './gateway-user-context';
 import { GatewayObservability } from './observability';
@@ -32,6 +36,7 @@ import { registerEventsRoute } from './routes/events-route';
 import { registerIngestRoute } from './routes/ingest-route';
 import { registerInteractRoute } from './routes/interact-route';
 import { registerTimelineAndContextRoutes } from './routes/timeline-context-routes';
+import { registerWorkflowEventsRoute } from './routes/workflow-events-route';
 
 const logger = createLogger({ service: 'gateway' });
 const persistence = new GatewayPersistence();
@@ -42,6 +47,7 @@ const internalNonceStore = createMemoryNonceStore();
 const providerRegistry = new Map(
   parseProviderRegistryFromEnv().map((entry) => [entry.providerId, entry]),
 );
+const workflowEntryRegistry = parseWorkflowEntryRegistryFromEnv();
 
 const sessionService = createSessionService({
   persistence,
@@ -79,6 +85,13 @@ const providerClient = createProviderClient({
   normalizeProviderInteractionEvent: taskThreadService.normalizeProviderInteractionEvent,
 });
 
+const workflowClient = createWorkflowClient({
+  enabled: WORKFLOW_ENTRY_ENABLED,
+  baseUrl: WORKFLOW_PLATFORM_API_BASE_URL,
+  entryRegistry: workflowEntryRegistry,
+  logger,
+});
+
 const authGuards = createAuthGuards({
   internalAuthConfig: INTERNAL_AUTH_CONFIG,
   internalNonceStore,
@@ -107,6 +120,7 @@ const services: GatewayServiceBundle = {
   timelineService,
   taskThreadService,
   providerClient,
+  workflowClient,
   authGuards,
   userContextService,
   now,
@@ -148,6 +162,7 @@ registerBasicRoutes(app, services);
 registerIngestRoute(app, services, providerRegistry, emitProviderEvents);
 registerInteractRoute(app, services, emitProviderEvents);
 registerEventsRoute(app, services, emitProviderEvents);
+registerWorkflowEventsRoute(app, services, emitProviderEvents);
 registerTimelineAndContextRoutes(app, services);
 
 let manifestRefreshTimer: NodeJS.Timeout | undefined;

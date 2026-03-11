@@ -177,3 +177,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-rnd-collab-validation-scenario-design
     updated: 2026-03-11
+  - id: T-023
+    slug: ua-platform-foundation-implementation
+    status: archived
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/archive/ua-platform-foundation-implementation
+    updated: 2026-03-11

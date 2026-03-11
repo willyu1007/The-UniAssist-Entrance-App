@@ -119,3 +119,188 @@ model TaskThread {
   @@index([activeReplyToken], map: "idx_task_threads_active_reply_token")
   @@map("task_threads")
 }
+
+model WorkflowTemplate {
+  workflowId        String   @id @map("workflow_id")
+  workflowKey       String   @unique @map("workflow_key")
+  name              String
+  compatProviderId  String   @map("compat_provider_id")
+  status            String
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([status], map: "idx_workflow_templates_status")
+  @@map("workflow_templates")
+}
+
+model WorkflowTemplateVersion {
+  templateVersionId String   @id @map("template_version_id")
+  templateId        String   @map("template_id")
+  version           Int
+  status            String
+  specJson          Json     @map("spec_json")
+  createdAt         DateTime @default(now()) @map("created_at")
+
+  @@unique([templateId, version], map: "workflow_template_versions_template_version_key")
+  @@index([templateId, status], map: "idx_workflow_template_versions_template_status")
+  @@map("workflow_template_versions")
+}
+
+model WorkflowRun {
+  runId             String    @id @map("run_id")
+  templateId        String    @map("template_id")
+  templateVersionId String    @map("template_version_id")
+  status            String
+  sessionId         String    @map("session_id")
+  userId            String    @map("user_id")
+  compatProviderId  String    @map("compat_provider_id")
+  currentNodeRunId  String?   @map("current_node_run_id")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+  completedAt       DateTime? @map("completed_at")
+
+  @@index([sessionId], map: "idx_workflow_runs_session_id")
+  @@index([templateId, status], map: "idx_workflow_runs_template_status")
+  @@map("workflow_runs")
+}
+
+model WorkflowNodeRun {
+  nodeRunId         String    @id @map("node_run_id")
+  runId             String    @map("run_id")
+  nodeKey           String    @map("node_key")
+  nodeType          String    @map("node_type")
+  status            String
+  executorId        String?   @map("executor_id")
+  attempt           Int       @default(1)
+  inputJson         Json?     @map("input_json")
+  outputArtifactId  String?   @map("output_artifact_id")
+  waitKey           String?   @map("wait_key")
+  taskId            String?   @map("task_id")
+  questionId        String?   @map("question_id")
+  replyToken        String?   @map("reply_token")
+  compatTaskState   String?   @map("compat_task_state")
+  executionPolicy   String?   @map("execution_policy")
+  metadataJson      Json?     @map("metadata_json")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([runId], map: "idx_workflow_node_runs_run_id")
+  @@index([runId, status], map: "idx_workflow_node_runs_run_status")
+  @@map("workflow_node_runs")
+}
+
+model Artifact {
+  artifactId    String   @id @map("artifact_id")
+  runId         String   @map("run_id")
+  nodeRunId     String?  @map("node_run_id")
+  artifactType  String   @map("artifact_type")
+  state         String
+  schemaRef     String?  @map("schema_ref")
+  payloadJson   Json     @map("payload_json")
+  metadataJson  Json?    @map("metadata_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([runId], map: "idx_artifacts_run_id")
+  @@index([nodeRunId], map: "idx_artifacts_node_run_id")
+  @@map("artifacts")
+}
+
+model ApprovalRequest {
+  approvalRequestId String    @id @map("approval_request_id")
+  runId             String    @map("run_id")
+  nodeRunId         String?   @map("node_run_id")
+  artifactId        String?   @map("artifact_id")
+  status            String
+  requestedActorId  String?   @map("requested_actor_id")
+  expiresAt         DateTime? @map("expires_at")
+  payloadJson       Json?     @map("payload_json")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([runId], map: "idx_approval_requests_run_id")
+  @@index([status], map: "idx_approval_requests_status")
+  @@map("approval_requests")
+}
+
+model ApprovalDecision {
+  approvalDecisionId String   @id @map("approval_decision_id")
+  approvalRequestId  String   @map("approval_request_id")
+  decision           String
+  decidedActorId     String?  @map("decided_actor_id")
+  comment            String?
+  payloadJson        Json?    @map("payload_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@index([approvalRequestId], map: "idx_approval_decisions_request_id")
+  @@map("approval_decisions")
+}
+
+model ActorProfile {
+  actorId       String   @id @map("actor_id")
+  workspaceId   String   @map("workspace_id")
+  status        String
+  displayName   String   @map("display_name")
+  actorType     String   @map("actor_type")
+  payloadJson   Json?    @map("payload_json")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId], map: "idx_actor_profiles_workspace_id")
+  @@map("actor_profiles")
+}
+
+model ActorMembership {
+  actorMembershipId String    @id @map("actor_membership_id")
+  fromActorId       String    @map("from_actor_id")
+  toActorId         String    @map("to_actor_id")
+  relationType      String    @map("relation_type")
+  status            String
+  confirmedAt       DateTime? @map("confirmed_at")
+  payloadJson       Json?     @map("payload_json")
+  createdAt         DateTime  @default(now()) @map("created_at")
+  updatedAt         DateTime  @updatedAt @map("updated_at")
+
+  @@index([fromActorId], map: "idx_actor_memberships_from_actor_id")
+  @@index([toActorId], map: "idx_actor_memberships_to_actor_id")
+  @@map("actor_memberships")
+}
+
+model AudienceSelector {
+  audienceSelectorId String   @id @map("audience_selector_id")
+  status             String
+  selectorJson       Json     @map("selector_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@map("audience_selectors")
+}
+
+model DeliverySpec {
+  deliverySpecId     String   @id @map("delivery_spec_id")
+  audienceSelectorId String   @map("audience_selector_id")
+  reviewRequired     Boolean  @default(false) @map("review_required")
+  deliveryMode       String   @map("delivery_mode")
+  status             String
+  configJson         Json?    @map("config_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([audienceSelectorId], map: "idx_delivery_specs_audience_selector_id")
+  @@map("delivery_specs")
+}
+
+model DeliveryTarget {
+  deliveryTargetId String   @id @map("delivery_target_id")
+  runId            String   @map("run_id")
+  deliverySpecId   String   @map("delivery_spec_id")
+  targetActorId    String?  @map("target_actor_id")
+  status           String
+  payloadJson      Json?    @map("payload_json")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([runId], map: "idx_delivery_targets_run_id")
+  @@index([deliverySpecId], map: "idx_delivery_targets_delivery_spec_id")
+  @@map("delivery_targets")
+}

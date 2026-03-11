@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 22 (planned: 0, in-progress: 18, blocked: 1, done: 3, archived: 0)
+- Tasks: 23 (planned: 0, in-progress: 18, blocked: 1, done: 3, archived: 1)
 
 ## Recent tasks
 
@@ -26,6 +26,7 @@ Project: `main`
 | T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
 | T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
 | T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
+| T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
 | T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
 | T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 | T-010 split-monolith-gateway-frontend | done | F-000 | dev-docs/active/split-monolith-gateway-frontend |
@@ -33,5 +34,4 @@ Project: `main`
 | T-008 ua-k8s-staging-foundation | done | F-000 | dev-docs/active/ua-k8s-staging-foundation |
 | T-005 ua-frontend-transport-unification | in-progress | F-000 | dev-docs/active/ua-frontend-transport-unification |
 | T-001 uniassist-entrance-engine-v0 | in-progress | F-000 | dev-docs/active/uniassist-entrance-engine-v0 |
-| T-002 ua-staging-release-baseline | in-progress | F-000 | dev-docs/active/ua-staging-release-baseline |
 <!-- AUTO-GENERATED:END dashboard -->

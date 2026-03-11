@@ -7,11 +7,13 @@
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test:conformance": "node tests/conformance.mjs"
+    "test:conformance": "node tests/conformance.mjs",
+    "test:workflow-entry": "node tests/workflow-entry.mjs"
   },
   "dependencies": {
     "@baseinterface/contracts": "workspace:*",
     "@baseinterface/shared": "workspace:*",
+    "@baseinterface/workflow-contracts": "workspace:*",
     "cors": "^2.8.5",
     "express": "^4.21.2",
     "pg": "^8.16.3",

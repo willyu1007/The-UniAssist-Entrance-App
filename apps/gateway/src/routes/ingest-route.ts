@@ -21,7 +21,12 @@ import {
   updateTopicDrift,
 } from '../gateway-routing';
 import type { GatewayServiceBundle } from '../gateway-services';
+import { translateWorkflowFormalEvents } from '../gateway-workflow-events';
 import type { ProviderRegistryEntry, RawBodyRequest } from '../gateway-types';
+
+function isWorkflowThread(metadata: Record<string, unknown> | undefined): boolean {
+  return metadata?.origin === 'workflow';
+}
 
 export function registerIngestRoute(
   app: Express,
@@ -94,7 +99,6 @@ export function registerIngestRoute(
 
       if (pendingThreads.length === 1) {
         const thread = pendingThreads[0];
-        const provider = services.providerClient.getProviderEntry(thread.providerId);
         const routing: RoutingDecision = {
           schemaVersion: 'v0',
           traceId: effectiveInput.traceId,
@@ -154,29 +158,82 @@ export function registerIngestRoute(
           runId,
         );
 
-        if (provider && provider.enabled && provider.baseUrl) {
-          const providerEvents = await services.providerClient.interactProvider(provider, forwarded, contextPackage);
-          await emitProviderEvents(session, effectiveInput, thread.providerId, runId, providerEvents);
+        if (isWorkflowThread(thread.metadata)) {
+          try {
+            const workflowResponse = await services.workflowClient.resumeWorkflowRun({
+              traceId: effectiveInput.traceId,
+              sessionId: session.sessionId,
+              userId: effectiveInput.userId,
+              runId,
+              actionId: forwarded.actionId,
+              replyToken: forwarded.replyToken,
+              taskId: forwarded.inReplyTo?.taskId,
+              payload: forwarded.payload,
+            });
+            const translated = translateWorkflowFormalEvents(
+              workflowResponse.run.run.compatProviderId,
+              workflowResponse.run.run.runId,
+              workflowResponse.events,
+            );
+            await emitProviderEvents(
+              session,
+              effectiveInput,
+              workflowResponse.run.run.compatProviderId,
+              workflowResponse.run.run.runId,
+              translated,
+            );
+          } catch (error) {
+            services.logger.warn('workflow resume failed for pending task reply', {
+              providerId: thread.providerId,
+              runId,
+              error: services.serializeError(error),
+            });
+            services.taskThreadService.updateTaskThread(session.sessionId, {
+              ...thread,
+              state: 'failed',
+              activeQuestionId: undefined,
+              activeReplyToken: undefined,
+              metadata: {
+                ...(thread.metadata || {}),
+                reason: 'workflow_resume_failed',
+              },
+              updatedAt: services.now(),
+            });
+            services.timelineService.emitEvent(session, effectiveInput, 'interaction', {
+              event: {
+                type: 'error',
+                userMessage: `${thread.providerId} workflow 暂时无法继续该任务。`,
+                retryable: true,
+              },
+              source: 'system',
+            }, thread.providerId, runId);
+          }
         } else {
-          services.taskThreadService.updateTaskThread(session.sessionId, {
-            ...thread,
-            state: 'failed',
-            activeQuestionId: undefined,
-            activeReplyToken: undefined,
-            metadata: {
-              ...(thread.metadata || {}),
-              reason: 'provider_unavailable_or_unregistered',
-            },
-            updatedAt: services.now(),
-          });
-          services.timelineService.emitEvent(session, effectiveInput, 'interaction', {
-            event: {
-              type: 'error',
-              userMessage: `${thread.providerId} 未注册，无法继续该任务。`,
-              retryable: false,
-            },
-            source: 'system',
-          }, thread.providerId, runId);
+          const provider = services.providerClient.getProviderEntry(thread.providerId);
+          if (provider && provider.enabled && provider.baseUrl) {
+            const providerEvents = await services.providerClient.interactProvider(provider, forwarded, contextPackage);
+            await emitProviderEvents(session, effectiveInput, thread.providerId, runId, providerEvents);
+          } else {
+            services.taskThreadService.updateTaskThread(session.sessionId, {
+              ...thread,
+              state: 'failed',
+              activeQuestionId: undefined,
+              activeReplyToken: undefined,
+              metadata: {
+                ...(thread.metadata || {}),
+                reason: 'provider_unavailable_or_unregistered',
+              },
+              updatedAt: services.now(),
+            });
+            services.timelineService.emitEvent(session, effectiveInput, 'interaction', {
+              event: {
+                type: 'error',
+                userMessage: `${thread.providerId} 未注册，无法继续该任务。`,
+                retryable: false,
+              },
+              source: 'system',
+            }, thread.providerId, runId);
+          }
         }
 
         services.sessionService.persistSessionAsync(session);
@@ -235,6 +292,99 @@ export function registerIngestRoute(
         timestampMs: services.now(),
       } satisfies IngestAck);
       return;
+    }
+
+    const workflowEntry = services.workflowClient.matchWorkflowEntry(effectiveInput.text);
+    if (workflowEntry) {
+      try {
+        const workflowResponse = await services.workflowClient.startWorkflowRun({
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          userId: effectiveInput.userId,
+          workflowKey: workflowEntry.workflowKey,
+          templateVersionId: workflowEntry.defaultTemplateVersionRef,
+          inputText: effectiveInput.text,
+          inputPayload: effectiveInput.raw,
+        });
+        const runId = workflowResponse.run.run.runId;
+        const routing: RoutingDecision = {
+          schemaVersion: 'v0',
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          candidates: [
+            {
+              providerId: workflowEntry.compatProviderId,
+              score: 1,
+              reason: `workflow_registry:${workflowEntry.workflowKey}`,
+              requiresClarification: false,
+              suggestedMode: 'async',
+            },
+          ],
+          requiresUserConfirmation: false,
+          fallback: 'none',
+          timestampMs: services.now(),
+        };
+
+        services.timelineService.emitEvent(session, effectiveInput, 'routing_decision', routing as unknown as Record<string, unknown>);
+        services.timelineService.emitEvent(session, effectiveInput, 'provider_run', {
+          providerId: workflowEntry.compatProviderId,
+          mode: 'async',
+          score: 1,
+          status: 'in-progress',
+          routing_mode: 'normal',
+          idempotency_key: `${effectiveInput.traceId}:${workflowEntry.compatProviderId}:workflow`,
+          context: buildContextPackage(effectiveInput, session),
+        }, workflowEntry.compatProviderId, runId);
+
+        const translated = translateWorkflowFormalEvents(
+          workflowResponse.run.run.compatProviderId,
+          workflowResponse.run.run.runId,
+          workflowResponse.events,
+        );
+        await emitProviderEvents(
+          session,
+          effectiveInput,
+          workflowResponse.run.run.compatProviderId,
+          workflowResponse.run.run.runId,
+          translated,
+        );
+
+        const ackEvents: InteractionEvent[] = [];
+        if (rotated) {
+          ackEvents.push({
+            type: 'ack',
+            message: '由于会话长期闲置，已自动创建新会话继续处理。',
+          });
+        }
+        ackEvents.push({
+          type: 'ack',
+          message: `已按 workflow 路由到 ${workflowEntry.compatProviderId} 专项。`,
+        });
+
+        services.sessionService.persistSessionAsync(session);
+        res.json({
+          schemaVersion: 'v0',
+          traceId: effectiveInput.traceId,
+          sessionId: session.sessionId,
+          userId: effectiveInput.userId,
+          routing,
+          runs: [{ providerId: workflowEntry.compatProviderId, runId, mode: 'async' }],
+          ackEvents,
+          stream: {
+            type: 'sse',
+            href: `/v0/stream?sessionId=${encodeURIComponent(session.sessionId)}&cursor=${session.seq}`,
+            cursor: session.seq,
+          },
+          timestampMs: services.now(),
+        } satisfies IngestAck);
+        return;
+      } catch (error) {
+        services.logger.warn('workflow entry start failed, fallback to legacy routing', {
+          workflowKey: workflowEntry.workflowKey,
+          compatProviderId: workflowEntry.compatProviderId,
+          error: services.serializeError(error),
+        });
+      }
     }
 
     const topicDriftSuggested = updateTopicDrift(session, effectiveInput);

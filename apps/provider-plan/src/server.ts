@@ -102,7 +102,7 @@ async function guardInternalAuth(
     nonceStore: internalNonceStore,
     expectedAudience: INTERNAL_AUTH_CONFIG.serviceId,
     requiredScopes: options.requiredScopes,
-    allowedSubjects: ['gateway'],
+    allowedSubjects: ['gateway', 'workflow-runtime'],
   });
 
   if (verification.ok) return true;

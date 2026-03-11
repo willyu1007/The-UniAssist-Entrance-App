@@ -2,7 +2,13 @@ import os from 'node:os';
 
 import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
-import { createLogger, serializeError } from '@baseinterface/shared';
+import {
+  buildInternalAuthHeaders,
+  createLogger,
+  loadInternalAuthConfigFromEnv,
+  serializeError,
+  type InternalAuthConfig,
+} from '@baseinterface/shared';
 
 type OutboxRow = {
   id: number;
@@ -30,10 +36,14 @@ type WorkerConfig = {
   outboxBackoffMaxMs: number;
   consumerBlockMs: number;
   consumerBatchSize: number;
+  gatewayBaseUrl: string;
+  gatewayServiceId: string;
+  internalAuthConfig: InternalAuthConfig;
 };
 
 const logger = createLogger({ service: 'worker' });
 const TRANSIENT_LOG_INTERVAL_MS = 30_000;
+const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'worker';
 
 function toBool(value: string | undefined, fallback: boolean): boolean {
   if (value === undefined) return fallback;
@@ -50,6 +60,10 @@ function toInt(value: string | undefined, fallback: number): number {
 
 function loadConfig(): WorkerConfig {
   const streamPrefix = process.env.UNIASSIST_STREAM_PREFIX || 'uniassist:timeline:';
+  const internalAuthConfig = loadInternalAuthConfigFromEnv(process.env);
+  if (internalAuthConfig.serviceId === 'unknown') {
+    internalAuthConfig.serviceId = INTERNAL_AUTH_DEFAULT_SERVICE_ID;
+  }
   return {
     databaseUrl: process.env.DATABASE_URL || '',
     redisUrl: process.env.REDIS_URL || '',
@@ -66,6 +80,9 @@ function loadConfig(): WorkerConfig {
     outboxBackoffMaxMs: toInt(process.env.OUTBOX_BACKOFF_MAX_MS, 300000),
     consumerBlockMs: toInt(process.env.STREAM_CONSUMER_BLOCK_MS, 2000),
     consumerBatchSize: toInt(process.env.STREAM_CONSUMER_BATCH_SIZE, 100),
+    gatewayBaseUrl: (process.env.UNIASSIST_GATEWAY_BASE_URL || 'http://127.0.0.1:8787').replace(/\/$/, ''),
+    gatewayServiceId: process.env.UNIASSIST_GATEWAY_SERVICE_ID || 'gateway',
+    internalAuthConfig,
   };
 }
 
@@ -82,6 +99,17 @@ function toStringValue(value: unknown): string | undefined {
 function toRecord(value: unknown): Record<string, unknown> {
   if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
   return value as Record<string, unknown>;
+}
+
+function parseJsonRecord(value: unknown): Record<string, unknown> {
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return {};
+  }
+  try {
+    return toRecord(JSON.parse(value));
+  } catch {
+    return {};
+  }
 }
 
 function errorMessage(error: unknown): string {
@@ -419,20 +447,31 @@ class DeliveryWorker {
       const nextAttempts = row.attempts + 1;
       try {
         const payloadText = JSON.stringify(row.payload);
-        const sessionStreamKey = this.resolveSessionStreamKey(row);
         const globalStreamKey = this.resolveGlobalStreamKey(row);
 
-        await this.redis.xAdd(sessionStreamKey, '*', {
-          eventId: row.eventId,
-          sessionId: row.sessionId,
-          payload: payloadText,
-        });
-        await this.redis.xAdd(globalStreamKey, '*', {
-          eventId: row.eventId,
-          sessionId: row.sessionId,
-          streamKey: sessionStreamKey,
-          payload: payloadText,
-        });
+        if (row.channel === 'timeline') {
+          const sessionStreamKey = this.resolveSessionStreamKey(row);
+          await this.redis.xAdd(sessionStreamKey, '*', {
+            eventId: row.eventId,
+            sessionId: row.sessionId,
+            channel: row.channel,
+            payload: payloadText,
+          });
+          await this.redis.xAdd(globalStreamKey, '*', {
+            eventId: row.eventId,
+            sessionId: row.sessionId,
+            channel: row.channel,
+            streamKey: sessionStreamKey,
+            payload: payloadText,
+          });
+        } else {
+          await this.redis.xAdd(globalStreamKey, '*', {
+            eventId: row.eventId,
+            sessionId: row.sessionId,
+            channel: row.channel,
+            payload: payloadText,
+          });
+        }
 
         await this.markDelivered(row, nextAttempts);
       } catch (error) {
@@ -457,6 +496,69 @@ class DeliveryWorker {
     `, [eventId, this.config.consumerName]);
   }
 
+  private async markConsumerFailed(eventId: string, detail: string): Promise<void> {
+    if (!this.pool) return;
+    await this.pool.query(`
+      UPDATE outbox_events
+      SET status = CASE
+            WHEN attempts >= max_attempts THEN 'dead_letter'
+            ELSE 'failed'
+          END,
+          last_error = $2,
+          next_retry_at = CASE
+            WHEN attempts >= max_attempts THEN NOW()
+            ELSE NOW() + ('1000 milliseconds')::INTERVAL
+          END,
+          locked_by = NULL,
+          locked_at = NULL,
+          updated_at = NOW()
+      WHERE event_id = $1
+        AND status <> 'dead_letter'
+    `, [eventId, detail.slice(0, 4000)]);
+  }
+
+  private async forwardWorkflowFormalEvent(payload: Record<string, unknown>): Promise<void> {
+    const path = '/internal/workflow-events';
+    const rawBody = JSON.stringify(payload);
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 5000);
+    try {
+      const signedHeaders = this.config.internalAuthConfig.mode === 'off'
+        ? undefined
+        : buildInternalAuthHeaders(this.config.internalAuthConfig, {
+            method: 'POST',
+            path,
+            rawBody,
+            audience: this.config.gatewayServiceId,
+            scopes: ['events:write'],
+          });
+
+      const response = await fetch(`${this.config.gatewayBaseUrl}${path}`, {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          ...(signedHeaders
+            ? {
+                authorization: signedHeaders.authorization,
+                'x-uniassist-internal-kid': signedHeaders['x-uniassist-internal-kid'],
+                'x-uniassist-internal-ts': signedHeaders['x-uniassist-internal-ts'],
+                'x-uniassist-internal-nonce': signedHeaders['x-uniassist-internal-nonce'],
+                'x-uniassist-internal-signature': signedHeaders['x-uniassist-internal-signature'],
+              }
+            : {}),
+        },
+        body: rawBody,
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        throw new Error(`gateway workflow projection responded ${response.status}`);
+      }
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
   private async consumeStreamOnce(): Promise<void> {
     if (!this.redis || !this.redis.isOpen) return;
 
@@ -479,8 +581,21 @@ class DeliveryWorker {
       for (const message of stream.messages) {
         const values = toRecord(message.message);
         const eventId = toStringValue(values.eventId);
-        if (eventId) {
-          await this.markConsumed(eventId);
+        const channel = toStringValue(values.channel) || 'timeline';
+        const payload = parseJsonRecord(values.payload);
+        try {
+          if (channel === 'workflow_formal_event') {
+            await this.forwardWorkflowFormalEvent(payload);
+          }
+          if (eventId) {
+            await this.markConsumed(eventId);
+          }
+        } catch (error) {
+          if (eventId) {
+            await this.markConsumerFailed(eventId, errorMessage(error));
+          } else {
+            logger.error('worker failed to consume stream message without event id', serializeError(error));
+          }
         }
         await this.redis.xAck(streamName, this.config.streamGroup, message.id);
       }

@@ -338,6 +338,7 @@ Suggested mapping:
 - [x] Confirm Phase 1 internal API boundary between platform API and runtime
 - [x] Confirm whether Convex remains a documented candidate after Phase 0
 - [x] Confirm the Phase 1 definition of done
-- [ ] Open `B1 / ua-platform-foundation-implementation`
+- [x] Open `B1 / ua-platform-foundation-implementation` (`T-023`)
+- [x] Close `B1 / ua-platform-foundation-implementation` with local admission checks green
 - [ ] Freeze owner and verification checklist for `B1-B4`
 - [ ] Decide whether `apps/trigger-scheduler` ships as a new app in `B5` or starts inside `workflow-platform-api`

@@ -133,6 +133,9 @@ importers:
       '@baseinterface/shared':
         specifier: workspace:*
         version: link:../../packages/shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../packages/workflow-contracts
       cors:
         specifier: ^2.8.5
         version: 2.8.6
@@ -215,8 +218,89 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  apps/workflow-platform-api:
+    dependencies:
+      '@baseinterface/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../packages/workflow-contracts
+      express:
+        specifier: ^4.21.2
+        version: 4.22.1
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  apps/workflow-runtime:
+    dependencies:
+      '@baseinterface/contracts':
+        specifier: workspace:*
+        version: link:../../packages/contracts
+      '@baseinterface/executor-sdk':
+        specifier: workspace:*
+        version: link:../../packages/executor-sdk
+      '@baseinterface/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../packages/workflow-contracts
+      express:
+        specifier: ^4.21.2
+        version: 4.22.1
+      pg:
+        specifier: ^8.16.3
+        version: 8.18.0
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      '@types/pg':
+        specifier: ^8.15.5
+        version: 8.16.0
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   packages/contracts:
     devDependencies:
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  packages/executor-sdk:
+    dependencies:
+      '@baseinterface/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+      '@baseinterface/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../workflow-contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
       typescript:
         specifier: ~5.9.2
         version: 5.9.3
@@ -226,6 +310,16 @@ importers:
       '@types/node':
         specifier: ^22.13.8
         version: 22.19.11
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  packages/workflow-contracts:
+    dependencies:
+      '@baseinterface/contracts':
+        specifier: workspace:*
+        version: link:../contracts
+    devDependencies:
       typescript:
         specifier: ~5.9.2
         version: 5.9.3

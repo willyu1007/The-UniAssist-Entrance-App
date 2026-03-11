@@ -1,8 +1,10 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { createHash, createHmac, randomUUID } from 'node:crypto';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const cwd = '/Volumes/DataDisk/Project/The-UA-Entrance-APP';
+const cwd = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 const ports = {
   provider: 9890,

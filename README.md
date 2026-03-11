@@ -89,11 +89,20 @@ dev-docs/            任务文档与实施记录
 ### Prerequisites
 
 - Node.js >= 18
-- pnpm
+- Corepack
+- pnpm 10.x
+
+### Package Manager Policy
+
+- This repository uses `pnpm` only.
+- Do not use `npm`, `yarn`, or `bun` for install or script execution.
+- Root `package.json` declares `packageManager: pnpm@10.28.0` and `preinstall` will reject other package managers.
 
 ### Install
 
 ```bash
+corepack enable
+corepack prepare pnpm@10.28.0 --activate
 pnpm install
 ```
 

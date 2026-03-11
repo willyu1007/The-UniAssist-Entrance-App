@@ -5,6 +5,8 @@ export type InternalServiceId =
   | 'provider-plan'
   | 'adapter-wechat'
   | 'worker'
+  | 'workflow-platform-api'
+  | 'workflow-runtime'
   | 'frontend'
   | 'unknown';
 

@@ -3,11 +3,15 @@
   "version": "0.1.0",
   "description": "Cross-platform mobile app template homepage SOT for reusable UI components and multimodal editing entry.",
   "private": true,
+  "packageManager": "pnpm@10.28.0",
   "scripts": {
+    "preinstall": "node scripts/enforce-pnpm.mjs",
     "dev": "pnpm --filter @baseinterface/frontend start",
     "dev:gateway": "pnpm --filter @baseinterface/gateway start",
     "dev:wechat": "pnpm --filter @baseinterface/adapter-wechat start",
     "dev:provider-plan": "pnpm --filter @baseinterface/provider-plan start",
+    "dev:workflow-platform-api": "pnpm --filter @baseinterface/workflow-platform-api start",
+    "dev:workflow-runtime": "pnpm --filter @baseinterface/workflow-runtime start",
     "dev:worker": "pnpm --filter @baseinterface/worker start",
     "smoke:redis:e2e": "pnpm --filter @baseinterface/worker smoke:redis:e2e",
     "worker:replay:dead-letter": "pnpm --filter @baseinterface/worker replay:dead-letter",
@@ -23,13 +27,15 @@
     "typecheck": "tsc --noEmit",
     "typecheck:workspaces": "pnpm -r --if-present typecheck",
     "db:sync-context": "node .ai/scripts/ctl-db-ssot.mjs sync-to-context",
-    "test:conformance": "pnpm --filter @baseinterface/gateway test:conformance"
+    "test:conformance": "pnpm --filter @baseinterface/gateway test:conformance",
+    "test:workflow-entry": "pnpm --filter @baseinterface/gateway test:workflow-entry"
   },
   "devDependencies": {
     "eslint": "^8.57.0",
     "typescript": "^5.4.0"
   },
   "engines": {
-    "node": ">=18"
+    "node": ">=18",
+    "pnpm": ">=10 <11"
   }
 }

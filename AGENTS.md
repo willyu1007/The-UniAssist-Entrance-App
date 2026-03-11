@@ -69,6 +69,7 @@ Unified AI entrance/orchestration app (input ingress, routing, fallback, interac
 
 - Follow progressive disclosure: read only the file you are routed to
 - On context reset for ongoing work, read `dev-docs/active/<task-name>/00-overview.md` first
+- Use `pnpm` only for dependency install and workspace script execution; do not use `npm`, `yarn`, or `bun`.
 
 ## Coding Standards (RECOMMEND)
 
