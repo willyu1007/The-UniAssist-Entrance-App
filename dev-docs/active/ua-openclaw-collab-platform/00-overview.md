@@ -2,8 +2,8 @@
 
 ## Status
 - State: in-progress
-- Status note: `T-011` 已完成总包级同步审计；`T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016 / T-019 / T-021 / T-020 / T-022` 的高影响边界已被任务化并完成首轮冻结，规划层已完整覆盖 v0.2 的主体需求，且 `8+1` implementation bundle 结构已冻结。
-- Next step: 基于这套已对齐的规划基线，按 `I1-I4` tranche 和 `8+1` implementation bundles 开 implementation task，而不是继续补主体能力缺口。
+- Status note: `T-011` 已完成总包级同步审计，并已启动 `T-025 / ua-teaching-validation-implementation`；当前 implementation 主线进入 `B3`，重点验证 teaching sample workflow、runtime 定向持久化与 run-derived recipe capture。
+- Next step: 推进 `T-025 / B3` 实施并验证；在 `B3` 稳定后再继续 `B4` / `B5` 后续主线。
 
 ## Goal
 在保留当前 UniAssist `/v0` 统一入口兼容层的前提下，建立一个新的规划总包，用于分阶段升级为协作型 workflow 平台，并明确教学场景、探索型评估 agent 收敛、控制台形态和主数据面策略。

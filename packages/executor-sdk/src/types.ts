@@ -34,11 +34,11 @@ export type CompatExecutorClient = {
 export function parseExecutorRegistryFromEnv(env: NodeJS.ProcessEnv): ExecutorRegistryEntry[] {
   const defaults: ExecutorRegistryEntry[] = [
     {
-      executorId: 'compat-plan',
+      executorId: 'compat-sample',
       kind: 'compat-provider',
-      providerId: 'plan',
-      serviceId: 'provider-plan',
-      baseUrl: (env.UNIASSIST_PLAN_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
+      providerId: 'sample',
+      serviceId: 'provider-sample',
+      baseUrl: (env.UNIASSIST_SAMPLE_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
       enabled: true,
       requiredScopes: ['provider:invoke', 'provider:interact', 'context:read'],
     },

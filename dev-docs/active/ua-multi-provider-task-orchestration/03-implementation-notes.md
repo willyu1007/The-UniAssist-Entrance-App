@@ -30,7 +30,7 @@
   - `saveTaskThread` / `listTaskThreads`
 - 同步 DB context：`docs/context/db/schema.json`。
 
-4. Provider-plan (`apps/provider-plan/src/server.ts`)
+4. Provider-plan (`apps/provider-sample/src/server.ts`)
 - `invoke` 返回首个 `task_question(goal)`。
 - `interact` 支持多轮问答并输出：
   - `task_question(dueDate)`（信息不足）

@@ -6,7 +6,7 @@
   - `pnpm --filter @baseinterface/contracts typecheck` -> PASS
   - `pnpm --filter @baseinterface/gateway typecheck` -> PASS
   - `pnpm --filter @baseinterface/adapter-wechat typecheck` -> PASS
-  - `pnpm --filter @baseinterface/provider-plan typecheck` -> PASS
+  - `pnpm --filter @baseinterface/provider-sample typecheck` -> PASS
   - `pnpm --filter @baseinterface/worker typecheck` -> PASS
   - `pnpm --filter @baseinterface/frontend typecheck` -> PASS
   - `pnpm --filter @baseinterface/gateway test:conformance` -> PASS
@@ -30,8 +30,8 @@
      - `POST /wechat/webhook`
      - 结果：adapter 正常转发 gateway ingest 并返回文本回复骨架
   5. 真实专项接入（plan provider）：
-     - 启动 `apps/provider-plan`
-     - 配置 `UNIASSIST_PLAN_PROVIDER_BASE_URL`
+     - 启动 `apps/provider-sample`
+     - 配置 `UNIASSIST_SAMPLE_PROVIDER_BASE_URL`
      - ingest 计划类输入后，timeline 收到 provider 的 ack + `data_collection_request`
      - interact 回传后，timeline 收到 provider 的 `progress/result`
   6. Postgres 持久化：

@@ -66,7 +66,8 @@
 - `B1 / ua-platform-foundation-implementation` 已由 `T-023` 完成并通过本地 admission checks
 - 保持 `T-011` 与 `T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016` 的冻结结论一致
 - 保持 `T-019 / T-021 / T-020 / T-022` 的冻结结论与 `B5-B8` 映射保持一致
-- 下一步应为 `B2 / ua-builder-draft-publish-implementation` 开 implementation bundle
-- 仅在 `B2` 稳定后，才并行启动 `B3 / ua-teaching-validation-implementation` 与 `B4 / ua-control-console-foundation-implementation`
+- `B2 / ua-builder-draft-publish-implementation` 已由 `T-024` 完成
+- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 启动，当前作为 implementation 主线推进
+- `B4 / ua-control-console-foundation-implementation` 继续保持后续并行候选，不抢占 `B3` 主线
 - 在 `B3/B4` 稳定后，再进入 `B5 / ua-agent-governance-implementation`
 - 将 `B9 / ua-convex-projection-experiment` 明确维持为条件实验包，不作为主线 implementation 的阻塞项

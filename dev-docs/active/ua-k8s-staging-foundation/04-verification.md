@@ -23,7 +23,7 @@
    - Result: PASS
    - Evidence:
      - cluster created: `uniassist-kind`
-     - deployments rolled out: `postgres`, `redis`, `provider-plan`, `gateway`, `adapter-wechat`, `worker`
+     - deployments rolled out: `postgres`, `redis`, `provider-sample`, `gateway`, `adapter-wechat`, `worker`
      - services exposed:
        - `gateway` -> `8787:30087/TCP`
        - `adapter-wechat` -> `8788:30088/TCP`

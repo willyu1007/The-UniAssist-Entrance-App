@@ -13,7 +13,7 @@
 - Namespace: `uniassist-staging`
 - Services:
   - `gateway` (`:8787`)
-  - `provider-plan` (`:8890`)
+  - `provider-sample` (`:8890`)
   - `adapter-wechat` (`:8788`)
   - `worker` (no service)
 - In-cluster dependencies (local baseline):

@@ -8,15 +8,15 @@
 - 初始化 IaC SSOT（`ops/iac/terraform`）并通过 `ctl-iac verify`。
 - 新增容器构建文件：
   - `ops/packaging/services/gateway.Dockerfile`
-  - `ops/packaging/services/provider-plan.Dockerfile`
+  - `ops/packaging/services/provider-sample.Dockerfile`
   - `ops/packaging/services/adapter-wechat.Dockerfile`
   - `ops/packaging/services/worker.Dockerfile`
   - 根目录 `.dockerignore`
 - 新增 K8s base 清单（`ops/deploy/k8s/base`）：
   - namespace/configmap/secret
   - postgres + redis deployment/service
-  - gateway/provider-plan/adapter-wechat/worker deployment
-  - gateway/provider-plan/adapter-wechat service
+  - gateway/provider-sample/adapter-wechat/worker deployment
+  - gateway/provider-sample/adapter-wechat service
 - 新增 kind overlay（`ops/deploy/k8s/overlays/kind`）：
   - gateway/adapter NodePort patch
 - 新增 kind 配置（`ops/deploy/k8s/kind/cluster.yaml`）：

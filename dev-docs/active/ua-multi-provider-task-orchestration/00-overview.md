@@ -20,5 +20,5 @@
 ## Acceptance criteria (high level)
 - [x] 多 provider 场景下消息分发无串线，`replyToken` 命中率 100%
 - [x] provider 可显式发送 `task_state=ready`，网关按 `executionPolicy` 执行
-- [x] 鉴权矩阵改为 registry 驱动，去除 provider-plan 硬编码
+- [x] 鉴权矩阵改为 registry 驱动，去除 provider-sample 硬编码
 - [x] 调用链具备统一重试/熔断/错误语义，现有 v0 回归通过

@@ -15,7 +15,7 @@ This file exists to prevent repeating mistakes within this task.
 - Symptom:
   - 一旦开始讨论外部系统，connector、action、provider、executor、adapter 这些词会迅速混在一起。
 - Context:
-  - 当前 repo 里已有 provider-plan 和 adapter-wechat，天然会让人倾向于沿用旧词扩展。
+  - 当前 repo 里已有 provider-sample 和 adapter-wechat，天然会让人倾向于沿用旧词扩展。
 - What we tried:
   - 先回到 `T-012` 的服务边界，再单独定义 connector/action/event bridge/browser fallback 的责任。
 - Why it failed (or current hypothesis):

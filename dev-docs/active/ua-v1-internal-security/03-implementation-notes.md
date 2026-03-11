@@ -12,7 +12,7 @@
   - `/v0/events`、`/v0/context/users/:profileRef` 接入 internal-auth + scope
   - gateway -> provider (`/v0/invoke`, `/v0/interact`) 增加 JWT+签名头
   - 新增 internal auth observability 指标（requests/denied/replay）
-- `apps/provider-plan`：
+- `apps/provider-sample`：
   - `/v0/invoke` 需要 `provider:invoke`
   - `/v0/interact` 需要 `provider:interact`
   - manifest `security.auth` 从 `none` 调整为 `client_credentials`

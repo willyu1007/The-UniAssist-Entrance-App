@@ -2,7 +2,7 @@ export type SchemaVersion = 'v0';
 
 export type InternalServiceId =
   | 'gateway'
-  | 'provider-plan'
+  | 'provider-sample'
   | 'adapter-wechat'
   | 'worker'
   | 'workflow-platform-api'

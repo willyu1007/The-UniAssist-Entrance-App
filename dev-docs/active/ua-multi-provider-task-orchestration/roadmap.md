@@ -12,6 +12,6 @@
 ## Deliverables
 - contracts 扩展 + 兼容策略
 - gateway 多 provider 通用编排框架
-- provider-plan 新任务态协议实现
+- provider-sample 新任务态协议实现
 - frontend 任务卡片 + activeReplyToken
 - conformance 与回归测试证据

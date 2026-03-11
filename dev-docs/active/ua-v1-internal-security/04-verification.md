@@ -65,7 +65,7 @@ pnpm smoke:redis:e2e
 
 6. audit 模式端到端（手工）
 
-执行：启动 `provider-plan/gateway/adapter-wechat` 于 `audit` 模式，不携带 internal headers 调用：
+执行：启动 `provider-sample/gateway/adapter-wechat` 于 `audit` 模式，不携带 internal headers 调用：
 - `GET /v0/context/users/profile:audit-user`
 - `POST /v0/events`
 - `POST /wechat/webhook`

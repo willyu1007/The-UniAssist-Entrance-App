@@ -226,7 +226,7 @@
   - `AnalysisRecipe` candidate capture
 - Repo landing:
   - `apps/workflow-runtime`
-  - `apps/provider-plan`（兼容 executor 样例演进）
+  - `apps/provider-sample`（兼容 executor 样例演进）
   - `packages/workflow-contracts`
   - `docs/scenarios/teaching`
 

@@ -223,7 +223,7 @@ type ArtifactState =
   - keep timeline as compatibility projection, not authoritative workflow store
 - Backward compatibility strategy:
   - `/v0` contract remains unchanged
-  - existing `provider-plan` path can coexist while workflow path is introduced
+  - existing `provider-sample` path can coexist while workflow path is introduced
 - Rollout plan:
   - first define platform skeleton
   - then add data plane models

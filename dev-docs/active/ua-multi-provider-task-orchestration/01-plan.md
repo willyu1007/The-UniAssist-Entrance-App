@@ -12,7 +12,7 @@
 - 引入 provider registry（allowlist + manifest 拉取）与统一 provider client。
 - 新增 task thread 存储与 pending question 路由优先级。
 - `/v0/events` 与 `/v0/context` 的 allowedSubjects 改为 registry 驱动。
-- provider-plan 支持多轮提问、ready 信号与 execute 动作。
+- provider-sample 支持多轮提问、ready 信号与 execute 动作。
 - frontend 增加任务卡片渲染与 activeReplyToken 绑定发送。
 - 更新 conformance 与回归脚本，记录 staging 验证证据。
 

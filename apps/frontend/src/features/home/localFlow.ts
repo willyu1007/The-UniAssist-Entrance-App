@@ -22,15 +22,15 @@ export function simulateLocalFlow(
   appendTextItem: AppendTextItem,
   appendInteractionItem: AppendInteractionItem,
 ): void {
-  const isPlan = /计划|安排|日程|目标|规划/.test(text);
+  const isSample = /示例|样例|教学|评估|材料|课堂/.test(text);
   const isWork = /工作|任务|项目|会议|汇报|交付/.test(text);
 
-  if (!isPlan && !isWork) {
+  if (!isSample && !isWork) {
     appendTextItem('assistant', `未命中专项能力，先由通用助手处理：${text}`, 'builtin_chat · fallback', 'builtin_chat');
     return;
   }
 
-  if (isPlan) {
+  if (isSample) {
     const runId = makeId('run');
     const taskId = `task:${runId}`;
     const interaction: InteractionEvent = {
@@ -38,16 +38,16 @@ export function simulateLocalFlow(
       extensionKind: 'task_question',
       payload: {
         schemaVersion: 'v0',
-        providerId: 'plan',
+        providerId: 'sample',
         runId,
         taskId,
-        questionId: `${taskId}:goal`,
+        questionId: `${taskId}:subject`,
         replyToken: makeId('reply'),
-        prompt: '请告诉我这次计划的核心目标。',
+        prompt: '请告诉我要生成哪种样例评估对象。',
         answerSchema: {
           type: 'object',
           properties: {
-            text: { type: 'string', title: '任务目标' },
+            text: { type: 'string', title: '评估对象' },
           },
           required: ['text'],
         },
@@ -56,7 +56,7 @@ export function simulateLocalFlow(
         },
       },
     };
-    appendInteractionItem(interaction, 'plan · local', 'plan', runId);
+    appendInteractionItem(interaction, 'sample · local', 'sample', runId);
   }
 
   if (isWork) {

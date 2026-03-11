@@ -11,7 +11,7 @@
 ## Manual smoke checks
 - Executed (2026-02-23):
   1. 结构化日志检查：
-     - 启动 `provider-plan/adapter-wechat/gateway/worker`，确认输出为 JSON 日志行（包含 `service` 字段）。
+     - 启动 `provider-sample/adapter-wechat/gateway/worker`，确认输出为 JSON 日志行（包含 `service` 字段）。
   2. 指标端点检查（临时 Postgres + Redis）：
      - `GET /v0/metrics` -> PASS（返回 ingest + provider + persistence + outbox 指标）
      - `GET /metrics` -> PASS（Prometheus 指标包含以下关键项）：

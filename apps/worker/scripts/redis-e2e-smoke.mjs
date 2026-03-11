@@ -261,7 +261,7 @@ async function main() {
     process.stderr.write(`[smoke][redis] ${String(error)}\n`);
   });
 
-  const provider = startService('provider-plan', ['--filter', '@baseinterface/provider-plan', 'start'], {
+  const provider = startService('provider-sample', ['--filter', '@baseinterface/provider-sample', 'start'], {
     PORT: String(providerPort),
   });
   const gateway = startService('gateway', ['--filter', '@baseinterface/gateway', 'start'], {
@@ -271,7 +271,7 @@ async function main() {
     UNIASSIST_STREAM_PREFIX: streamPrefix,
     UNIASSIST_STREAM_GLOBAL_KEY: globalStreamKey,
     UNIASSIST_OUTBOX_INLINE_DISPATCH: 'false',
-    UNIASSIST_PLAN_PROVIDER_BASE_URL: `http://localhost:${providerPort}`,
+    UNIASSIST_SAMPLE_PROVIDER_BASE_URL: `http://localhost:${providerPort}`,
   });
   const worker = startService('worker', ['--filter', '@baseinterface/worker', 'start'], {
     DATABASE_URL: databaseUrl,
@@ -287,7 +287,7 @@ async function main() {
   const stopAll = async () => {
     await stopService('worker', worker);
     await stopService('gateway', gateway);
-    await stopService('provider-plan', provider);
+    await stopService('provider-sample', provider);
   };
 
   process.on('SIGINT', async () => {
@@ -304,7 +304,7 @@ async function main() {
     await redis.connect();
     await redis.ping();
 
-    await waitForHealth('provider-plan', `http://localhost:${providerPort}/health`, timeoutMs);
+    await waitForHealth('provider-sample', `http://localhost:${providerPort}/health`, timeoutMs);
     await waitForHealth('gateway', `http://localhost:${gatewayPort}/health`, timeoutMs);
 
     const ingest = await postJson(`http://localhost:${gatewayPort}/v0/ingest`, buildIngest({ sessionId, traceId, userId }));

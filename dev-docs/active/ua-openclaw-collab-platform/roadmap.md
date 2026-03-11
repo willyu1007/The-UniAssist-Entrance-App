@@ -49,7 +49,7 @@
 ## Scope and impact
 - Affected areas/modules:
   - `apps/gateway`（收敛为 ingress-gateway 职责）
-  - `apps/provider-plan`（改义为 executor-plan 兼容样例）
+  - `apps/provider-sample`（改义为 executor-plan 兼容样例）
   - `apps/frontend`（明确为 chat surface）
   - `apps/worker`（向 runtime/background jobs 扩展）
   - `packages/contracts`（改义为 `/v0` 合同层）
@@ -83,7 +83,7 @@ This section is a **non-binding, early hypothesis** to help humans confirm expec
 ### Existing areas likely to change (may be empty)
 - Modify:
   - `apps/gateway/`
-  - `apps/provider-plan/`
+  - `apps/provider-sample/`
   - `apps/frontend/`
   - `apps/worker/`
   - `packages/contracts/`
@@ -95,7 +95,7 @@ This section is a **non-binding, early hypothesis** to help humans confirm expec
 - Move/Rename:
   - `apps/frontend/` -> `apps/chat-surface/`（时机待定）
   - `apps/gateway/` -> `apps/ingress-gateway/`（时机待定）
-  - `apps/provider-plan/` -> `apps/executor-plan/`（时机待定）
+  - `apps/provider-sample/` -> `apps/executor-plan/`（时机待定）
   - `packages/contracts/` -> `packages/contracts-v0/`（时机待定）
 
 ### New additions (landing points) (may be empty)
@@ -164,7 +164,7 @@ This section is a **non-binding, early hypothesis** to help humans confirm expec
 3. **B3 / Teaching Validation Implementation**
    - Maps to: `T-017`
    - Scope: 首条验证 workflow、`AssessmentDraft`、`EvidencePack`、`ReviewableDelivery`、recipe candidate capture
-   - Repo landing: `apps/workflow-runtime`, `apps/provider-plan`, `packages/workflow-contracts`, `docs/scenarios/teaching`
+   - Repo landing: `apps/workflow-runtime`, `apps/provider-sample`, `packages/workflow-contracts`, `docs/scenarios/teaching`
 4. **B4 / Control Console Foundation Implementation**
    - Maps to: `T-015`
    - Scope: `Runboard`, `Approval Inbox`, `Draft Inspector`, `Workflow Studio`

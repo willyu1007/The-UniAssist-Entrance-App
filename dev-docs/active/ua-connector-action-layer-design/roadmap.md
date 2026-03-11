@@ -30,7 +30,7 @@
 ## Non-goals
 - 不实现任何 GitHub/Jira/Browser connector
 - 不定义外部系统的详细 API adapter
-- 不将 connector 重新包装成 provider-plan 的别名
+- 不将 connector 重新包装成 provider-sample 的别名
 - 不让本子包反向重写 `T-012` 的 runtime/worker 边界
 
 ## Open questions and assumptions

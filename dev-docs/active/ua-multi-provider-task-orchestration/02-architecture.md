@@ -23,4 +23,4 @@
 
 ## Security matrix
 - scope 维持：`context:read`、`events:write`、`provider:invoke`、`provider:interact`。
-- `allowedSubjects` 由 registry 生成，不再硬编码 `provider-plan`。
+- `allowedSubjects` 由 registry 生成，不再硬编码 `provider-sample`。

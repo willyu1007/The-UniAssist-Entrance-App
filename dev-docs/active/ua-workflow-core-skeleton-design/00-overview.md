@@ -16,7 +16,7 @@
 
 ## Context
 - `T-011` 已锁定全局方向：`React + Vite`、`Hybrid目标 + P1先HTTP`、`Builder 双入口 + Control Plane Draft SoT`、`Convex P4可选评估`。
-- 当前 repo 仍以 `gateway + provider-plan + worker + contracts + prisma` 为统一入口基座，正式中心尚未切换到 workflow/run/artifact。
+- 当前 repo 仍以 `gateway + provider-sample + worker + contracts + prisma` 为统一入口基座，正式中心尚未切换到 workflow/run/artifact。
 - 若平台骨架边界不先冻结，后续 `data-plane`、`builder-draft`、`teaching-scenario`、`control-console` 子包都会重复发散。
 
 ## Acceptance criteria (high level)

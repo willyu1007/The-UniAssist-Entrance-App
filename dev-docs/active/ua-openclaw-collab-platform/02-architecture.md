@@ -3,7 +3,7 @@
 ## Context & current state
 - 当前仓库已经具备统一入口最小闭环：
   - `apps/gateway` 承接 `/v0/ingest`, `/v0/interact`, `/v0/events`, `/v0/stream`, `/v0/timeline`
-  - `apps/provider-plan` 仍是固定场景 provider 示例
+  - `apps/provider-sample` 仍是固定场景 provider 示例
   - `apps/frontend` 是 chat/timeline 体验
   - `apps/worker` 负责 outbox retry + Redis consumer
 - 当前持久化中心仍是 `sessions`, `timeline_events`, `provider_runs`, `outbox_events`。
@@ -14,7 +14,7 @@
 ### Components / modules
 - Existing compatibility layer:
   - `apps/gateway` -> 演进为 `ingress-gateway`
-  - `apps/provider-plan` -> 演进为 `executor-plan`
+  - `apps/provider-sample` -> 演进为 `executor-plan`
   - `apps/frontend` -> 演进为 `chat-surface`
   - `packages/contracts` -> 演进为 `contracts-v0`
 - New platform modules:
@@ -162,7 +162,7 @@
 - `B3 / ua-teaching-validation-implementation`
   - Primary landing:
     - `apps/workflow-runtime`
-    - `apps/provider-plan`
+    - `apps/provider-sample`
     - `packages/workflow-contracts`
     - `docs/scenarios/teaching`
   - Reason:

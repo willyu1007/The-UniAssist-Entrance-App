@@ -34,13 +34,13 @@
   - webhook 入站归一化为 `UnifiedUserInput`
   - 签名后转发 `/v0/ingest`
   - 文本回复骨架
-- 新增 `apps/provider-plan`：
+- 新增 `apps/provider-sample`：
   - `GET /.well-known/uniassist/manifest.json`
   - `POST /v0/invoke`
   - `POST /v0/interact`
   - 端到端输出 `data_collection_request/progress/result`
 - gateway 与 `plan` provider 集成：
-  - 支持通过 `UNIASSIST_PLAN_PROVIDER_BASE_URL` 走真实 provider 调用
+  - 支持通过 `UNIASSIST_SAMPLE_PROVIDER_BASE_URL` 走真实 provider 调用
   - invoke 采用异步 dispatch，不阻塞 ingest ACK（满足快速 ACK 目标）
   - provider 不可用时自动回退到入口内置计划流程（不阻塞主链路）
 - gateway 持久化实现（Postgres + Redis Streams）：
@@ -87,7 +87,7 @@
 - `packages/contracts/*`
 - `apps/gateway/*`
 - `apps/adapter-wechat/*`
-- `apps/provider-plan/*`
+- `apps/provider-sample/*`
 - `apps/gateway/src/persistence.ts`
 - `apps/worker/src/worker.ts`
 - `apps/worker/scripts/redis-e2e-smoke.mjs`

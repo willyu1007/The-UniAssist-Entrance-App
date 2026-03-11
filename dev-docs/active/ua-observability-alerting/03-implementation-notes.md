@@ -12,7 +12,7 @@
   - `apps/gateway/src/server.ts`
   - `apps/gateway/src/persistence.ts`
   - `apps/worker/src/worker.ts`
-  - `apps/provider-plan/src/server.ts`
+  - `apps/provider-sample/src/server.ts`
   - `apps/adapter-wechat/src/server.ts`
 - gateway 新增可观测指标能力：
   - `apps/gateway/src/observability.ts`

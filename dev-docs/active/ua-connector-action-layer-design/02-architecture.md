@@ -73,7 +73,7 @@ flowchart LR
 ### Why connector is not executor/provider
 - executor 是 workflow 内部的节点执行单元，围绕 run/node progression 工作。
 - connector 是对外系统能力与身份的治理层，提供 action/event surfaces。
-- provider-plan 属于旧兼容体系，不能直接升级成 connector registry 而不重定义治理、auth 和 policy。
+- provider-sample 属于旧兼容体系，不能直接升级成 connector registry 而不重定义治理、auth 和 policy。
 
 ### Why catalogs stay separate but invoke contracts align
 - 如果 connector-backed actions 和 platform-native actions 共用同一个 catalog，后续很容易重新把 connector 混成 executor/provider 变体。
