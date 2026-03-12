@@ -2,8 +2,8 @@
 
 ## Status
 - State: in-progress
-- Status note: `T-011` 已完成总包级同步审计；`T-025 / B3`、`T-026 / B4`、`T-027 / B5`、`T-028 / B6` 已完成，external runtime bridge 首版已闭环并完成 review remediation。
-- Next step: 以后续任务包承接真实厂商 bridge 适配、实际数据库 baseline/apply 与更进一步的 control-plane / runtime 能力扩展，同时保持既有 `B3/B4/B5/B6` 链路稳定。
+- Status note: `T-011` 已完成总包级同步审计；`T-025 / B3`、`T-026 / B4`、`T-027 / B5`、`T-028 / B6`、`T-029 / B7` 均已完成，`T-030 / B8` 已完成并归档；教学验证、治理、external runtime bridge、connector runtime 与研发协作验证链路均已形成闭环。
+- Next step: 仅保留后续任务包承接真实厂商 bridge/connector 适配、实际数据库 baseline/apply，以及条件实验包 `B9` 的是否启动决策；同时可单独决定是否将 `T-029` 也执行 archive/handoff。
 
 ## Goal
 在保留当前 UniAssist `/v0` 统一入口兼容层的前提下，建立一个新的规划总包，用于分阶段升级为协作型 workflow 平台，并明确教学场景、探索型评估 agent 收敛、控制台形态和主数据面策略。

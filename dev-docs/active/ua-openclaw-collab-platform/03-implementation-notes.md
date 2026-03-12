@@ -60,14 +60,17 @@
   - implementation 编排层已从 `I1-I4` tranche 进一步收敛为 `8+1` bundle 结构，并补齐 repo landing map
 
 ## Deviation tracking
-- 当前无偏离 roadmap 的事项。
+- 当前无偏离 roadmap 的事项；截至 `T-030` 归档，`B1-B8` 的落地状态已与冻结 bundle 顺序保持一致。
 
 ## Follow-up TODOs
 - `B1 / ua-platform-foundation-implementation` 已由 `T-023` 完成并通过本地 admission checks
 - 保持 `T-011` 与 `T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016` 的冻结结论一致
 - 保持 `T-019 / T-021 / T-020 / T-022` 的冻结结论与 `B5-B8` 映射保持一致
 - `B2 / ua-builder-draft-publish-implementation` 已由 `T-024` 完成
-- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 推进至 `ready-for-review`
-- `B4 / ua-control-console-foundation-implementation` 已由 `T-026` 启动，当前与 `B3` 收口并行推进
-- 在 `B3/B4` 稳定后，再进入 `B5 / ua-agent-governance-implementation`
+- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 完成
+- `B4 / ua-control-console-foundation-implementation` 已由 `T-026` 完成
+- `B5 / ua-agent-governance-implementation` 已由 `T-027` 完成
+- `B6 / ua-external-runtime-bridge-implementation` 已由 `T-028` 完成
+- `B7 / ua-connector-runtime-and-first-capabilities-implementation` 已由 `T-029` 完成；是否归档另行决策
+- `B8 / ua-rnd-collab-validation-implementation` 已由 `T-030` 完成并归档
 - 将 `B9 / ua-convex-projection-experiment` 明确维持为条件实验包，不作为主线 implementation 的阻塞项

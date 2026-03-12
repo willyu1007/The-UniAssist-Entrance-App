@@ -26,6 +26,15 @@
     - Result: pass
     - Notes:
       - 校验子包状态和冻结结论与治理索引一致
+- 2026-03-13:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - 在 `T-030 / B8` 完成并归档后，将 `T-022` 状态同步为 `archived`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 校验 `T-022` 归档后 project hub 与主线任务引用保持一致
 
 ## Manual smoke checks
 - Confirm the architecture doc explicitly answers:

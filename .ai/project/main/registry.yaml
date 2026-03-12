@@ -172,11 +172,11 @@ tasks:
     updated: 2026-03-11
   - id: T-022
     slug: ua-rnd-collab-validation-scenario-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-rnd-collab-validation-scenario-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-rnd-collab-validation-scenario-design
+    updated: 2026-03-13
   - id: T-023
     slug: ua-platform-foundation-implementation
     status: archived
@@ -226,3 +226,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation
     updated: 2026-03-12
+  - id: T-030
+    slug: ua-rnd-collab-validation-implementation
+    status: archived
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/archive/ua-rnd-collab-validation-implementation
+    updated: 2026-03-13

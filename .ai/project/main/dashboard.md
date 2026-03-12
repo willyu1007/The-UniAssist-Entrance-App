@@ -8,12 +8,14 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 29 (planned: 0, in-progress: 18, blocked: 1, done: 9, archived: 1)
+- Tasks: 30 (planned: 0, in-progress: 17, blocked: 1, done: 9, archived: 3)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-022 ua-rnd-collab-validation-scenario-design | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
+| T-030 ua-rnd-collab-validation-implementation | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-implementation |
 | T-024 ua-builder-draft-publish-implementation | done | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
 | T-025 ua-teaching-validation-implementation | done | F-000 | dev-docs/active/ua-teaching-validation-implementation |
 | T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
@@ -31,7 +33,5 @@ Project: `main`
 | T-019 ua-agent-lifecycle-and-trigger-design | in-progress | F-000 | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
 | T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
 | T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
-| T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
-| T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
 <!-- AUTO-GENERATED:END dashboard -->

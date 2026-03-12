@@ -31,7 +31,7 @@ Project: `main`
 | T-019 ua-agent-lifecycle-and-trigger-design | in-progress | F-000 | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
 | T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
 | T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
-| T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
+| T-022 ua-rnd-collab-validation-scenario-design | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
 | T-024 ua-builder-draft-publish-implementation | done | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
 | T-025 ua-teaching-validation-implementation | done | F-000 | dev-docs/active/ua-teaching-validation-implementation |
@@ -39,4 +39,5 @@ Project: `main`
 | T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
 | T-028 ua-external-runtime-bridge-implementation | done | F-000 | dev-docs/active/ua-external-runtime-bridge-implementation |
 | T-029 ua-connector-runtime-and-first-capabilities-implementation | done | F-000 | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
+| T-030 ua-rnd-collab-validation-implementation | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-implementation |
 <!-- AUTO-GENERATED:END task-index -->

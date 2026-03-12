@@ -15,3 +15,7 @@
 ## Deferred decisions
 - callback/event summary 的字段级 schema
 - 与 control-console 的具体页面映射
+
+## Closure follow-up
+- `T-030 / B8` 已直接复用本设计包冻结的主流程、artifact 族和 capability 组合完成实现，证明“变更/发布协作”足以作为第二验证场景的 implementation baseline。
+- `ValidationReport`、`DeliverySummary` 与 control-console artifact inspection 的最小映射已在实现包中闭环，因此此前保留的“是否能作为 implementation 前置”问题已收敛。
