@@ -22,27 +22,27 @@ function buildInputCandidates(inputPayload: Record<string, unknown> | undefined)
   ].filter((candidate): candidate is Record<string, unknown> => isRecord(candidate));
 }
 
-function resolveIssueRef(inputPayload: Record<string, unknown> | undefined, runId: string): string {
+function resolveChangeReviewRef(inputPayload: Record<string, unknown> | undefined, runId: string): string {
   for (const candidate of buildInputCandidates(inputPayload)) {
-    if (typeof candidate.issueRef === 'string' && candidate.issueRef) {
-      return candidate.issueRef;
+    if (typeof candidate.changeReviewRef === 'string' && candidate.changeReviewRef) {
+      return candidate.changeReviewRef;
     }
     const targets = isRecord(candidate.targets) ? candidate.targets : undefined;
-    if (typeof targets?.issueRef === 'string' && targets.issueRef) {
-      return targets.issueRef;
+    if (typeof targets?.changeReviewRef === 'string' && targets.changeReviewRef) {
+      return targets.changeReviewRef;
     }
   }
-  return `ISSUE-${runId.slice(0, 8)}`;
+  return `change-review:${runId}`;
 }
 
-export const issueTrackerSampleConnector: ConnectorAdapter = {
-  connectorKey: 'issue_tracker',
+export const sourceControlSampleConnector: ConnectorAdapter = {
+  connectorKey: 'source_control',
   catalog: {
     actions: [
       {
-        capabilityId: 'issue.upsert',
-        name: 'Upsert Issue',
-        description: 'Create or update a generic issue ticket.',
+        capabilityId: 'change_review.upsert',
+        name: 'Upsert Change Review',
+        description: 'Create or update a generic change review record.',
         executionMode: 'sync',
         sideEffectClass: 'write',
         supportsBrowserFallback: false,
@@ -51,24 +51,24 @@ export const issueTrackerSampleConnector: ConnectorAdapter = {
     events: [],
   },
   invoke: async ({ request, action }) => {
-    const issueRef = resolveIssueRef(request.inputPayload, request.runId);
+    const changeReviewRef = resolveChangeReviewRef(request.inputPayload, request.runId);
     return {
       status: 'completed',
-      externalSessionRef: issueRef,
+      externalSessionRef: changeReviewRef,
       completion: {
         artifacts: [
           {
             artifactType: 'ActionReceipt',
             state: 'validated',
             payload: {
-              connectorKey: 'issue_tracker',
+              connectorKey: 'source_control',
               capabilityId: action.capabilityId,
               sideEffectClass: action.sideEffectClass,
               executionMode: action.executionMode,
-              externalRef: issueRef,
-              summary: 'Issue ticket upserted successfully.',
+              externalRef: changeReviewRef,
+              summary: 'Change review upserted successfully.',
               result: {
-                issueKey: issueRef,
+                changeReviewRef,
               },
             },
           },

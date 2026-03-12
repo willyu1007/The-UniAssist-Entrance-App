@@ -177,6 +177,21 @@ const runDetailPayload = {
         createdAt: 1,
         updatedAt: 1,
       },
+      {
+        artifactId: 'artifact-2',
+        runId: 'run-1',
+        nodeRunId: 'node-run-2',
+        artifactType: 'DeliverySummary',
+        state: 'published',
+        payloadJson: { disposition: 'ready_for_release' },
+        metadataJson: {
+          lineage: {
+            nodeKey: 'summarize_delivery',
+          },
+        },
+        createdAt: 2,
+        updatedAt: 2,
+      },
     ],
     actorProfiles: [],
     actorMemberships: [],
@@ -252,6 +267,19 @@ const approvalDetailPayload = {
   ],
   decisions: [],
   capturedRecipeDrafts: [],
+};
+
+const artifactDetailPayload = {
+  schemaVersion: 'v1',
+  artifact: runDetailPayload.run.artifacts[1],
+  typedPayload: {
+    disposition: 'ready_for_release',
+    summary: 'Issue, change review, and pipeline are aligned for release.',
+  },
+  lineage: {
+    nodeKey: 'summarize_delivery',
+    validationReportCount: 1,
+  },
 };
 
 const draftListPayload = {
@@ -374,6 +402,30 @@ describe('control console', () => {
 
     renderRoute('/studio');
     expect(await screen.findByRole('heading', { name: 'Workflow Studio' })).toBeInTheDocument();
+  });
+
+  it('loads run artifact detail on demand through the artifact endpoint', async () => {
+    const fetchMock = createFetchMock(({ url, method }) => {
+      if (url.includes('/v1/runs?') && method === 'GET') return runListPayload;
+      if (url.endsWith('/v1/runs/run-1') && method === 'GET') return runDetailPayload;
+      if (url.endsWith('/v1/artifacts/artifact-2') && method === 'GET') return artifactDetailPayload;
+      throw new Error(`unexpected request ${method} ${url}`);
+    });
+    global.fetch = fetchMock as typeof fetch;
+
+    renderRoute('/runs/run-1');
+    await screen.findByRole('heading', { name: 'Artifacts' });
+    const user = userEvent.setup();
+    await user.click(screen.getAllByRole('button', { name: 'Inspect detail' })[1]);
+
+    expect(await screen.findByText(/ready_for_release/)).toBeInTheDocument();
+    expect(await screen.findByText(/summarize_delivery/)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        expect.stringContaining('/v1/artifacts/artifact-2'),
+        expect.objectContaining({ method: 'GET' }),
+      );
+    });
   });
 
   it('submits approval decisions through the explicit decision endpoint', async () => {

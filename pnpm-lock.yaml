@@ -54,6 +54,9 @@ importers:
       '@baseinterface/connector-sdk':
         specifier: workspace:*
         version: link:../../packages/connector-sdk
+      '@baseinterface/connector-source-control-sample':
+        specifier: workspace:*
+        version: link:../connectors/source-control-sample
       '@baseinterface/shared':
         specifier: workspace:*
         version: link:../../packages/shared
@@ -94,6 +97,22 @@ importers:
         version: 5.9.3
 
   apps/connectors/issue-tracker-sample:
+    dependencies:
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/connector-sdk
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../../packages/workflow-contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  apps/connectors/source-control-sample:
     dependencies:
       '@baseinterface/connector-sdk':
         specifier: workspace:*

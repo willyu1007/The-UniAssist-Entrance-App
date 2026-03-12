@@ -12,6 +12,7 @@
   "dependencies": {
     "@baseinterface/connector-ci-pipeline-sample": "workspace:*",
     "@baseinterface/connector-issue-tracker-sample": "workspace:*",
+    "@baseinterface/connector-source-control-sample": "workspace:*",
     "@baseinterface/connector-sdk": "workspace:*",
     "@baseinterface/shared": "workspace:*",
     "@baseinterface/workflow-contracts": "workspace:*",

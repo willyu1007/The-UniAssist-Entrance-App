@@ -1,0 +1,11 @@
+{
+  "eventId": "pipeline-finished-1",
+  "pipelineRef": "pipeline:case-1",
+  "status": "passed",
+  "summary": "Pipeline completed successfully for change case 1.",
+  "details": {
+    "commit": "abc123",
+    "environment": "staging"
+  },
+  "issueRef": "UA-101"
+}

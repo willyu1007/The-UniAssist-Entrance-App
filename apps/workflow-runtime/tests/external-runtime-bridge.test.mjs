@@ -8,8 +8,8 @@ import { fileURLToPath } from 'node:url';
 const rootDir = resolve(dirname(fileURLToPath(import.meta.url)), '../../..');
 
 const ports = {
-  bridge: 19994,
-  runtime: 19995,
+  bridge: 19984,
+  runtime: 19985,
 };
 
 const internalAuth = {

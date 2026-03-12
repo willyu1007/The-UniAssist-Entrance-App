@@ -20,9 +20,13 @@ import {
 import type {
   AnalysisRecipeCandidatePayload,
   AssessmentDraftPayload,
+  ChangeIntentPayload,
+  DeliverySummaryPayload,
   EvidencePackPayload,
+  ExecutionPlanPayload,
   ObservationArtifactPayload,
   ReviewableDeliveryPayload,
+  ValidationReportPayload,
   WorkflowCompatCompletionMetadata,
   WorkflowCompatContextEnvelope,
 } from '@baseinterface/workflow-contracts';
@@ -69,6 +73,18 @@ type SampleAudience = {
   actorId: string;
   displayName: string;
   actorType: 'person' | 'external_contact' | 'cohort';
+};
+
+type SampleRequester = {
+  actorId: string;
+  displayName: string;
+  team?: string;
+};
+
+type SampleChangeTargets = {
+  issueRef: string;
+  changeReviewRef: string;
+  pipelineRef: string;
 };
 
 const sampleTaskMemory = new Map<string, SampleTaskMemory>();
@@ -353,6 +369,91 @@ function normalizeTemporaryCollaborators(runInput: Record<string, unknown> | und
     .filter((item): item is { actorId: string; displayName: string } => Boolean(item));
 }
 
+function unwrapScenarioInput(runInput: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (isRecord(runInput?.input)) {
+    return runInput.input;
+  }
+  return runInput;
+}
+
+function normalizeRequester(runInput: Record<string, unknown> | undefined, runId: string): SampleRequester {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  const requester = isRecord(scenarioInput?.requester) ? scenarioInput.requester : undefined;
+  return {
+    actorId: typeof requester?.actorId === 'string' && requester.actorId ? requester.actorId : `actor:${runId}:requester`,
+    displayName: typeof requester?.displayName === 'string' && requester.displayName ? requester.displayName : 'Sample Requester',
+    team: typeof requester?.team === 'string' && requester.team ? requester.team : undefined,
+  };
+}
+
+function normalizeChangeRef(runInput: Record<string, unknown> | undefined, runId: string): string {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  if (typeof scenarioInput?.changeRef === 'string' && scenarioInput.changeRef) {
+    return scenarioInput.changeRef;
+  }
+  return `change:${runId}`;
+}
+
+function normalizeTargetSystems(runInput: Record<string, unknown> | undefined): string[] {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  if (!Array.isArray(scenarioInput?.targetSystems) || scenarioInput.targetSystems.length === 0) {
+    return ['issue_tracker', 'source_control', 'ci_pipeline'];
+  }
+  return scenarioInput.targetSystems.map((item) => String(item)).filter(Boolean);
+}
+
+function normalizeConstraints(runInput: Record<string, unknown> | undefined): string[] {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  if (!Array.isArray(scenarioInput?.constraints) || scenarioInput.constraints.length === 0) {
+    return ['Approval is required before external writes.', 'CI must pass before release summary is emitted.'];
+  }
+  return scenarioInput.constraints.map((item) => String(item)).filter(Boolean);
+}
+
+function normalizeTargets(runInput: Record<string, unknown> | undefined, runId: string): SampleChangeTargets {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  const targets = isRecord(scenarioInput?.targets) ? scenarioInput.targets : undefined;
+  return {
+    issueRef: typeof targets?.issueRef === 'string' && targets.issueRef ? targets.issueRef : `ISSUE-${runId.slice(0, 8)}`,
+    changeReviewRef: typeof targets?.changeReviewRef === 'string' && targets.changeReviewRef
+      ? targets.changeReviewRef
+      : `CR-${runId.slice(0, 8)}`,
+    pipelineRef: typeof targets?.pipelineRef === 'string' && targets.pipelineRef ? targets.pipelineRef : `pipeline:${runId}`,
+  };
+}
+
+function normalizeRiskLevel(runInput: Record<string, unknown> | undefined): ChangeIntentPayload['riskLevel'] {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  if (scenarioInput?.riskLevel === 'low' || scenarioInput?.riskLevel === 'high') {
+    return scenarioInput.riskLevel;
+  }
+  return 'medium';
+}
+
+function normalizePipelineSignal(runInput: Record<string, unknown> | undefined, runId: string): {
+  eventId: string;
+  pipelineRef: string;
+  issueRef: string;
+  status: ValidationReportPayload['status'];
+  summary: string;
+  details: Record<string, unknown>;
+} {
+  const scenarioInput = unwrapScenarioInput(runInput);
+  const targets = normalizeTargets(runInput, runId);
+  return {
+    eventId: typeof scenarioInput?.eventId === 'string' && scenarioInput.eventId ? scenarioInput.eventId : `event:${runId}`,
+    pipelineRef: typeof scenarioInput?.pipelineRef === 'string' && scenarioInput.pipelineRef
+      ? scenarioInput.pipelineRef
+      : targets.pipelineRef,
+    issueRef: typeof scenarioInput?.issueRef === 'string' && scenarioInput.issueRef ? scenarioInput.issueRef : targets.issueRef,
+    status: scenarioInput?.status === 'failed' ? 'failed' : 'passed',
+    summary: typeof scenarioInput?.summary === 'string' && scenarioInput.summary
+      ? scenarioInput.summary
+      : 'Pipeline completed successfully.',
+    details: isRecord(scenarioInput?.details) ? scenarioInput.details : {},
+  };
+}
+
 function buildParseMetadata(
   runId: string,
   workflow: WorkflowCompatContextEnvelope,
@@ -571,6 +672,167 @@ function buildDeliveryMetadata(
   };
 }
 
+function buildChangeIntentMetadata(
+  runId: string,
+  workflow: WorkflowCompatContextEnvelope,
+): WorkflowCompatCompletionMetadata {
+  const requester = normalizeRequester(workflow.runInput, runId);
+  const scenarioInput = unwrapScenarioInput(workflow.runInput);
+  const payload: ChangeIntentPayload = {
+    changeRef: normalizeChangeRef(workflow.runInput, runId),
+    requesterActorId: requester.actorId,
+    requesterDisplayName: requester.displayName,
+    summary: typeof scenarioInput?.summary === 'string' && scenarioInput.summary
+      ? scenarioInput.summary
+      : 'Validate the governed release collaboration flow.',
+    rationale: typeof scenarioInput?.rationale === 'string' && scenarioInput.rationale
+      ? scenarioInput.rationale
+      : 'Exercise issue tracking, change review, and CI callback handling.',
+    targetSystems: normalizeTargetSystems(workflow.runInput),
+    riskLevel: normalizeRiskLevel(workflow.runInput),
+    constraints: normalizeConstraints(workflow.runInput),
+  };
+
+  return {
+    artifacts: [
+      {
+        artifactType: 'ChangeIntent',
+        state: 'validated',
+        payload: payload as Record<string, unknown>,
+        metadata: {
+          lineage: {
+            nodeKey: workflow.nodeKey,
+            requesterActorId: requester.actorId,
+            targetSystems: payload.targetSystems,
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildExecutionPlanMetadata(
+  runId: string,
+  workflow: WorkflowCompatContextEnvelope,
+): WorkflowCompatCompletionMetadata {
+  const changeRef = normalizeChangeRef(workflow.runInput, runId);
+  const targets = normalizeTargets(workflow.runInput, runId);
+  const payload: ExecutionPlanPayload = {
+    planRef: `plan:${runId}`,
+    changeRef,
+    summary: 'Review, synchronize issue/change review state, then wait for CI callback before publishing the delivery summary.',
+    steps: [
+      'Review the requested change intent and confirm risk acceptance.',
+      'Upsert issue tracker state for the requested release.',
+      'Upsert source-control change review record.',
+      'Start CI pipeline and await callback.',
+      'Publish delivery summary with next-step guidance.',
+    ],
+    actionRefs: ['issue_upsert', 'change_review_upsert', 'pipeline_start'],
+    successCriteria: [
+      `Issue ${targets.issueRef} is synchronized.`,
+      `Change review ${targets.changeReviewRef} is available for reviewers.`,
+      `Pipeline ${targets.pipelineRef} reports passed status.`,
+    ],
+    rollbackPlan: [
+      'Keep the issue in follow-up-required state.',
+      'Request manual reviewer intervention on the change review.',
+      'Do not emit a release-ready delivery summary until CI is green.',
+    ],
+  };
+
+  return {
+    artifacts: [
+      {
+        artifactType: 'ExecutionPlan',
+        state: 'validated',
+        payload: payload as Record<string, unknown>,
+        metadata: {
+          lineage: {
+            nodeKey: workflow.nodeKey,
+            changeRef,
+            actionRefs: payload.actionRefs,
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildDeliverySummaryMetadata(
+  runId: string,
+  workflow: WorkflowCompatContextEnvelope,
+): WorkflowCompatCompletionMetadata {
+  const changeRef = normalizeChangeRef(workflow.runInput, runId);
+  const targets = normalizeTargets(workflow.runInput, runId);
+  const validationReports = workflow.upstreamArtifactRefs.filter((item) => item.artifactType === 'ValidationReport');
+  const actionReceipts = workflow.upstreamArtifactRefs.filter((item) => item.artifactType === 'ActionReceipt');
+  const payload: DeliverySummaryPayload = {
+    changeRef,
+    disposition: validationReports.length > 0 ? 'ready_for_release' : 'follow_up_required',
+    summary: validationReports.length > 0
+      ? 'Issue tracker, change review, and CI checks are aligned for release handoff.'
+      : 'Awaiting CI validation before release handoff can be completed.',
+    issueRefs: [targets.issueRef],
+    changeReviewRefs: [targets.changeReviewRef],
+    pipelineRefs: [targets.pipelineRef],
+    nextSteps: validationReports.length > 0
+      ? ['Share the delivery summary with stakeholders.', 'Proceed with the planned release window.']
+      : ['Investigate pending validation signal.', 'Keep the change in review-required status.'],
+  };
+
+  return {
+    artifacts: [
+      {
+        artifactType: 'DeliverySummary',
+        state: 'published',
+        payload: payload as Record<string, unknown>,
+        metadata: {
+          lineage: {
+            nodeKey: workflow.nodeKey,
+            actionReceiptCount: actionReceipts.length,
+            validationReportCount: validationReports.length,
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildValidationSignalMetadata(
+  runId: string,
+  workflow: WorkflowCompatContextEnvelope,
+): WorkflowCompatCompletionMetadata {
+  const signal = normalizePipelineSignal(workflow.runInput, runId);
+  const payload: ValidationReportPayload = {
+    pipelineRef: signal.pipelineRef,
+    status: signal.status,
+    summary: signal.summary,
+    details: {
+      ...signal.details,
+      eventId: signal.eventId,
+      issueRef: signal.issueRef,
+    },
+  };
+
+  return {
+    artifacts: [
+      {
+        artifactType: 'ValidationReport',
+        state: 'validated',
+        payload: payload as Record<string, unknown>,
+        metadata: {
+          lineage: {
+            nodeKey: workflow.nodeKey,
+            triggerSource: 'event_subscription',
+            eventId: signal.eventId,
+          },
+        },
+      },
+    ],
+  };
+}
+
 function buildWorkflowImmediateEvents(
   runId: string,
   workflow: WorkflowCompatContextEnvelope,
@@ -586,6 +848,18 @@ function buildWorkflowImmediateEvents(
   } else if (workflow.nodeKey === 'fanout_delivery') {
     metadata = buildDeliveryMetadata(runId, workflow);
     message = 'sample executor 已完成 reviewable delivery fan-out。';
+  } else if (workflow.nodeKey === 'capture_change_intent') {
+    metadata = buildChangeIntentMetadata(runId, workflow);
+    message = 'sample executor 已生成研发协作变更意图。';
+  } else if (workflow.nodeKey === 'synthesize_execution_plan') {
+    metadata = buildExecutionPlanMetadata(runId, workflow);
+    message = 'sample executor 已生成研发协作执行计划。';
+  } else if (workflow.nodeKey === 'summarize_delivery') {
+    metadata = buildDeliverySummaryMetadata(runId, workflow);
+    message = 'sample executor 已汇总研发协作交付摘要。';
+  } else if (workflow.nodeKey === 'capture_validation_signal') {
+    metadata = buildValidationSignalMetadata(runId, workflow);
+    message = 'sample executor 已归一化 pipeline 验证信号。';
   } else {
     metadata = {};
   }

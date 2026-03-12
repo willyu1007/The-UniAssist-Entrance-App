@@ -15,6 +15,7 @@ import type {
 } from '@baseinterface/workflow-contracts';
 import {
   buildConsoleStreamUrl,
+  getArtifact,
   getApprovalDetail,
   getApprovalQueue,
   getDraft,
@@ -241,6 +242,16 @@ export function useApprovalDetailQuery(approvalRequestId?: string) {
     queryFn: () => getApprovalDetail(String(approvalRequestId)),
     enabled: Boolean(approvalRequestId),
     refetchInterval,
+  });
+}
+
+export function useArtifactDetailQuery(artifactId?: string, enabled = true) {
+  const refetchInterval = useAdaptivePollingInterval('runs');
+  return useQuery({
+    queryKey: artifactId ? queryKeys.artifact(artifactId) : ['artifacts', 'detail', 'empty'],
+    queryFn: () => getArtifact(String(artifactId)),
+    enabled: Boolean(artifactId) && enabled,
+    refetchInterval: enabled ? refetchInterval : false,
   });
 }
 

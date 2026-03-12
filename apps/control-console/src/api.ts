@@ -1,4 +1,5 @@
 import type {
+  WorkflowArtifactDetailResponse,
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
@@ -69,6 +70,7 @@ export const queryKeys = {
   run: (runId: string) => ['runs', 'detail', runId] as const,
   approvals: ['approvals'] as const,
   approval: (approvalRequestId: string) => ['approvals', 'detail', approvalRequestId] as const,
+  artifact: (artifactId: string) => ['artifacts', 'detail', artifactId] as const,
   drafts: (scope: 'all' | string) => ['drafts', scope] as const,
   draft: (draftId: string, scope: 'all' | string) => ['drafts', scope, 'detail', draftId] as const,
 };
@@ -112,6 +114,12 @@ export async function getApprovalQueue(): Promise<WorkflowApprovalQueueResponse>
 
 export async function getApprovalDetail(approvalRequestId: string): Promise<WorkflowApprovalDetailResponse> {
   return await requestJson(`/v1/approvals/${encodeURIComponent(approvalRequestId)}`, {
+    method: 'GET',
+  });
+}
+
+export async function getArtifact(artifactId: string): Promise<WorkflowArtifactDetailResponse> {
+  return await requestJson(`/v1/artifacts/${encodeURIComponent(artifactId)}`, {
     method: 'GET',
   });
 }

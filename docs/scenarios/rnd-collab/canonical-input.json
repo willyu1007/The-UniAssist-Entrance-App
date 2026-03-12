@@ -1,0 +1,29 @@
+{
+  "changeRef": "change:case-1",
+  "summary": "Publish the B8 validation workflow with governed connector actions.",
+  "rationale": "Validate release collaboration across issue tracking, change review, and CI callback handling.",
+  "targetSystems": [
+    "issue_tracker",
+    "source_control",
+    "ci_pipeline"
+  ],
+  "riskLevel": "medium",
+  "constraints": [
+    "Approval is required before any external write action.",
+    "CI must pass before delivery summary is emitted."
+  ],
+  "requester": {
+    "actorId": "engineer:primary",
+    "displayName": "Phoenix",
+    "team": "platform"
+  },
+  "teacherActor": {
+    "actorId": "reviewer:risk",
+    "displayName": "Risk Reviewer"
+  },
+  "targets": {
+    "issueRef": "UA-101",
+    "changeReviewRef": "CR-101",
+    "pipelineRef": "pipeline:case-1"
+  }
+}

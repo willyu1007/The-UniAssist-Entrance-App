@@ -4,6 +4,41 @@ function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && Array.isArray(value) === false;
+}
+
+function unwrapScenarioInput(inputPayload: Record<string, unknown> | undefined): Record<string, unknown> | undefined {
+  if (isRecord(inputPayload?.input)) {
+    return inputPayload.input;
+  }
+  return inputPayload;
+}
+
+function buildInputCandidates(inputPayload: Record<string, unknown> | undefined): Array<Record<string, unknown>> {
+  const workflow = isRecord(inputPayload?.__workflow) ? inputPayload.__workflow : undefined;
+  const workflowRunInput = isRecord(workflow?.runInput) ? workflow.runInput : undefined;
+  return [
+    unwrapScenarioInput(inputPayload),
+    inputPayload,
+    unwrapScenarioInput(workflowRunInput),
+    workflowRunInput,
+  ].filter((candidate): candidate is Record<string, unknown> => isRecord(candidate));
+}
+
+function resolvePipelineRef(inputPayload: Record<string, unknown> | undefined, runId: string): string {
+  for (const candidate of buildInputCandidates(inputPayload)) {
+    if (typeof candidate.pipelineRef === 'string' && candidate.pipelineRef) {
+      return candidate.pipelineRef;
+    }
+    const targets = isRecord(candidate.targets) ? candidate.targets : undefined;
+    if (typeof targets?.pipelineRef === 'string' && targets.pipelineRef) {
+      return targets.pipelineRef;
+    }
+  }
+  return `pipeline:${runId}`;
+}
+
 export const ciPipelineSampleConnector: ConnectorAdapter = {
   connectorKey: 'ci_pipeline',
   catalog: {
@@ -25,13 +60,16 @@ export const ciPipelineSampleConnector: ConnectorAdapter = {
       },
     ],
   },
-  invoke: async ({ request }) => ({
-    status: 'accepted',
-    externalSessionRef: `pipeline:${request.runId}:${request.nodeRunId}`,
-    metadata: {
-      pipelineRef: `pipeline:${request.runId}`,
-    },
-  }),
+  invoke: async ({ request }) => {
+    const pipelineRef = resolvePipelineRef(request.inputPayload, request.runId);
+    return {
+      status: 'accepted',
+      externalSessionRef: pipelineRef,
+      metadata: {
+        pipelineRef,
+      },
+    };
+  },
   parseActionCallback: ({ body }) => {
     const eventId = typeof body.eventId === 'string' ? body.eventId : `callback-${Date.now()}`;
     const sequence = asNumber(body.sequence, 1);

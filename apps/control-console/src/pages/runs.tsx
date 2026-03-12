@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Link } from '@tanstack/react-router';
 import {
   describeDeliverySummary,
@@ -5,16 +6,44 @@ import {
   EmptyPanel,
   ErrorPanel,
   formatDateTime,
+  JsonPreview,
   LoadingPanel,
   PanelCard,
   RunNodeProgressList,
   RunSummaryHeader,
 } from '../components';
-import { useRunQuery, useRunsQuery } from '../query';
+import { useArtifactDetailQuery, useRunQuery, useRunsQuery } from '../query';
+
+function RunArtifactDetail(props: {
+  artifactId: string;
+  expanded: boolean;
+}) {
+  const detailQuery = useArtifactDetailQuery(props.artifactId, props.expanded);
+
+  if (!props.expanded) {
+    return null;
+  }
+  if (detailQuery.isLoading) {
+    return <LoadingPanel label="Loading artifact detail" />;
+  }
+  if (detailQuery.error) {
+    return <ErrorPanel title="Artifact detail failed" error={detailQuery.error} />;
+  }
+  if (!detailQuery.data) {
+    return null;
+  }
+  return (
+    <div data-ui="stack" data-direction="col" data-gap="2">
+      <JsonPreview label="Payload" value={detailQuery.data.typedPayload} />
+      <JsonPreview label="Lineage" value={detailQuery.data.lineage} />
+    </div>
+  );
+}
 
 export function RunsWorkspace(props: { selectedRunId?: string }) {
   const runsQuery = useRunsQuery(40);
   const runQuery = useRunQuery(props.selectedRunId);
+  const [expandedArtifactId, setExpandedArtifactId] = useState<string | undefined>();
 
   return (
     <div data-ui="stack" data-direction="col" data-gap="4" className="console-route-layout">
@@ -120,14 +149,42 @@ export function RunsWorkspace(props: { selectedRunId?: string }) {
                       <div data-ui="list" data-variant="rows" data-density="comfortable">
                         {runQuery.data.run.artifacts.map((artifact) => (
                           <div key={artifact.artifactId}>
-                            <div data-ui="toolbar" data-align="between" data-wrap="wrap">
-                              <div data-slot="start">
-                                <strong data-ui="text" data-variant="body" data-tone="primary">{artifact.artifactType}</strong>
-                                <span data-ui="badge" data-variant="subtle" data-tone="neutral">{artifact.state}</span>
+                            <div data-ui="stack" data-direction="col" data-gap="2">
+                              <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                                <div data-slot="start">
+                                  <strong data-ui="text" data-variant="body" data-tone="primary">{artifact.artifactType}</strong>
+                                  <span data-ui="badge" data-variant="subtle" data-tone="neutral">{artifact.state}</span>
+                                </div>
+                                <div data-slot="end">
+                                  <span data-ui="text" data-variant="caption" data-tone="muted">{artifact.artifactId}</span>
+                                </div>
                               </div>
-                              <div data-slot="end">
-                                <span data-ui="text" data-variant="caption" data-tone="muted">{artifact.artifactId}</span>
+                              <div data-ui="toolbar" data-align="between" data-wrap="wrap">
+                                <div data-slot="start">
+                                  <span data-ui="text" data-variant="caption" data-tone="secondary">
+                                    Inspect typed payload and lineage via `/v1/artifacts/:artifactId`.
+                                  </span>
+                                </div>
+                                <div data-slot="end">
+                                  <button
+                                    type="button"
+                                    data-ui="button"
+                                    data-size="sm"
+                                    data-variant="outlined"
+                                    onClick={() => {
+                                      setExpandedArtifactId((current) => (
+                                        current === artifact.artifactId ? undefined : artifact.artifactId
+                                      ));
+                                    }}
+                                  >
+                                    {expandedArtifactId === artifact.artifactId ? 'Hide detail' : 'Inspect detail'}
+                                  </button>
+                                </div>
                               </div>
+                              <RunArtifactDetail
+                                artifactId={artifact.artifactId}
+                                expanded={expandedArtifactId === artifact.artifactId}
+                              />
                             </div>
                           </div>
                         ))}

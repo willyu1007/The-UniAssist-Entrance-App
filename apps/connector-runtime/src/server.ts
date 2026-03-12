@@ -5,6 +5,7 @@ import express from 'express';
 import { buildInternalAuthHeaders, createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
 import { ciPipelineSampleConnector } from '@baseinterface/connector-ci-pipeline-sample';
 import { issueTrackerSampleConnector } from '@baseinterface/connector-issue-tracker-sample';
+import { sourceControlSampleConnector } from '@baseinterface/connector-source-control-sample';
 import type { ConnectorAdapter } from '@baseinterface/connector-sdk';
 import type {
   ConnectorRuntimeInvokeRequest,
@@ -54,6 +55,7 @@ const internalNonceStore = createMemoryNonceStore();
 const adapters = new Map<string, ConnectorAdapter>([
   [issueTrackerSampleConnector.connectorKey, issueTrackerSampleConnector],
   [ciPipelineSampleConnector.connectorKey, ciPipelineSampleConnector],
+  [sourceControlSampleConnector.connectorKey, sourceControlSampleConnector],
 ]);
 const actionSessions = new Map<string, ActionSession>();
 const app = express();

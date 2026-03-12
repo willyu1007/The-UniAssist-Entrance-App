@@ -1,0 +1,46 @@
+{
+  "pendingApprovalArtifacts": [
+    {
+      "artifactType": "ChangeIntent",
+      "state": "validated"
+    },
+    {
+      "artifactType": "ExecutionPlan",
+      "state": "validated"
+    }
+  ],
+  "approvedArtifacts": [
+    {
+      "artifactType": "ActionReceipt",
+      "state": "validated",
+      "count": 2
+    },
+    {
+      "artifactType": "ValidationReport",
+      "state": "validated"
+    },
+    {
+      "artifactType": "DeliverySummary",
+      "state": "published"
+    }
+  ],
+  "eventCompanionArtifacts": [
+    {
+      "artifactType": "ValidationReport",
+      "state": "validated"
+    },
+    {
+      "artifactType": "ActionReceipt",
+      "state": "validated"
+    }
+  ],
+  "governanceRules": {
+    "approvalBeforeWrite": true,
+    "writeActionRefs": [
+      "issue_upsert",
+      "change_review_upsert"
+    ],
+    "asyncCallbackNode": "pipeline_start",
+    "eventSubscriptionEntry": "capture_validation_signal"
+  }
+}
