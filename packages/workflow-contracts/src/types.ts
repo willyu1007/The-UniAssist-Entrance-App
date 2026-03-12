@@ -1,4 +1,5 @@
 import type { InteractionEvent } from '@baseinterface/contracts';
+import type { ExternalRuntimeBridgeSnapshot } from './external-runtime-bridge';
 
 export type WorkflowSchemaVersion = 'v1';
 
@@ -602,6 +603,16 @@ export type WorkflowFormalEvent =
         artifactType: string;
         state: ArtifactState;
       };
+    })
+  | (WorkflowFormalEventBase & {
+      kind: 'checkpoint';
+      payload: {
+        nodeRunId: string;
+        nodeKey: string;
+        sequence: number;
+        externalSessionRef: string;
+        metadata?: Record<string, unknown>;
+      };
     });
 
 export type WorkflowCreateRequest = {
@@ -873,6 +884,7 @@ export type WorkflowRuntimeStartRunRequest = {
   sourceType?: 'message' | 'manual' | 'schedule' | 'webhook' | 'event';
   sourceRef?: string;
   runtimeMetadata?: Record<string, unknown>;
+  externalRuntime?: ExternalRuntimeBridgeSnapshot;
 };
 
 export type WorkflowRuntimeResumeRunRequest = {
@@ -886,6 +898,14 @@ export type WorkflowRuntimeResumeRunRequest = {
   replyToken?: string;
   taskId?: string;
   payload?: Record<string, unknown>;
+};
+
+export type WorkflowRuntimeCancelRunRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  traceId: string;
+  userId: string;
+  runId: string;
+  reason?: string;
 };
 
 export type WorkflowEventProjectionRequest = {

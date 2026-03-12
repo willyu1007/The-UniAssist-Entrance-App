@@ -1,4 +1,15 @@
 import type { ContextPackage, InteractionEvent, UserInteraction, UnifiedUserInput } from '@baseinterface/contracts';
+import type {
+  BridgeHealth,
+  BridgeManifest,
+  BridgeRegistrationRecord,
+  ExternalRuntimeBridgeCancelRequest,
+  ExternalRuntimeBridgeCancelResponse,
+  ExternalRuntimeBridgeInvokeRequest,
+  ExternalRuntimeBridgeInvokeResponse,
+  ExternalRuntimeBridgeResumeRequest,
+  ExternalRuntimeBridgeResumeResponse,
+} from '@baseinterface/workflow-contracts';
 
 export type ExecutorKind = 'compat-provider';
 
@@ -29,6 +40,23 @@ export type CompatExecutorClient = {
   invoke: (input: CompatExecutorInvokeInput) => Promise<InteractionEvent[]>;
   interact: (input: CompatExecutorResumeInput) => Promise<InteractionEvent[]>;
   getExecutorEntry: (executorId: string) => ExecutorRegistryEntry | undefined;
+};
+
+export type ExternalBridgeClient = {
+  getManifest: (bridge: Pick<BridgeRegistrationRecord, 'bridgeId' | 'baseUrl' | 'serviceId'>) => Promise<BridgeManifest>;
+  getHealth: (bridge: Pick<BridgeRegistrationRecord, 'bridgeId' | 'baseUrl' | 'serviceId'>) => Promise<BridgeHealth>;
+  invoke: (
+    bridge: Pick<BridgeRegistrationRecord, 'bridgeId' | 'baseUrl' | 'serviceId'>,
+    body: ExternalRuntimeBridgeInvokeRequest,
+  ) => Promise<ExternalRuntimeBridgeInvokeResponse>;
+  resume: (
+    bridge: Pick<BridgeRegistrationRecord, 'bridgeId' | 'baseUrl' | 'serviceId'>,
+    body: ExternalRuntimeBridgeResumeRequest,
+  ) => Promise<ExternalRuntimeBridgeResumeResponse>;
+  cancel: (
+    bridge: Pick<BridgeRegistrationRecord, 'bridgeId' | 'baseUrl' | 'serviceId'>,
+    body: ExternalRuntimeBridgeCancelRequest,
+  ) => Promise<ExternalRuntimeBridgeCancelResponse>;
 };
 
 export function parseExecutorRegistryFromEnv(env: NodeJS.ProcessEnv): ExecutorRegistryEntry[] {

@@ -310,6 +310,7 @@ model AgentDefinition {
   name               String
   description        String?
   activationState    String   @map("activation_state")
+  bridgeId           String?  @map("bridge_id")
   identityRef        String?  @map("identity_ref")
   executorStrategy   String   @map("executor_strategy")
   toolProfile        String?  @map("tool_profile")
@@ -322,7 +323,32 @@ model AgentDefinition {
 
   @@index([workspaceId, activationState], map: "idx_agent_definitions_workspace_state")
   @@index([templateVersionRef], map: "idx_agent_definitions_template_version_ref")
+  @@index([bridgeId], map: "idx_agent_definitions_bridge_id")
   @@map("agent_definitions")
+}
+
+model BridgeRegistration {
+  bridgeId           String    @id @map("bridge_id")
+  workspaceId        String    @map("workspace_id")
+  name               String
+  description        String?
+  baseUrl            String    @map("base_url")
+  serviceId          String    @map("service_id")
+  status             String
+  runtimeType        String    @map("runtime_type")
+  manifestJson       Json      @map("manifest_json")
+  healthJson         Json?     @map("health_json")
+  authConfigJson     Json      @map("auth_config_json")
+  callbackConfigJson Json      @map("callback_config_json")
+  lastHealthAt       DateTime? @map("last_health_at")
+  createdBy          String    @map("created_by")
+  updatedBy          String    @map("updated_by")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@index([workspaceId, status], map: "idx_bridge_registrations_workspace_status")
+  @@index([serviceId], map: "idx_bridge_registrations_service_id")
+  @@map("bridge_registrations")
 }
 
 model TriggerBinding {
@@ -448,6 +474,41 @@ model TriggerDispatch {
 
   @@index([triggerBindingId, status], map: "idx_trigger_dispatches_binding_status")
   @@map("trigger_dispatches")
+}
+
+model BridgeInvokeSession {
+  bridgeSessionId    String    @id @map("bridge_session_id")
+  runId              String    @map("run_id")
+  nodeRunId          String    @map("node_run_id")
+  bridgeId           String    @map("bridge_id")
+  externalSessionRef String    @map("external_session_ref")
+  status             String
+  lastSequence       Int       @default(0) @map("last_sequence")
+  resumeToken        String?   @map("resume_token")
+  cancelledAt        DateTime? @map("cancelled_at")
+  metadataJson       Json?     @map("metadata_json")
+  createdAt          DateTime  @default(now()) @map("created_at")
+  updatedAt          DateTime  @updatedAt @map("updated_at")
+
+  @@unique([bridgeId, externalSessionRef], map: "uq_bridge_invoke_sessions_bridge_external_session")
+  @@index([runId], map: "idx_bridge_invoke_sessions_run_id")
+  @@index([nodeRunId], map: "idx_bridge_invoke_sessions_node_run_id")
+  @@index([bridgeId, status], map: "idx_bridge_invoke_sessions_bridge_status")
+  @@map("bridge_invoke_sessions")
+}
+
+model BridgeCallbackReceipt {
+  callbackReceiptId String   @id @map("callback_receipt_id")
+  callbackId        String   @unique(map: "uq_bridge_callback_receipts_callback_id") @map("callback_id")
+  bridgeSessionId   String   @map("bridge_session_id")
+  sequence          Int
+  kind              String
+  status            String
+  errorMessage      String?  @map("error_message")
+  receivedAt        DateTime @default(now()) @map("received_at")
+
+  @@index([bridgeSessionId, sequence], map: "idx_bridge_callback_receipts_session_sequence")
+  @@map("bridge_callback_receipts")
 }
 
 model ActorProfile {

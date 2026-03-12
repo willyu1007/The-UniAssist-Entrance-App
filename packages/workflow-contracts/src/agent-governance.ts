@@ -71,6 +71,7 @@ export type AgentDefinitionRecord = {
   name: string;
   description?: string;
   activationState: AgentActivationState;
+  bridgeId?: string;
   identityRef?: string;
   executorStrategy: ExecutorStrategy;
   toolProfile?: string;
@@ -198,6 +199,7 @@ export type AgentDefinitionCreateRequest = {
   name: string;
   createdBy: string;
   description?: string;
+  bridgeId?: string;
   identityRef?: string;
   executorStrategy?: ExecutorStrategy;
   toolProfile?: string;

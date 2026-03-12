@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-12T05:07:47.061Z",
+  "updatedAt": "2026-03-12T07:50:58.056Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -322,6 +322,17 @@
           "unique": false
         },
         {
+          "name": "bridgeId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "bridge_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "createdAt",
           "type": "DateTime",
           "nullable": false,
@@ -467,6 +478,14 @@
       ],
       "relations": [],
       "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "bridgeId"
+          ],
+          "name": null,
+          "map": "idx_agent_definitions_bridge_id"
+        },
         {
           "type": "index",
           "fields": [
@@ -916,6 +935,503 @@
       ],
       "relations": [],
       "indexes": []
+    },
+    {
+      "name": "BridgeCallbackReceipt",
+      "dbName": "bridge_callback_receipts",
+      "schema": null,
+      "columns": [
+        {
+          "name": "bridgeSessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "bridge_session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "callbackId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "callback_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "callbackReceiptId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "callback_receipt_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "errorMessage",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "error_message",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "kind",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "receivedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "received_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "sequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "bridgeSessionId",
+            "sequence"
+          ],
+          "name": null,
+          "map": "idx_bridge_callback_receipts_session_sequence"
+        }
+      ]
+    },
+    {
+      "name": "BridgeInvokeSession",
+      "dbName": "bridge_invoke_sessions",
+      "schema": null,
+      "columns": [
+        {
+          "name": "bridgeId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "bridge_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "bridgeSessionId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "bridge_session_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "cancelledAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "cancelled_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "externalSessionRef",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "external_session_ref",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastSequence",
+          "type": "Int",
+          "nullable": false,
+          "list": false,
+          "dbName": "last_sequence",
+          "dbType": null,
+          "default": "0",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "metadataJson",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "metadata_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "nodeRunId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "node_run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "resumeToken",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "resume_token",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "bridgeId",
+            "status"
+          ],
+          "name": null,
+          "map": "idx_bridge_invoke_sessions_bridge_status"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "nodeRunId"
+          ],
+          "name": null,
+          "map": "idx_bridge_invoke_sessions_node_run_id"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "runId"
+          ],
+          "name": null,
+          "map": "idx_bridge_invoke_sessions_run_id"
+        },
+        {
+          "type": "unique",
+          "fields": [
+            "bridgeId",
+            "externalSessionRef"
+          ],
+          "name": null,
+          "map": "uq_bridge_invoke_sessions_bridge_external_session"
+        }
+      ]
+    },
+    {
+      "name": "BridgeRegistration",
+      "dbName": "bridge_registrations",
+      "schema": null,
+      "columns": [
+        {
+          "name": "authConfigJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "auth_config_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "baseUrl",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "base_url",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "bridgeId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "bridge_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": true,
+          "unique": false
+        },
+        {
+          "name": "callbackConfigJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "callback_config_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_at",
+          "dbType": null,
+          "default": "now()",
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "createdBy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "created_by",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "description",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "healthJson",
+          "type": "Json",
+          "nullable": true,
+          "list": false,
+          "dbName": "health_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "lastHealthAt",
+          "type": "DateTime",
+          "nullable": true,
+          "list": false,
+          "dbName": "last_health_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "manifestJson",
+          "type": "Json",
+          "nullable": false,
+          "list": false,
+          "dbName": "manifest_json",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "name",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "runtimeType",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "runtime_type",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "serviceId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "service_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "status",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": null,
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedAt",
+          "type": "DateTime",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_at",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "updatedBy",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "updated_by",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
+          "name": "workspaceId",
+          "type": "String",
+          "nullable": false,
+          "list": false,
+          "dbName": "workspace_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        }
+      ],
+      "relations": [],
+      "indexes": [
+        {
+          "type": "index",
+          "fields": [
+            "serviceId"
+          ],
+          "name": null,
+          "map": "idx_bridge_registrations_service_id"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "workspaceId",
+            "status"
+          ],
+          "name": null,
+          "map": "idx_bridge_registrations_workspace_status"
+        }
+      ]
     },
     {
       "name": "DeliverySpec",
