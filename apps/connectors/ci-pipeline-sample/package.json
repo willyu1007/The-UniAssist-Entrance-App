@@ -1,0 +1,22 @@
+{
+  "name": "@baseinterface/connector-ci-pipeline-sample",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@baseinterface/connector-sdk": "workspace:*",
+    "@baseinterface/workflow-contracts": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^22.13.8",
+    "typescript": "~5.9.2"
+  }
+}

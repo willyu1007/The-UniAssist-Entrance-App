@@ -43,6 +43,72 @@ importers:
         specifier: ~5.9.2
         version: 5.9.3
 
+  apps/connector-runtime:
+    dependencies:
+      '@baseinterface/connector-ci-pipeline-sample':
+        specifier: workspace:*
+        version: link:../connectors/ci-pipeline-sample
+      '@baseinterface/connector-issue-tracker-sample':
+        specifier: workspace:*
+        version: link:../connectors/issue-tracker-sample
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../packages/connector-sdk
+      '@baseinterface/shared':
+        specifier: workspace:*
+        version: link:../../packages/shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../packages/workflow-contracts
+      express:
+        specifier: ^4.21.2
+        version: 4.22.1
+    devDependencies:
+      '@types/express':
+        specifier: ^4.17.21
+        version: 4.17.25
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      tsx:
+        specifier: ^4.19.2
+        version: 4.21.0
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  apps/connectors/ci-pipeline-sample:
+    dependencies:
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/connector-sdk
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../../packages/workflow-contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  apps/connectors/issue-tracker-sample:
+    dependencies:
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../../packages/connector-sdk
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../../../packages/workflow-contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
   apps/control-console:
     dependencies:
       '@baseinterface/workflow-contracts':
@@ -365,6 +431,9 @@ importers:
 
   apps/workflow-runtime:
     dependencies:
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../packages/connector-sdk
       '@baseinterface/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
@@ -396,6 +465,22 @@ importers:
       tsx:
         specifier: ^4.19.2
         version: 4.21.0
+      typescript:
+        specifier: ~5.9.2
+        version: 5.9.3
+
+  packages/connector-sdk:
+    dependencies:
+      '@baseinterface/shared':
+        specifier: workspace:*
+        version: link:../shared
+      '@baseinterface/workflow-contracts':
+        specifier: workspace:*
+        version: link:../workflow-contracts
+    devDependencies:
+      '@types/node':
+        specifier: ^22.13.8
+        version: 22.19.11
       typescript:
         specifier: ~5.9.2
         version: 5.9.3

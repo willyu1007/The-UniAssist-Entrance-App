@@ -11,6 +11,7 @@
     "dev:wechat": "pnpm --filter @baseinterface/adapter-wechat start",
     "dev:provider-sample": "pnpm --filter @baseinterface/provider-sample start",
     "dev:executor-bridge-sample": "pnpm --filter @baseinterface/executor-bridge-sample start",
+    "dev:connector-runtime": "pnpm --filter @baseinterface/connector-runtime start",
     "dev:workflow-platform-api": "pnpm --filter @baseinterface/workflow-platform-api start",
     "dev:workflow-runtime": "pnpm --filter @baseinterface/workflow-runtime start",
     "dev:trigger-scheduler": "pnpm --filter @baseinterface/trigger-scheduler start",
