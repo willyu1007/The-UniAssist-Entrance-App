@@ -1,0 +1,13 @@
+{
+  "extends": "../../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": ".",
+    "paths": {
+      "@baseinterface/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
+    },
+    "types": ["node"],
+    "lib": ["ES2022"],
+    "noEmit": true
+  },
+  "include": ["src/**/*.ts", "convex/**/*.ts"]
+}

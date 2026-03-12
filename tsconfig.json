@@ -16,6 +16,7 @@
       "@baseinterface/connector-issue-tracker-sample": ["apps/connectors/issue-tracker-sample/src/index.ts"],
       "@baseinterface/connector-sdk": ["packages/connector-sdk/src/index.ts"],
       "@baseinterface/contracts": ["packages/contracts/src/index.ts"],
+      "@baseinterface/convex-projection-experiment": ["packages/convex-projection-experiment/src/index.ts"],
       "@baseinterface/executor-sdk": ["packages/executor-sdk/src/index.ts"],
       "@baseinterface/policy-sdk": ["packages/policy-sdk/src/index.ts"],
       "@baseinterface/shared": ["packages/shared/src/index.ts"],

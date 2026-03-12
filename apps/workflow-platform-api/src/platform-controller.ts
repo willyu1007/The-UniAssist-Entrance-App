@@ -39,6 +39,7 @@ import type {
 import { isPlatformError, PlatformError } from './platform-errors';
 import type { PlatformService } from './platform-service';
 import type { ControlConsoleStreamBroker } from './control-console-stream';
+import type { RunboardProjectionController } from './runboard-projection';
 
 const EXECUTOR_STRATEGIES = new Set(['platform_runtime', 'external_runtime']);
 const TRIGGER_KINDS = new Set(['schedule', 'webhook', 'event_subscription']);
@@ -295,6 +296,27 @@ function buildRunConsoleEvents(run: WorkflowRunSnapshot): WorkflowConsoleStreamE
   return [...dedup.values()];
 }
 
+async function publishRunSnapshotEvents(
+  runboardProjection: RunboardProjectionController | undefined,
+  broker: ControlConsoleStreamBroker | undefined,
+  run: WorkflowRunSnapshot,
+): Promise<void> {
+  if (!broker) {
+    return;
+  }
+
+  const events = buildRunConsoleEvents(run);
+  const nonRunEvents = events.filter((event) => event.kind !== 'run.updated');
+  const shouldDeferRunUpdated = runboardProjection
+    ? await runboardProjection.syncRunSnapshot(run)
+    : false;
+
+  publishConsoleEvents(broker, nonRunEvents);
+  if (!shouldDeferRunUpdated) {
+    publishConsoleEvents(broker, events.filter((event) => event.kind === 'run.updated'));
+  }
+}
+
 function handleError(res: Response, error: unknown): void {
   if (isPlatformError(error)) {
     res.status(error.statusCode).json({
@@ -312,6 +334,7 @@ function handleError(res: Response, error: unknown): void {
 export function createPlatformController(
   service: PlatformService,
   controlConsoleBroker?: ControlConsoleStreamBroker,
+  runboardProjection?: RunboardProjectionController,
 ) {
   return {
     health: (_req: Request, res: Response) => {
@@ -361,7 +384,7 @@ export function createPlatformController(
           inputText: optionalString(body.inputText),
           inputPayload: body.inputPayload,
         });
-        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.status(201).json(response);
       } catch (error) {
         handleError(res, error);
@@ -371,6 +394,10 @@ export function createPlatformController(
     listRuns: async (req: Request, res: Response) => {
       try {
         const limit = optionalPositiveInt(req.query.limit);
+        if (runboardProjection) {
+          res.json(await runboardProjection.listRuns(limit, async () => await service.listRuns(limit)));
+          return;
+        }
         res.json(await service.listRuns(limit));
       } catch (error) {
         handleError(res, error);
@@ -400,7 +427,7 @@ export function createPlatformController(
           taskId: optionalString(body.taskId),
           payload: body.payload,
         });
-        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.json(response);
       } catch (error) {
         handleError(res, error);
@@ -418,7 +445,7 @@ export function createPlatformController(
           runId: requireString(req.params.runId, 'runId'),
           reason: optionalString(body.reason),
         });
-        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.json(response);
       } catch (error) {
         handleError(res, error);
@@ -463,7 +490,7 @@ export function createPlatformController(
           decision: body.decision,
           comment: optionalString(body.comment),
         });
-        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.json(response);
       } catch (error) {
         handleError(res, error);
@@ -1000,7 +1027,7 @@ export function createPlatformController(
           inputText: optionalString(body.inputText),
           inputPayload: body.inputPayload,
         });
-        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.status(201).json(response);
       } catch (error) {
         handleError(res, error);

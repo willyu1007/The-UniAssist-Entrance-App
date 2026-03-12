@@ -17,6 +17,8 @@ export const WORKFLOW_RUNTIME_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_RUNTIM
 export const CONNECTOR_RUNTIME_SERVICE_ID = process.env.UNIASSIST_CONNECTOR_RUNTIME_SERVICE_ID || 'connector-runtime';
 export const TRIGGER_SCHEDULER_SERVICE_ID = process.env.UNIASSIST_TRIGGER_SCHEDULER_SERVICE_ID || 'trigger-scheduler';
 export const DATABASE_URL = process.env.DATABASE_URL || '';
+export const UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT = process.env.UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT === 'true';
+export const UNIASSIST_CONVEX_URL = (process.env.UNIASSIST_CONVEX_URL || '').replace(/\/$/, '');
 
 export function now(): number {
   return Date.now();

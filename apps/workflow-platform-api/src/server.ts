@@ -8,6 +8,8 @@ import {
   DATABASE_URL,
   INTERNAL_AUTH_CONFIG,
   PORT,
+  UNIASSIST_CONVEX_URL,
+  UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT,
   TRIGGER_SCHEDULER_SERVICE_ID,
   WORKFLOW_RUNTIME_BASE_URL,
   WORKFLOW_RUNTIME_PUBLIC_BASE_URL,
@@ -20,6 +22,7 @@ import { createPlatformController } from './platform-controller';
 import { createGovernanceRepository } from './governance-repository';
 import { createPlatformRepository } from './platform-repository';
 import { createPlatformService } from './platform-service';
+import { createRunboardProjectionAdapter, RunboardProjectionController } from './runboard-projection';
 import { RuntimeClient } from './runtime-client';
 
 type RawBodyRequest = Request & { rawBody?: string };
@@ -47,7 +50,20 @@ const service = createPlatformService({
   uuid,
 });
 const controlConsoleBroker = new ControlConsoleStreamBroker();
-const controller = createPlatformController(service, controlConsoleBroker);
+const runboardProjection = new RunboardProjectionController({
+  adapter: createRunboardProjectionAdapter({
+    enabled: UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT,
+    url: UNIASSIST_CONVEX_URL || undefined,
+  }),
+  runtimeClient,
+  broker: controlConsoleBroker,
+});
+void runboardProjection.start().catch((error) => {
+  logger.warn('runboard projection failed to start', {
+    error: error instanceof Error ? error.message : String(error),
+  });
+});
+const controller = createPlatformController(service, controlConsoleBroker, runboardProjection);
 
 const app = express();
 app.use(express.json({
@@ -233,6 +249,7 @@ const server = app.listen(PORT, () => {
 });
 
 async function shutdown(): Promise<void> {
+  await runboardProjection.close().catch(() => undefined);
   await service.close().catch(() => undefined);
   server.close(() => {
     process.exit(0);

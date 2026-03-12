@@ -1,0 +1,96 @@
+{
+  "envs": [
+    "dev",
+    "prod",
+    "staging"
+  ],
+  "generated_at_utc": "2026-03-12T22:30:59Z",
+  "ssot_mode": "repo-env-contract",
+  "variables": {
+    "APP_ENV": {
+      "default": "dev",
+      "deprecate_after": null,
+      "description": "Deployment environment profile.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": true,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "enum"
+    },
+    "PORT": {
+      "default": 8000,
+      "deprecate_after": null,
+      "description": "Service listen port.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": true,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "int"
+    },
+    "SERVICE_NAME": {
+      "default": "your-service",
+      "deprecate_after": null,
+      "description": "Service name (logical).",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": true,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "UNIASSIST_CONVEX_URL": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "Convex deployment URL consumed by the B9 runboard projection experiment.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT": {
+      "default": false,
+      "deprecate_after": null,
+      "description": "Enable the B9 Convex-backed runboard summary experiment inside workflow-platform-api.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "bool"
+    }
+  }
+}
