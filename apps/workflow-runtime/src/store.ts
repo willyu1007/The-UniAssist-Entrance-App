@@ -2,6 +2,8 @@ import type {
   ActorMembershipRecord,
   ActorProfileRecord,
   AudienceSelectorRecord,
+  BridgeCallbackReceiptRecord,
+  BridgeInvokeSessionRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
   WorkflowApprovalDecisionRecord,
@@ -27,6 +29,8 @@ export type InternalRunState = {
   audienceSelectors: AudienceSelectorRecord[];
   deliverySpecs: DeliverySpecRecord[];
   deliveryTargets: DeliveryTargetRecord[];
+  bridgeInvokeSessions: BridgeInvokeSessionRecord[];
+  bridgeCallbackReceipts: BridgeCallbackReceiptRecord[];
 };
 
 export class RuntimeStore {

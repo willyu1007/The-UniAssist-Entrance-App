@@ -2,7 +2,7 @@ import type { Request, Response } from 'express';
 import express from 'express';
 
 import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@baseinterface/shared';
-import { createCompatExecutorClient } from '@baseinterface/executor-sdk';
+import { createCompatExecutorClient, createExternalBridgeClient } from '@baseinterface/executor-sdk';
 import type {
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
@@ -11,10 +11,21 @@ import type {
   WorkflowArtifactDetailResponse,
   WorkflowRunListResponse,
   WorkflowRunQueryResponse,
+  WorkflowRuntimeBridgeCallbackRequest,
+  WorkflowRuntimeBridgeCallbackResponse,
+  WorkflowRuntimeCancelRunRequest,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
-import { DATABASE_URL, EXECUTOR_REGISTRY, INTERNAL_AUTH_CONFIG, PORT, now, uuid } from './config';
+import {
+  DATABASE_URL,
+  EXECUTOR_REGISTRY,
+  EXTERNAL_BRIDGE_ALLOWED_SUBJECTS,
+  INTERNAL_AUTH_CONFIG,
+  PORT,
+  now,
+  uuid,
+} from './config';
 import { createWorkflowRuntimeService } from './service';
 import { RuntimeStore } from './store';
 
@@ -49,6 +60,9 @@ const runtimeService = createWorkflowRuntimeService({
     internalAuthConfig: INTERNAL_AUTH_CONFIG,
     executorRegistry: EXECUTOR_REGISTRY,
   }),
+  externalBridgeClient: createExternalBridgeClient({
+    internalAuthConfig: INTERNAL_AUTH_CONFIG,
+  }),
   databaseUrl: DATABASE_URL || undefined,
   now,
   uuid,
@@ -58,6 +72,8 @@ async function guardInternalAuth(
   req: RawBodyRequest,
   res: Response,
   expectedAudience: string,
+  allowedSubjects: string[] = ['workflow-platform-api'],
+  requiredScopes?: string[],
 ): Promise<boolean> {
   if (INTERNAL_AUTH_CONFIG.mode === 'off') return true;
   const verification = await verifyInternalAuthRequest({
@@ -68,7 +84,8 @@ async function guardInternalAuth(
     config: INTERNAL_AUTH_CONFIG,
     nonceStore: internalNonceStore,
     expectedAudience,
-    allowedSubjects: ['workflow-platform-api'],
+    allowedSubjects,
+    requiredScopes,
   });
 
   if (verification.ok || INTERNAL_AUTH_CONFIG.mode === 'audit') return true;
@@ -104,6 +121,52 @@ app.post('/internal/runtime/resume-run', async (req: RawBodyRequest, res) => {
     const response = await runtimeService.resumeRun(payload);
     res.json(response);
   } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.post('/internal/runtime/cancel-run', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  try {
+    const payload = req.body as WorkflowRuntimeCancelRunRequest;
+    const response = await runtimeService.cancelRun(payload);
+    res.json(response);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const runtimeError = error as { status: number; code?: unknown };
+      res.status(Number((error as { status: number }).status) || 400).json({
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+      });
+      return;
+    }
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.post('/internal/runtime/bridge-callback', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(
+    req,
+    res,
+    INTERNAL_AUTH_CONFIG.serviceId,
+    EXTERNAL_BRIDGE_ALLOWED_SUBJECTS,
+    ['bridge:callback'],
+  );
+  if (!authorized) return;
+  try {
+    const payload = req.body as WorkflowRuntimeBridgeCallbackRequest;
+    const response: WorkflowRuntimeBridgeCallbackResponse = await runtimeService.handleBridgeCallback(payload);
+    res.json(response);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const runtimeError = error as { status: number; code?: unknown };
+      res.status(Number((error as { status: number }).status) || 400).json({
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+      });
+      return;
+    }
     res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
   }
 });

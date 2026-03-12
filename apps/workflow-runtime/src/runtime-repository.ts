@@ -4,6 +4,8 @@ import type {
   ActorMembershipRecord,
   ActorProfileRecord,
   AudienceSelectorRecord,
+  BridgeCallbackReceiptRecord,
+  BridgeInvokeSessionRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
   WorkflowApprovalDecisionRecord,
@@ -208,6 +210,36 @@ function toDeliveryTargetRecord(row: Record<string, unknown>): DeliveryTargetRec
   };
 }
 
+function toBridgeInvokeSessionRecord(row: Record<string, unknown>): BridgeInvokeSessionRecord {
+  return {
+    bridgeSessionId: String(row.bridge_session_id),
+    runId: String(row.run_id),
+    nodeRunId: String(row.node_run_id),
+    bridgeId: String(row.bridge_id),
+    externalSessionRef: String(row.external_session_ref),
+    status: String(row.status) as BridgeInvokeSessionRecord['status'],
+    lastSequence: Number(row.last_sequence),
+    resumeToken: row.resume_token ? String(row.resume_token) : undefined,
+    cancelledAt: row.cancelled_at ? toMs(row.cancelled_at) : undefined,
+    metadataJson: parseJson(row.metadata_json, undefined),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toBridgeCallbackReceiptRecord(row: Record<string, unknown>): BridgeCallbackReceiptRecord {
+  return {
+    callbackReceiptId: String(row.callback_receipt_id),
+    callbackId: String(row.callback_id),
+    bridgeSessionId: String(row.bridge_session_id),
+    sequence: Number(row.sequence),
+    kind: String(row.kind) as BridgeCallbackReceiptRecord['kind'],
+    status: String(row.status) as BridgeCallbackReceiptRecord['status'],
+    errorMessage: row.error_message ? String(row.error_message) : undefined,
+    receivedAt: toMs(row.received_at),
+  };
+}
+
 export type RuntimeRepository = {
   close: () => Promise<void>;
   saveState: (state: InternalRunState) => Promise<void>;
@@ -263,6 +295,12 @@ class PgRuntimeRepository implements RuntimeRepository {
       for (const deliveryTarget of state.deliveryTargets) {
         await this.upsertDeliveryTarget(client, deliveryTarget);
       }
+      for (const bridgeSession of state.bridgeInvokeSessions) {
+        await this.upsertBridgeInvokeSession(client, bridgeSession);
+      }
+      for (const callbackReceipt of state.bridgeCallbackReceipts) {
+        await this.upsertBridgeCallbackReceipt(client, callbackReceipt);
+      }
       await client.query('COMMIT');
     } catch (error) {
       await client.query('ROLLBACK');
@@ -311,7 +349,10 @@ class PgRuntimeRepository implements RuntimeRepository {
     const nodeRuns = nodeRunsResult.rows.map((row) => toNodeRunRecord(row as Record<string, unknown>));
     const firstInput = nodeRuns.find((item) => item.inputJson && Object.keys(item.inputJson).length > 0)?.inputJson;
     if (!run.metadata?.inputPayload && firstInput) {
-      run.metadata = { inputPayload: firstInput };
+      run.metadata = {
+        ...(run.metadata || {}),
+        inputPayload: firstInput,
+      };
     }
 
     const artifactsResult = await this.pool.query(`
@@ -386,6 +427,26 @@ class PgRuntimeRepository implements RuntimeRepository {
       }
     }
 
+    const bridgeSessionsResult = await this.pool.query(`
+      SELECT *
+      FROM bridge_invoke_sessions
+      WHERE run_id = $1
+      ORDER BY created_at ASC
+    `, [runId]);
+    const bridgeInvokeSessions = bridgeSessionsResult.rows.map((row) => toBridgeInvokeSessionRecord(row as Record<string, unknown>));
+
+    let bridgeCallbackReceipts: BridgeCallbackReceiptRecord[] = [];
+    const bridgeSessionIds = bridgeInvokeSessions.map((item) => item.bridgeSessionId);
+    if (bridgeSessionIds.length > 0) {
+      const callbackReceiptsResult = await this.pool.query(`
+        SELECT *
+        FROM bridge_callback_receipts
+        WHERE bridge_session_id = ANY($1::text[])
+        ORDER BY received_at ASC
+      `, [bridgeSessionIds]);
+      bridgeCallbackReceipts = callbackReceiptsResult.rows.map((row) => toBridgeCallbackReceiptRecord(row as Record<string, unknown>));
+    }
+
     return {
       template,
       version,
@@ -399,6 +460,8 @@ class PgRuntimeRepository implements RuntimeRepository {
       audienceSelectors,
       deliverySpecs,
       deliveryTargets,
+      bridgeInvokeSessions,
+      bridgeCallbackReceipts,
     };
   }
 
@@ -442,6 +505,74 @@ class PgRuntimeRepository implements RuntimeRepository {
       LIMIT 1
     `, [artifactId]);
     return result.rows[0] ? toArtifactRecord(result.rows[0] as Record<string, unknown>) : undefined;
+  }
+
+  private async upsertBridgeInvokeSession(client: PoolClient, record: BridgeInvokeSessionRecord): Promise<void> {
+    await client.query(`
+      INSERT INTO bridge_invoke_sessions (
+        bridge_session_id,
+        run_id,
+        node_run_id,
+        bridge_id,
+        external_session_ref,
+        status,
+        last_sequence,
+        resume_token,
+        cancelled_at,
+        metadata_json,
+        created_at,
+        updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb,
+        to_timestamp($11 / 1000.0), to_timestamp($12 / 1000.0)
+      )
+      ON CONFLICT (bridge_session_id) DO UPDATE
+      SET
+        status = EXCLUDED.status,
+        last_sequence = EXCLUDED.last_sequence,
+        resume_token = EXCLUDED.resume_token,
+        cancelled_at = EXCLUDED.cancelled_at,
+        metadata_json = EXCLUDED.metadata_json,
+        updated_at = EXCLUDED.updated_at
+    `, [
+      record.bridgeSessionId,
+      record.runId,
+      record.nodeRunId,
+      record.bridgeId,
+      record.externalSessionRef,
+      record.status,
+      record.lastSequence,
+      record.resumeToken ?? null,
+      record.cancelledAt ? new Date(record.cancelledAt) : null,
+      record.metadataJson ? JSON.stringify(record.metadataJson) : null,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+  }
+
+  private async upsertBridgeCallbackReceipt(client: PoolClient, record: BridgeCallbackReceiptRecord): Promise<void> {
+    await client.query(`
+      INSERT INTO bridge_callback_receipts (
+        callback_receipt_id,
+        callback_id,
+        bridge_session_id,
+        sequence,
+        kind,
+        status,
+        error_message,
+        received_at
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, to_timestamp($8 / 1000.0))
+      ON CONFLICT (callback_id) DO NOTHING
+    `, [
+      record.callbackReceiptId,
+      record.callbackId,
+      record.bridgeSessionId,
+      record.sequence,
+      record.kind,
+      record.status,
+      record.errorMessage ?? null,
+      record.receivedAt,
+    ]);
   }
 
   private async upsertRun(client: PoolClient, state: InternalRunState): Promise<void> {

@@ -13,6 +13,10 @@ export const INTERNAL_AUTH_CONFIG = (() => {
   return config;
 })();
 export const EXECUTOR_REGISTRY = parseExecutorRegistryFromEnv(process.env);
+export const EXTERNAL_BRIDGE_ALLOWED_SUBJECTS = (process.env.UNIASSIST_EXTERNAL_BRIDGE_ALLOWED_SUBJECTS || 'executor-bridge-sample')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 export const DATABASE_URL = process.env.DATABASE_URL || '';
 
 export function now(): number {

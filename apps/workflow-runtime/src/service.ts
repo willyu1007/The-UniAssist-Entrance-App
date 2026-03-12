@@ -6,13 +6,16 @@ import type {
   UserInteraction,
   UnifiedUserInput,
 } from '@baseinterface/contracts';
-import type { CompatExecutorClient } from '@baseinterface/executor-sdk';
+import type { CompatExecutorClient, ExternalBridgeClient } from '@baseinterface/executor-sdk';
 import type {
   ActorMembershipRecord,
   ActorProfileRecord,
   AudienceSelectorRecord,
+  BridgeCallbackReceiptRecord,
+  BridgeInvokeSessionRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
+  ExternalRuntimeBridgeSnapshot,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
   WorkflowApprovalQueueItem,
@@ -36,6 +39,9 @@ import type {
   WorkflowRunRecord,
   WorkflowRunSnapshot,
   WorkflowRunSummary,
+  WorkflowRuntimeBridgeCallbackRequest,
+  WorkflowRuntimeBridgeCallbackResponse,
+  WorkflowRuntimeCancelRunRequest,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowTemplateSpec,
@@ -48,6 +54,7 @@ import type { InternalRunState, RuntimeStore } from './store';
 type RuntimeServiceDeps = {
   store: RuntimeStore;
   compatExecutorClient: CompatExecutorClient;
+  externalBridgeClient: ExternalBridgeClient;
   databaseUrl?: string;
   now: () => number;
   uuid: () => string;
@@ -55,8 +62,48 @@ type RuntimeServiceDeps = {
 
 const logger = createLogger({ service: 'workflow-runtime' });
 
+class RuntimeRequestError extends Error {
+  readonly status: number;
+
+  readonly code: string;
+
+  constructor(status: number, code: string, message: string) {
+    super(message);
+    this.name = 'RuntimeRequestError';
+    this.status = status;
+    this.code = code;
+  }
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && Array.isArray(value) === false;
+}
+
+function getExternalRuntimeSnapshot(value: unknown): ExternalRuntimeBridgeSnapshot | undefined {
+  if (!isRecord(value)) return undefined;
+  if (typeof value.bridgeId !== 'string' || typeof value.baseUrl !== 'string' || typeof value.serviceId !== 'string') {
+    return undefined;
+  }
+  if (typeof value.workspaceId !== 'string' || typeof value.name !== 'string' || typeof value.runtimeType !== 'string') {
+    return undefined;
+  }
+  if (!isRecord(value.manifest) || !isRecord(value.authConfigJson) || !isRecord(value.callbackConfigJson)) {
+    return undefined;
+  }
+  if (typeof value.callbackUrl !== 'string') {
+    return undefined;
+  }
+  return value as ExternalRuntimeBridgeSnapshot;
+}
+
+function deriveBridgeDecision(actionId: string): 'approved' | 'rejected' | undefined {
+  if (actionId.includes('approve')) return 'approved';
+  if (actionId.includes('reject')) return 'rejected';
+  return undefined;
+}
+
+function isBridgeSessionTerminal(status: BridgeInvokeSessionRecord['status']): boolean {
+  return status === 'completed' || status === 'failed' || status === 'cancelled';
 }
 
 function buildContextPackage(run: WorkflowRunRecord): ContextPackage {
@@ -88,7 +135,11 @@ function findNode(spec: WorkflowTemplateSpec, nodeKey: string): WorkflowNodeSpec
 function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
   return {
     run: { ...state.run, metadata: state.run.metadata ? { ...state.run.metadata } : undefined },
-    nodeRuns: state.nodeRuns.map((item) => ({ ...item, inputJson: item.inputJson ? { ...item.inputJson } : undefined })),
+    nodeRuns: state.nodeRuns.map((item) => ({
+      ...item,
+      inputJson: item.inputJson ? { ...item.inputJson } : undefined,
+      metadata: item.metadata ? { ...item.metadata } : undefined,
+    })),
     approvals: state.approvals.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
     approvalDecisions: state.decisions.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
     artifacts: state.artifacts.map((item) => ({
@@ -300,6 +351,8 @@ export class WorkflowRuntimeService {
 
   private readonly compatExecutorClient: CompatExecutorClient;
 
+  private readonly externalBridgeClient: ExternalBridgeClient;
+
   private readonly now: () => number;
 
   private readonly uuid: () => string;
@@ -311,6 +364,7 @@ export class WorkflowRuntimeService {
   constructor(deps: RuntimeServiceDeps) {
     this.store = deps.store;
     this.compatExecutorClient = deps.compatExecutorClient;
+    this.externalBridgeClient = deps.externalBridgeClient;
     this.now = deps.now;
     this.uuid = deps.uuid;
     if (deps.databaseUrl) {
@@ -335,6 +389,7 @@ export class WorkflowRuntimeService {
     if (request.sourceType) runMetadata.sourceType = request.sourceType;
     if (request.sourceRef) runMetadata.sourceRef = request.sourceRef;
     if (request.runtimeMetadata) runMetadata.runtimeMetadata = request.runtimeMetadata;
+    if (request.externalRuntime) runMetadata.externalRuntime = request.externalRuntime;
     const run: WorkflowRunRecord = {
       runId: this.uuid(),
       workflowId: request.template.workflowId,
@@ -362,6 +417,8 @@ export class WorkflowRuntimeService {
       audienceSelectors: [],
       deliverySpecs: [],
       deliveryTargets: [],
+      bridgeInvokeSessions: [],
+      bridgeCallbackReceipts: [],
     });
 
     const events = await this.advanceToNode(
@@ -404,6 +461,146 @@ export class WorkflowRuntimeService {
       schemaVersion: 'v1',
       run: cloneSnapshot(state),
       events,
+    };
+  }
+
+  async cancelRun(request: WorkflowRuntimeCancelRunRequest): Promise<WorkflowCommandResponse> {
+    const state = await this.requireRunState(request.runId);
+    if (isWorkflowRunTerminal(state.run.status)) {
+      throw new RuntimeRequestError(409, 'RUN_ALREADY_TERMINAL', `workflow run is already terminal: ${request.runId}`);
+    }
+
+    const bridge = this.requireExternalRuntimeBridge(state);
+    const currentNode = state.nodeRuns.find((item) => item.nodeRunId === state.run.currentNodeRunId);
+    if (!currentNode) {
+      throw new RuntimeRequestError(409, 'RUN_CURRENT_NODE_MISSING', `workflow run missing current node: ${request.runId}`);
+    }
+    const bridgeSession = currentNode.nodeType === 'executor'
+      ? this.findBridgeInvokeSession(state, {
+          bridgeId: bridge.bridgeId,
+          nodeRunId: currentNode.nodeRunId,
+        })
+      : undefined;
+
+    if (currentNode.nodeType === 'executor') {
+      if (!bridgeSession) {
+        throw new RuntimeRequestError(409, 'BRIDGE_SESSION_NOT_FOUND', 'external-runtime run has no active bridge session');
+      }
+      if (isBridgeSessionTerminal(bridgeSession.status)) {
+        throw new RuntimeRequestError(409, 'BRIDGE_SESSION_TERMINAL', 'bridge session is already terminal');
+      }
+
+      try {
+        await this.externalBridgeClient.cancel(bridge, {
+          schemaVersion: 'v1',
+          traceId: request.traceId,
+          bridgeId: bridge.bridgeId,
+          bridgeSessionId: bridgeSession.bridgeSessionId,
+          runId: state.run.runId,
+          nodeRunId: bridgeSession.nodeRunId,
+          externalSessionRef: bridgeSession.externalSessionRef,
+          reason: request.reason,
+          metadata: {
+            cancelledBy: request.userId,
+          },
+        });
+      } catch (error) {
+        throw new RuntimeRequestError(
+          502,
+          'BRIDGE_CANCEL_FAILED',
+          error instanceof Error ? error.message : 'bridge cancel failed',
+        );
+      }
+    } else if (currentNode.nodeType !== 'approval_gate') {
+      throw new RuntimeRequestError(
+        409,
+        'RUN_CANCEL_UNSUPPORTED',
+        `external-runtime run cannot be cancelled from node type ${currentNode.nodeType}`,
+      );
+    }
+
+    const events = this.applyRunCancellation(state, currentNode, request.traceId, request.userId, request.reason, bridgeSession);
+    await this.persistState(state);
+    await this.enqueueFormalEvents(request.traceId, state, events);
+    return {
+      schemaVersion: 'v1',
+      run: cloneSnapshot(state),
+      events,
+    };
+  }
+
+  async handleBridgeCallback(
+    request: WorkflowRuntimeBridgeCallbackRequest,
+  ): Promise<WorkflowRuntimeBridgeCallbackResponse> {
+    const state = await this.requireRunState(request.runId);
+    const bridge = this.requireExternalRuntimeBridge(state);
+    if (bridge.bridgeId !== request.bridgeId) {
+      throw new RuntimeRequestError(409, 'BRIDGE_MISMATCH', 'callback bridgeId does not match the run external runtime');
+    }
+
+    const bridgeSession = this.findBridgeInvokeSession(state, {
+      bridgeId: request.bridgeId,
+      nodeRunId: request.nodeRunId,
+      externalSessionRef: request.externalSessionRef,
+    });
+    if (!bridgeSession) {
+      throw new RuntimeRequestError(404, 'BRIDGE_SESSION_NOT_FOUND', 'bridge session not found for callback');
+    }
+
+    const timestamp = this.now();
+    const duplicateReceipt = state.bridgeCallbackReceipts.find((item) => item.callbackId === request.callbackId);
+    if (duplicateReceipt) {
+      return {
+        schemaVersion: 'v1',
+        accepted: true,
+        duplicate: true,
+        receipt: { ...duplicateReceipt },
+      };
+    }
+
+    const receipt = this.createBridgeCallbackReceipt(state, {
+      callbackReceiptId: this.uuid(),
+      callbackId: request.callbackId,
+      bridgeSessionId: bridgeSession.bridgeSessionId,
+      sequence: request.sequence,
+      kind: request.kind,
+      status: 'accepted',
+      receivedAt: timestamp,
+    });
+
+    if (isBridgeSessionTerminal(bridgeSession.status)) {
+      receipt.status = 'rejected';
+      receipt.errorMessage = 'bridge session is already terminal';
+      await this.persistState(state);
+      throw new RuntimeRequestError(409, 'BRIDGE_SESSION_TERMINAL', receipt.errorMessage);
+    }
+
+    if (request.sequence !== bridgeSession.lastSequence + 1) {
+      receipt.status = 'rejected';
+      receipt.errorMessage = `callback sequence out of order: expected ${bridgeSession.lastSequence + 1}, got ${request.sequence}`;
+      await this.persistState(state);
+      throw new RuntimeRequestError(409, 'BRIDGE_CALLBACK_OUT_OF_ORDER', receipt.errorMessage);
+    }
+
+    const previousSequence = bridgeSession.lastSequence;
+    bridgeSession.lastSequence = request.sequence;
+    bridgeSession.updatedAt = timestamp;
+    let events: WorkflowFormalEvent[];
+    try {
+      events = await this.applyBridgeCallback(state, bridgeSession, request);
+    } catch (error) {
+      bridgeSession.lastSequence = previousSequence;
+      receipt.status = 'rejected';
+      receipt.errorMessage = error instanceof Error ? error.message : 'bridge callback rejected';
+      await this.persistState(state);
+      throw error;
+    }
+    await this.persistState(state);
+    await this.enqueueFormalEvents(request.traceId, state, events);
+    return {
+      schemaVersion: 'v1',
+      accepted: true,
+      receipt: { ...receipt },
     };
   }
 
@@ -495,25 +692,37 @@ export class WorkflowRuntimeService {
   ): Promise<WorkflowApprovalDecisionResponse> {
     const approval = await this.getApprovalRecord(approvalRequestId);
     if (!approval) {
-      throw new Error(`approval request not found: ${approvalRequestId}`);
+      throw new RuntimeRequestError(404, 'APPROVAL_NOT_FOUND', `approval request not found: ${approvalRequestId}`);
     }
     if (approval.status !== 'pending') {
-      throw new Error(`approval request is not pending: ${approvalRequestId}`);
+      throw new RuntimeRequestError(409, 'APPROVAL_NOT_PENDING', `approval request is not pending: ${approvalRequestId}`);
     }
 
     const state = await this.requireRunState(approval.runId);
     const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === approval.nodeRunId);
     if (!nodeRun) {
-      throw new Error(`approval node not found for request: ${approvalRequestId}`);
+      throw new RuntimeRequestError(409, 'APPROVAL_NODE_NOT_FOUND', `approval node not found for request: ${approvalRequestId}`);
     }
-    const events = await this.applyApprovalDecision(
-      state,
-      nodeRun,
-      request.traceId,
-      request.decision === 'approved',
-      request.userId,
-      request.comment,
-    );
+    const bridgeSession = this.findBridgeInvokeSession(state, {
+      nodeRunId: nodeRun.nodeRunId,
+    });
+    const events = this.getExternalRuntimeBridge(state) && nodeRun.nodeType === 'executor' && bridgeSession
+      ? await this.applyBridgeApprovalDecision(
+          state,
+          nodeRun,
+          request.traceId,
+          request.decision === 'approved',
+          request.userId,
+          request.comment,
+        )
+      : await this.applyApprovalDecision(
+          state,
+          nodeRun,
+          request.traceId,
+          request.decision === 'approved',
+          request.userId,
+          request.comment,
+        );
     await this.persistState(state);
     await this.enqueueFormalEvents(request.traceId, state, events);
 
@@ -554,7 +763,7 @@ export class WorkflowRuntimeService {
     if (existing) return existing;
     const loaded = await this.repository?.loadRunState(runId);
     if (!loaded) {
-      throw new Error(`workflow run not found: ${runId}`);
+      throw new RuntimeRequestError(404, 'RUN_NOT_FOUND', `workflow run not found: ${runId}`);
     }
     this.store.createRun(loaded);
     return loaded;
@@ -671,6 +880,23 @@ export class WorkflowRuntimeService {
       return events;
     }
 
+    const externalRuntime = this.getExternalRuntimeBridge(state);
+    if (externalRuntime) {
+      if (fromResume) {
+        return events;
+      }
+      const bridgeEvents = await this.invokeExternalBridge(
+        state,
+        nodeRun,
+        node,
+        traceId,
+        externalRuntime,
+        initialInput.text,
+        initialInput.payload,
+      );
+      return [...events, ...bridgeEvents];
+    }
+
     const compatEvents = fromResume
       ? []
       : await this.invokeExecutor(state, node, traceId, initialInput.text, initialInput.payload);
@@ -706,7 +932,7 @@ export class WorkflowRuntimeService {
   ): Promise<WorkflowFormalEvent[]> {
     const approval = state.approvals.find((item) => item.nodeRunId === nodeRun.nodeRunId && item.status === 'pending');
     if (!approval) {
-      throw new Error(`approval request not found for node ${nodeRun.nodeRunId}`);
+      throw new RuntimeRequestError(404, 'APPROVAL_NOT_FOUND', `approval request not found for node ${nodeRun.nodeRunId}`);
     }
 
     const decision: WorkflowApprovalDecisionRecord = {
@@ -783,11 +1009,485 @@ export class WorkflowRuntimeService {
     traceId: string,
     request: WorkflowRuntimeResumeRunRequest,
   ): Promise<WorkflowFormalEvent[]> {
+    if (this.getExternalRuntimeBridge(state)) {
+      nodeRun.attempt += 1;
+      return await this.resumeExternalBridgeNode(state, nodeRun, traceId, request);
+    }
     const node = findNode(state.version.spec, nodeRun.nodeKey);
     const compatEvents = await this.interactExecutor(state, nodeRun, node, traceId, request);
     nodeRun.attempt += 1;
     nodeRun.updatedAt = this.now();
     return this.consumeCompatEvents(state, nodeRun, traceId, compatEvents, new Set<string>([nodeRun.nodeKey]));
+  }
+
+  private getExternalRuntimeBridge(state: InternalRunState): ExternalRuntimeBridgeSnapshot | undefined {
+    return getExternalRuntimeSnapshot(state.run.metadata?.externalRuntime);
+  }
+
+  private requireExternalRuntimeBridge(state: InternalRunState): ExternalRuntimeBridgeSnapshot {
+    const bridge = this.getExternalRuntimeBridge(state);
+    if (!bridge) {
+      throw new RuntimeRequestError(409, 'RUN_CANCEL_UNSUPPORTED', 'run is not bound to an external runtime bridge');
+    }
+    return bridge;
+  }
+
+  private requireAgentId(state: InternalRunState): string {
+    const agentId = typeof state.run.metadata?.agentId === 'string'
+      ? state.run.metadata.agentId
+      : undefined;
+    if (!agentId) {
+      throw new RuntimeRequestError(409, 'AGENT_ID_REQUIRED', 'external-runtime run is missing agentId');
+    }
+    return agentId;
+  }
+
+  private findBridgeInvokeSession(
+    state: InternalRunState,
+    params: {
+      bridgeId?: string;
+      nodeRunId?: string;
+      externalSessionRef?: string;
+    },
+  ): BridgeInvokeSessionRecord | undefined {
+    return [...state.bridgeInvokeSessions]
+      .reverse()
+      .find((item) => (
+        (!params.bridgeId || item.bridgeId === params.bridgeId)
+        && (!params.nodeRunId || item.nodeRunId === params.nodeRunId)
+        && (!params.externalSessionRef || item.externalSessionRef === params.externalSessionRef)
+      ));
+  }
+
+  private createBridgeCallbackReceipt(
+    state: InternalRunState,
+    record: BridgeCallbackReceiptRecord,
+  ): BridgeCallbackReceiptRecord {
+    state.bridgeCallbackReceipts.push(record);
+    return record;
+  }
+
+  private applyRunCancellation(
+    state: InternalRunState,
+    currentNode: WorkflowNodeRunRecord,
+    traceId: string,
+    userId: string,
+    reason?: string,
+    bridgeSession?: BridgeInvokeSessionRecord,
+  ): WorkflowFormalEvent[] {
+    const timestamp = this.now();
+    if (bridgeSession) {
+      bridgeSession.status = 'cancelled';
+      bridgeSession.cancelledAt = timestamp;
+      bridgeSession.updatedAt = timestamp;
+    }
+    currentNode.status = 'cancelled';
+    currentNode.updatedAt = timestamp;
+    currentNode.metadata = {
+      ...(currentNode.metadata || {}),
+      cancelledBy: userId,
+      cancelReason: reason,
+    };
+    this.cancelPendingApprovals(state);
+    state.run.status = 'cancelled';
+    state.run.updatedAt = timestamp;
+    state.run.completedAt = timestamp;
+    return [
+      this.buildNodeStateEvent(traceId, state.run, currentNode, 'cancelled'),
+      this.buildRunStateEvent(traceId, state.run, 'cancelled'),
+    ];
+  }
+
+  private cancelPendingApprovals(state: InternalRunState, nodeRunId?: string): void {
+    const timestamp = this.now();
+    for (const approval of state.approvals) {
+      if (approval.status !== 'pending') continue;
+      if (nodeRunId && approval.nodeRunId !== nodeRunId) continue;
+      approval.status = 'cancelled';
+      approval.updatedAt = timestamp;
+    }
+  }
+
+  private async invokeExternalBridge(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+    bridge: ExternalRuntimeBridgeSnapshot,
+    inputText?: string,
+    inputPayload?: Record<string, unknown>,
+  ): Promise<WorkflowFormalEvent[]> {
+    const agentId = this.requireAgentId(state);
+    const timestamp = this.now();
+    try {
+      const response = await this.externalBridgeClient.invoke(bridge, {
+        schemaVersion: 'v1',
+        traceId,
+        bridgeId: bridge.bridgeId,
+        agentId,
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        workflowKey: state.run.workflowKey,
+        sessionId: state.run.sessionId,
+        userId: state.run.userId,
+        workspaceId: bridge.workspaceId,
+        capabilityRef: node.executorId,
+        inputText,
+        inputPayload,
+        context: this.buildWorkflowEnvelope(state, node),
+        callback: {
+          url: bridge.callbackUrl,
+        },
+        metadata: {
+          sourceType: typeof state.run.metadata?.sourceType === 'string' ? state.run.metadata.sourceType : undefined,
+          sourceRef: typeof state.run.metadata?.sourceRef === 'string' ? state.run.metadata.sourceRef : undefined,
+          runtimeMetadata: isRecord(state.run.metadata?.runtimeMetadata)
+            ? state.run.metadata.runtimeMetadata as Record<string, unknown>
+            : undefined,
+        },
+      });
+      const bridgeSession: BridgeInvokeSessionRecord = {
+        bridgeSessionId: this.uuid(),
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        bridgeId: bridge.bridgeId,
+        externalSessionRef: response.externalSessionRef,
+        status: 'running',
+        lastSequence: 0,
+        metadataJson: isRecord(response.metadata)
+          ? { ...response.metadata, capabilityRef: node.executorId }
+          : node.executorId
+            ? { capabilityRef: node.executorId }
+            : undefined,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      state.bridgeInvokeSessions.push(bridgeSession);
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        bridgeId: bridge.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        externalSessionRef: bridgeSession.externalSessionRef,
+      };
+      nodeRun.updatedAt = timestamp;
+      return [];
+    } catch (error) {
+      nodeRun.status = 'failed';
+      nodeRun.updatedAt = timestamp;
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        bridgeError: serializeError(error),
+      };
+      state.run.status = 'failed';
+      state.run.updatedAt = timestamp;
+      return [
+        this.buildNodeStateEvent(traceId, state.run, nodeRun, 'failed'),
+        this.buildRunStateEvent(traceId, state.run, 'failed'),
+      ];
+    }
+  }
+
+  private async resumeExternalBridgeNode(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    traceId: string,
+    request: WorkflowRuntimeResumeRunRequest,
+  ): Promise<WorkflowFormalEvent[]> {
+    const decision = deriveBridgeDecision(request.actionId);
+    if (!decision) {
+      throw new RuntimeRequestError(409, 'BRIDGE_RESUME_ACTION_INVALID', 'external bridge resume requires approve/reject action');
+    }
+    return await this.applyBridgeApprovalDecision(
+      state,
+      nodeRun,
+      traceId,
+      decision === 'approved',
+      request.userId,
+    );
+  }
+
+  private async applyBridgeApprovalDecision(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    traceId: string,
+    approved: boolean,
+    decidedActorId: string,
+    comment?: string,
+  ): Promise<WorkflowFormalEvent[]> {
+    const approval = state.approvals.find((item) => item.nodeRunId === nodeRun.nodeRunId && item.status === 'pending');
+    if (!approval) {
+      throw new RuntimeRequestError(404, 'APPROVAL_NOT_FOUND', `approval request not found for node ${nodeRun.nodeRunId}`);
+    }
+    const bridge = this.requireExternalRuntimeBridge(state);
+    const bridgeSession = this.findBridgeInvokeSession(state, {
+      bridgeId: bridge.bridgeId,
+      nodeRunId: nodeRun.nodeRunId,
+    });
+    if (!bridgeSession) {
+      throw new RuntimeRequestError(409, 'BRIDGE_SESSION_NOT_FOUND', 'approval node is missing bridge session');
+    }
+    if (bridgeSession.status !== 'waiting_approval') {
+      throw new RuntimeRequestError(409, 'BRIDGE_SESSION_NOT_WAITING_APPROVAL', 'bridge session is not waiting approval');
+    }
+
+    try {
+      const response = await this.externalBridgeClient.resume(bridge, {
+        schemaVersion: 'v1',
+        traceId,
+        bridgeId: bridge.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        agentId: this.requireAgentId(state),
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        externalSessionRef: bridgeSession.externalSessionRef,
+        sessionId: state.run.sessionId,
+        userId: state.run.userId,
+        workspaceId: bridge.workspaceId,
+        resumeToken: bridgeSession.resumeToken,
+        payload: {
+          approvalRequestId: approval.approvalRequestId,
+        },
+        decision: approved ? 'approved' : 'rejected',
+        comment,
+        callback: {
+          url: bridge.callbackUrl,
+        },
+        metadata: {
+          decidedActorId,
+          comment,
+        },
+      });
+      bridgeSession.externalSessionRef = response.externalSessionRef;
+    } catch (error) {
+      throw new RuntimeRequestError(
+        502,
+        'BRIDGE_RESUME_FAILED',
+        error instanceof Error ? error.message : 'bridge resume failed',
+      );
+    }
+
+    const timestamp = this.now();
+    const decision: WorkflowApprovalDecisionRecord = {
+      approvalDecisionId: this.uuid(),
+      approvalRequestId: approval.approvalRequestId,
+      decision: approved ? 'approved' : 'rejected',
+      decidedActorId,
+      comment,
+      payloadJson: {
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        externalSessionRef: bridgeSession.externalSessionRef,
+      },
+      createdAt: timestamp,
+    };
+    state.decisions.push(decision);
+    approval.status = decision.decision;
+    approval.updatedAt = timestamp;
+    bridgeSession.status = 'running';
+    bridgeSession.resumeToken = undefined;
+    bridgeSession.updatedAt = timestamp;
+    nodeRun.status = 'running';
+    nodeRun.updatedAt = timestamp;
+    state.run.status = 'running';
+    state.run.updatedAt = timestamp;
+
+    return [
+      {
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId,
+        runId: state.run.runId,
+        compatProviderId: state.run.compatProviderId,
+        timestampMs: timestamp,
+        kind: 'approval_decided',
+        payload: {
+          approvalRequestId: approval.approvalRequestId,
+          decision: decision.decision,
+        },
+      },
+      this.buildNodeStateEvent(traceId, state.run, nodeRun, 'running'),
+      this.buildRunStateEvent(traceId, state.run, 'running'),
+    ];
+  }
+
+  private async applyBridgeCallback(
+    state: InternalRunState,
+    bridgeSession: BridgeInvokeSessionRecord,
+    request: WorkflowRuntimeBridgeCallbackRequest,
+  ): Promise<WorkflowFormalEvent[]> {
+    const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === bridgeSession.nodeRunId);
+    if (!nodeRun) {
+      throw new RuntimeRequestError(409, 'NODE_RUN_NOT_FOUND', 'bridge callback node run not found');
+    }
+    const node = findNode(state.version.spec, nodeRun.nodeKey);
+    const payload = isRecord(request.payload) ? request.payload : {};
+    const timestamp = this.now();
+
+    if (request.kind === 'checkpoint') {
+      bridgeSession.metadataJson = {
+        ...(bridgeSession.metadataJson || {}),
+        lastCheckpoint: payload,
+        lastCheckpointAt: request.emittedAt,
+      };
+      bridgeSession.updatedAt = timestamp;
+      return [{
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId: request.traceId,
+        runId: state.run.runId,
+        compatProviderId: state.run.compatProviderId,
+        timestampMs: timestamp,
+        kind: 'checkpoint',
+        payload: {
+          nodeRunId: nodeRun.nodeRunId,
+          nodeKey: nodeRun.nodeKey,
+          sequence: request.sequence,
+          externalSessionRef: bridgeSession.externalSessionRef,
+          metadata: payload,
+        },
+      }];
+    }
+
+    if (request.kind === 'approval_requested') {
+      const existingApproval = state.approvals.find((item) => item.nodeRunId === nodeRun.nodeRunId && item.status === 'pending');
+      if (existingApproval) {
+        throw new RuntimeRequestError(409, 'APPROVAL_ALREADY_PENDING', 'bridge node already has a pending approval');
+      }
+      const approval: WorkflowApprovalRequestRecord = {
+        approvalRequestId: this.uuid(),
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        artifactId: typeof payload.artifactId === 'string' ? payload.artifactId : undefined,
+        status: 'pending',
+        requestedActorId: typeof payload.requestedActorId === 'string' ? payload.requestedActorId : state.run.userId,
+        payloadJson: {
+          ...(Array.isArray(payload.artifactIds) ? { artifactIds: payload.artifactIds.map((item) => String(item)) } : {}),
+          ...(Array.isArray(payload.artifactTypes) ? { artifactTypes: payload.artifactTypes.map((item) => String(item)) } : {}),
+          ...(typeof payload.resumeToken === 'string' ? { resumeToken: payload.resumeToken } : {}),
+          ...(typeof payload.prompt === 'string' ? { prompt: payload.prompt } : {}),
+          bridgeSessionId: bridgeSession.bridgeSessionId,
+          externalSessionRef: bridgeSession.externalSessionRef,
+          ...(isRecord(payload.metadata) ? { metadata: payload.metadata } : {}),
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      state.approvals.push(approval);
+      bridgeSession.status = 'waiting_approval';
+      bridgeSession.resumeToken = typeof payload.resumeToken === 'string' ? payload.resumeToken : undefined;
+      bridgeSession.updatedAt = timestamp;
+      nodeRun.status = 'waiting_approval';
+      nodeRun.updatedAt = timestamp;
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        externalSessionRef: bridgeSession.externalSessionRef,
+      };
+      state.run.status = 'waiting_approval';
+      state.run.updatedAt = timestamp;
+      return [
+        this.buildNodeStateEvent(request.traceId, state.run, nodeRun, 'waiting_approval'),
+        this.buildRunStateEvent(request.traceId, state.run, 'waiting_approval'),
+        {
+          schemaVersion: 'v1',
+          eventId: this.uuid(),
+          traceId: request.traceId,
+          runId: state.run.runId,
+          compatProviderId: state.run.compatProviderId,
+          timestampMs: timestamp,
+          kind: 'approval_requested',
+          payload: {
+            approvalRequestId: approval.approvalRequestId,
+            nodeRunId: nodeRun.nodeRunId,
+            taskId: approval.approvalRequestId,
+            prompt: typeof payload.prompt === 'string' ? payload.prompt : '等待 bridge 审批后继续执行。',
+          },
+        },
+      ];
+    }
+
+    if (request.kind === 'result') {
+      bridgeSession.status = 'completed';
+      bridgeSession.resumeToken = undefined;
+      bridgeSession.updatedAt = timestamp;
+      bridgeSession.metadataJson = {
+        ...(bridgeSession.metadataJson || {}),
+        completedAt: request.emittedAt,
+      };
+      nodeRun.status = 'completed';
+      nodeRun.updatedAt = timestamp;
+      this.cancelPendingApprovals(state, nodeRun.nodeRunId);
+      const completionMetadata = normalizeCompatCompletionMetadata(payload);
+      const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
+      this.applyCompatCompanionMetadata(state, completionMetadata);
+      if (createdArtifacts.length === 0) {
+        createdArtifacts.push(this.createArtifact(
+          state,
+          nodeRun,
+          'executor_result',
+          'validated',
+          {
+            externalSessionRef: bridgeSession.externalSessionRef,
+            result: payload,
+          },
+        ));
+      }
+
+      const events: WorkflowFormalEvent[] = [
+        this.buildNodeStateEvent(request.traceId, state.run, nodeRun, 'completed'),
+      ];
+      for (const artifact of createdArtifacts) {
+        events.push({
+          schemaVersion: 'v1',
+          eventId: this.uuid(),
+          traceId: request.traceId,
+          runId: state.run.runId,
+          compatProviderId: state.run.compatProviderId,
+          timestampMs: timestamp,
+          kind: 'artifact_created',
+          payload: {
+            artifactId: artifact.artifactId,
+            artifactType: artifact.artifactType,
+            state: artifact.state,
+          },
+        });
+      }
+      if (node.transitions?.success) {
+        const tail = await this.advanceToNode(
+          state,
+          node.transitions.success,
+          request.traceId,
+          {},
+          new Set<string>([nodeRun.nodeKey]),
+          false,
+        );
+        return [...events, ...tail];
+      }
+      state.run.status = 'completed';
+      state.run.updatedAt = timestamp;
+      state.run.completedAt = timestamp;
+      events.push(this.buildRunStateEvent(request.traceId, state.run, 'completed'));
+      return events;
+    }
+
+    bridgeSession.status = 'failed';
+    bridgeSession.updatedAt = timestamp;
+    bridgeSession.metadataJson = {
+      ...(bridgeSession.metadataJson || {}),
+      lastError: payload,
+    };
+    nodeRun.status = 'failed';
+    nodeRun.updatedAt = timestamp;
+    nodeRun.metadata = {
+      ...(nodeRun.metadata || {}),
+      bridgeError: payload,
+    };
+    this.cancelPendingApprovals(state, nodeRun.nodeRunId);
+    state.run.status = 'failed';
+    state.run.updatedAt = timestamp;
+    return [
+      this.buildNodeStateEvent(request.traceId, state.run, nodeRun, 'failed'),
+      this.buildRunStateEvent(request.traceId, state.run, 'failed'),
+    ];
   }
 
   private async invokeExecutor(
