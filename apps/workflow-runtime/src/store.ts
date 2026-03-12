@@ -4,6 +4,8 @@ import type {
   AudienceSelectorRecord,
   BridgeCallbackReceiptRecord,
   BridgeInvokeSessionRecord,
+  ConnectorActionSessionRecord,
+  ConnectorEventReceiptRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
   WorkflowApprovalDecisionRecord,
@@ -31,6 +33,8 @@ export type InternalRunState = {
   deliveryTargets: DeliveryTargetRecord[];
   bridgeInvokeSessions: BridgeInvokeSessionRecord[];
   bridgeCallbackReceipts: BridgeCallbackReceiptRecord[];
+  connectorActionSessions: ConnectorActionSessionRecord[];
+  connectorEventReceipts: ConnectorEventReceiptRecord[];
 };
 
 export class RuntimeStore {

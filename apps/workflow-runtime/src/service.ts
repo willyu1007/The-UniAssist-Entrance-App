@@ -6,6 +6,7 @@ import type {
   UserInteraction,
   UnifiedUserInput,
 } from '@baseinterface/contracts';
+import type { ConnectorRuntimeClient } from '@baseinterface/connector-sdk';
 import type { CompatExecutorClient, ExternalBridgeClient } from '@baseinterface/executor-sdk';
 import type {
   ActorMembershipRecord,
@@ -13,6 +14,9 @@ import type {
   AudienceSelectorRecord,
   BridgeCallbackReceiptRecord,
   BridgeInvokeSessionRecord,
+  ConnectorActionExecutionSnapshot,
+  ConnectorActionSessionRecord,
+  ConnectorEventReceiptRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
   ExternalRuntimeBridgeSnapshot,
@@ -42,6 +46,9 @@ import type {
   WorkflowRuntimeBridgeCallbackRequest,
   WorkflowRuntimeBridgeCallbackResponse,
   WorkflowRuntimeCancelRunRequest,
+  WorkflowRuntimeConnectorActionSessionLookupResponse,
+  WorkflowRuntimeConnectorCallbackRequest,
+  WorkflowRuntimeConnectorCallbackResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowTemplateSpec,
@@ -54,6 +61,7 @@ import type { InternalRunState, RuntimeStore } from './store';
 type RuntimeServiceDeps = {
   store: RuntimeStore;
   compatExecutorClient: CompatExecutorClient;
+  connectorRuntimeClient: ConnectorRuntimeClient;
   externalBridgeClient: ExternalBridgeClient;
   databaseUrl?: string;
   now: () => number;
@@ -346,10 +354,32 @@ function normalizeCompatCompletionMetadata(value: unknown): WorkflowCompatComple
   };
 }
 
+function getConnectorActionSnapshots(value: unknown): Record<string, ConnectorActionExecutionSnapshot> {
+  if (!isRecord(value)) {
+    return {};
+  }
+  return Object.fromEntries(
+    Object.entries(value).filter(([, entry]) => (
+      isRecord(entry)
+      && typeof entry.actionRef === 'string'
+      && typeof entry.actionBindingId === 'string'
+      && typeof entry.connectorBindingId === 'string'
+      && typeof entry.connectorKey === 'string'
+      && typeof entry.capabilityId === 'string'
+      && typeof entry.sideEffectClass === 'string'
+      && typeof entry.executionMode === 'string'
+      && typeof entry.browserFallbackMode === 'string'
+      && isRecord(entry.configJson)
+    )),
+  ) as Record<string, ConnectorActionExecutionSnapshot>;
+}
+
 export class WorkflowRuntimeService {
   private readonly store: RuntimeStore;
 
   private readonly compatExecutorClient: CompatExecutorClient;
+
+  private readonly connectorRuntimeClient: ConnectorRuntimeClient;
 
   private readonly externalBridgeClient: ExternalBridgeClient;
 
@@ -364,6 +394,7 @@ export class WorkflowRuntimeService {
   constructor(deps: RuntimeServiceDeps) {
     this.store = deps.store;
     this.compatExecutorClient = deps.compatExecutorClient;
+    this.connectorRuntimeClient = deps.connectorRuntimeClient;
     this.externalBridgeClient = deps.externalBridgeClient;
     this.now = deps.now;
     this.uuid = deps.uuid;
@@ -389,6 +420,7 @@ export class WorkflowRuntimeService {
     if (request.sourceType) runMetadata.sourceType = request.sourceType;
     if (request.sourceRef) runMetadata.sourceRef = request.sourceRef;
     if (request.runtimeMetadata) runMetadata.runtimeMetadata = request.runtimeMetadata;
+    if (request.connectorActions) runMetadata.connectorActions = request.connectorActions;
     if (request.externalRuntime) runMetadata.externalRuntime = request.externalRuntime;
     const run: WorkflowRunRecord = {
       runId: this.uuid(),
@@ -419,6 +451,8 @@ export class WorkflowRuntimeService {
       deliveryTargets: [],
       bridgeInvokeSessions: [],
       bridgeCallbackReceipts: [],
+      connectorActionSessions: [],
+      connectorEventReceipts: [],
     });
 
     const events = await this.advanceToNode(
@@ -604,6 +638,149 @@ export class WorkflowRuntimeService {
     };
   }
 
+  async handleConnectorCallback(
+    request: WorkflowRuntimeConnectorCallbackRequest,
+  ): Promise<WorkflowRuntimeConnectorCallbackResponse> {
+    const state = await this.requireRunState(request.runId);
+    const session = this.findConnectorActionSession(state, {
+      connectorActionSessionId: request.connectorActionSessionId,
+      nodeRunId: request.nodeRunId,
+      externalSessionRef: request.externalSessionRef,
+    });
+    if (!session) {
+      throw new RuntimeRequestError(404, 'CONNECTOR_ACTION_SESSION_NOT_FOUND', 'connector action session not found for callback');
+    }
+
+    const duplicateReceipt = state.connectorEventReceipts.find((item) => item.receiptKey === request.callbackId);
+    if (duplicateReceipt) {
+      return {
+        schemaVersion: 'v1',
+        accepted: true,
+        duplicate: true,
+        receipt: { ...duplicateReceipt },
+      };
+    }
+
+    const timestamp = this.now();
+    const receipt: ConnectorEventReceiptRecord = {
+      connectorEventReceiptId: this.uuid(),
+      receiptKey: request.callbackId,
+      sourceKind: 'action_callback',
+      connectorActionSessionId: session.connectorActionSessionId,
+      sequence: request.sequence,
+      eventType: request.kind,
+      status: 'accepted',
+      receivedAt: timestamp,
+    };
+    state.connectorEventReceipts.push(receipt);
+
+    if (session.status === 'completed' || session.status === 'failed' || session.status === 'cancelled') {
+      receipt.status = 'rejected';
+      receipt.errorMessage = 'connector action session is already terminal';
+      await this.persistState(state);
+      throw new RuntimeRequestError(409, 'CONNECTOR_ACTION_SESSION_TERMINAL', receipt.errorMessage);
+    }
+
+    if (request.sequence !== session.lastSequence + 1) {
+      receipt.status = 'rejected';
+      receipt.errorMessage = `callback sequence out of order: expected ${session.lastSequence + 1}, got ${request.sequence}`;
+      await this.persistState(state);
+      throw new RuntimeRequestError(409, 'CONNECTOR_CALLBACK_OUT_OF_ORDER', receipt.errorMessage);
+    }
+
+    const previousSequence = session.lastSequence;
+    session.lastSequence = request.sequence;
+    session.updatedAt = timestamp;
+
+    try {
+      if (request.kind === 'checkpoint') {
+        session.metadataJson = {
+          ...(session.metadataJson || {}),
+          lastCheckpoint: request.payload,
+          lastCheckpointAt: request.emittedAt,
+        };
+      } else if (request.kind === 'result') {
+        const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === session.nodeRunId);
+        if (!nodeRun) {
+          throw new RuntimeRequestError(409, 'NODE_RUN_NOT_FOUND', 'connector callback node run not found');
+        }
+        const node = findNode(state.version.spec, nodeRun.nodeKey);
+        session.status = 'completed';
+        session.updatedAt = timestamp;
+        const events = await this.applyConnectorResult(
+          state,
+          nodeRun,
+          node,
+          request.traceId,
+          session.externalSessionRef,
+          isRecord(request.payload) ? request.payload : undefined,
+        );
+        await this.persistState(state);
+        await this.enqueueFormalEvents(request.traceId, state, events);
+      } else {
+        const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === session.nodeRunId);
+        if (!nodeRun) {
+          throw new RuntimeRequestError(409, 'NODE_RUN_NOT_FOUND', 'connector callback node run not found');
+        }
+        session.status = 'failed';
+        session.updatedAt = timestamp;
+        session.metadataJson = {
+          ...(session.metadataJson || {}),
+          lastError: request.payload,
+        };
+        nodeRun.status = 'failed';
+        nodeRun.updatedAt = timestamp;
+        nodeRun.metadata = {
+          ...(nodeRun.metadata || {}),
+          connectorError: request.payload,
+        };
+        this.cancelPendingApprovals(state, nodeRun.nodeRunId);
+        state.run.status = 'failed';
+        state.run.updatedAt = timestamp;
+        const events = [
+          this.buildNodeStateEvent(request.traceId, state.run, nodeRun, 'failed'),
+          this.buildRunStateEvent(request.traceId, state.run, 'failed'),
+        ];
+        await this.persistState(state);
+        await this.enqueueFormalEvents(request.traceId, state, events);
+      }
+    } catch (error) {
+      session.lastSequence = previousSequence;
+      receipt.status = 'rejected';
+      receipt.errorMessage = error instanceof Error ? error.message : 'connector callback rejected';
+      await this.persistState(state);
+      throw error;
+    }
+
+    await this.persistState(state);
+    return {
+      schemaVersion: 'v1',
+      accepted: true,
+      receipt: { ...receipt },
+    };
+  }
+
+  async getConnectorActionSessionByPublicCallbackKey(
+    publicCallbackKey: string,
+  ): Promise<WorkflowRuntimeConnectorActionSessionLookupResponse> {
+    const resolved = await this.resolveConnectorActionSessionByPublicCallbackKey(publicCallbackKey);
+    if (!resolved) {
+      throw new RuntimeRequestError(404, 'CONNECTOR_ACTION_SESSION_NOT_FOUND', 'connector action session not found');
+    }
+    return {
+      schemaVersion: 'v1',
+      session: {
+        connectorActionSessionId: resolved.session.connectorActionSessionId,
+        publicCallbackKey: resolved.session.publicCallbackKey,
+        runId: resolved.session.runId,
+        nodeRunId: resolved.session.nodeRunId,
+        externalSessionRef: resolved.session.externalSessionRef,
+        connectorKey: resolved.action.connectorKey,
+        action: resolved.action,
+      },
+    };
+  }
+
   async listRunSummaries(limit = 25): Promise<WorkflowRunListResponse> {
     const states = this.repository
       ? await this.repository.listRunStates(limit)
@@ -777,7 +954,21 @@ export class WorkflowRuntimeService {
     return await this.repository?.getApproval(approvalRequestId);
   }
 
+  private syncConnectorRuntimeMetadata(state: InternalRunState): void {
+    state.run.metadata = {
+      ...(state.run.metadata || {}),
+      connectorRuntime: {
+        actionSessions: state.connectorActionSessions.map((item) => ({
+          ...item,
+          metadataJson: item.metadataJson ? { ...item.metadataJson } : undefined,
+        })),
+        eventReceipts: state.connectorEventReceipts.map((item) => ({ ...item })),
+      },
+    };
+  }
+
   private async persistState(state: InternalRunState): Promise<void> {
+    this.syncConnectorRuntimeMetadata(state);
     this.store.saveRun(state);
     await this.repository?.saveState(state);
   }
@@ -802,6 +993,92 @@ export class WorkflowRuntimeService {
         state: artifact.state,
       })),
     };
+  }
+
+  private isConnectorExecutor(node: WorkflowNodeSpec): boolean {
+    return node.nodeType === 'executor' && node.executorId === 'connector-runtime';
+  }
+
+  private getConnectorActionSnapshot(
+    state: InternalRunState,
+    node: WorkflowNodeSpec,
+  ): ConnectorActionExecutionSnapshot {
+    const actionRef = isRecord(node.config) && typeof node.config.actionRef === 'string'
+      ? node.config.actionRef
+      : undefined;
+    if (!actionRef) {
+      throw new RuntimeRequestError(409, 'CONNECTOR_ACTION_REF_REQUIRED', 'connector executor node requires config.actionRef');
+    }
+    const snapshots = getConnectorActionSnapshots(state.run.metadata?.connectorActions);
+    const action = snapshots[actionRef];
+    if (!action) {
+      throw new RuntimeRequestError(409, 'CONNECTOR_ACTION_NOT_BOUND', `connector action binding not found for actionRef ${actionRef}`);
+    }
+    return action;
+  }
+
+  private findConnectorActionSession(
+    state: InternalRunState,
+    params: {
+      connectorActionSessionId?: string;
+      nodeRunId?: string;
+      externalSessionRef?: string;
+    },
+  ): ConnectorActionSessionRecord | undefined {
+    return [...state.connectorActionSessions]
+      .reverse()
+      .find((item) => (
+        (!params.connectorActionSessionId || item.connectorActionSessionId === params.connectorActionSessionId)
+        && (!params.nodeRunId || item.nodeRunId === params.nodeRunId)
+        && (!params.externalSessionRef || item.externalSessionRef === params.externalSessionRef)
+      ));
+  }
+
+  private findConnectorActionForSession(
+    state: InternalRunState,
+    session: ConnectorActionSessionRecord,
+  ): ConnectorActionExecutionSnapshot | undefined {
+    return Object.values(getConnectorActionSnapshots(state.run.metadata?.connectorActions))
+      .find((item) => item.actionBindingId === session.actionBindingId);
+  }
+
+  private resolveConnectorActionSessionFromState(
+    state: InternalRunState,
+    publicCallbackKey: string,
+  ): { state: InternalRunState; session: ConnectorActionSessionRecord; action: ConnectorActionExecutionSnapshot } | undefined {
+    const session = state.connectorActionSessions.find((item) => item.publicCallbackKey === publicCallbackKey);
+    if (!session) {
+      return undefined;
+    }
+    const action = this.findConnectorActionForSession(state, session);
+    if (!action) {
+      throw new RuntimeRequestError(
+        409,
+        'CONNECTOR_ACTION_NOT_BOUND',
+        `connector action binding snapshot not found for session ${session.connectorActionSessionId}`,
+      );
+    }
+    return { state, session, action };
+  }
+
+  private async resolveConnectorActionSessionByPublicCallbackKey(
+    publicCallbackKey: string,
+  ): Promise<{ state: InternalRunState; session: ConnectorActionSessionRecord; action: ConnectorActionExecutionSnapshot } | undefined> {
+    for (const state of this.store.listRuns()) {
+      const resolved = this.resolveConnectorActionSessionFromState(state, publicCallbackKey);
+      if (resolved) {
+        return resolved;
+      }
+    }
+    if (!this.repository) {
+      return undefined;
+    }
+    const persisted = await this.repository.findRunStateByConnectorPublicCallbackKey(publicCallbackKey);
+    if (!persisted) {
+      return undefined;
+    }
+    this.store.createRun(persisted);
+    return this.resolveConnectorActionSessionFromState(persisted, publicCallbackKey);
   }
 
   private async advanceToNode(
@@ -878,6 +1155,21 @@ export class WorkflowRuntimeService {
         },
       });
       return events;
+    }
+
+    if (this.isConnectorExecutor(node)) {
+      if (fromResume) {
+        return events;
+      }
+      const connectorEvents = await this.invokeConnectorRuntime(
+        state,
+        nodeRun,
+        node,
+        traceId,
+        initialInput.text,
+        initialInput.payload,
+      );
+      return [...events, ...connectorEvents];
     }
 
     const externalRuntime = this.getExternalRuntimeBridge(state);
@@ -1009,11 +1301,18 @@ export class WorkflowRuntimeService {
     traceId: string,
     request: WorkflowRuntimeResumeRunRequest,
   ): Promise<WorkflowFormalEvent[]> {
+    const node = findNode(state.version.spec, nodeRun.nodeKey);
+    if (this.isConnectorExecutor(node)) {
+      throw new RuntimeRequestError(
+        409,
+        'CONNECTOR_RESUME_UNSUPPORTED',
+        'connector executor nodes are resumed by connector callbacks, not user-driven resume',
+      );
+    }
     if (this.getExternalRuntimeBridge(state)) {
       nodeRun.attempt += 1;
       return await this.resumeExternalBridgeNode(state, nodeRun, traceId, request);
     }
-    const node = findNode(state.version.spec, nodeRun.nodeKey);
     const compatEvents = await this.interactExecutor(state, nodeRun, node, traceId, request);
     nodeRun.attempt += 1;
     nodeRun.updatedAt = this.now();
@@ -1105,6 +1404,104 @@ export class WorkflowRuntimeService {
       if (nodeRunId && approval.nodeRunId !== nodeRunId) continue;
       approval.status = 'cancelled';
       approval.updatedAt = timestamp;
+    }
+  }
+
+  private async invokeConnectorRuntime(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+    inputText?: string,
+    inputPayload?: Record<string, unknown>,
+  ): Promise<WorkflowFormalEvent[]> {
+    const action = this.getConnectorActionSnapshot(state, node);
+    const workspaceId = typeof state.run.metadata?.runtimeMetadata === 'object'
+      && state.run.metadata?.runtimeMetadata
+      && typeof (state.run.metadata.runtimeMetadata as Record<string, unknown>).workspaceId === 'string'
+        ? String((state.run.metadata.runtimeMetadata as Record<string, unknown>).workspaceId)
+        : 'workspace';
+    const payload = {
+      ...(inputPayload || {}),
+      ...(inputText ? { text: inputText } : {}),
+      __workflow: this.buildWorkflowEnvelope(state, node),
+    };
+    const timestamp = this.now();
+
+    try {
+      const response = await this.connectorRuntimeClient.invoke({
+        schemaVersion: 'v1',
+        traceId,
+        workspaceId,
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        sessionId: state.run.sessionId,
+        userId: state.run.userId,
+        action,
+        inputPayload: payload,
+        callback: {
+          url: '/internal/runtime/connector-callback',
+        },
+        metadata: {
+          sourceType: typeof state.run.metadata?.sourceType === 'string' ? state.run.metadata.sourceType : undefined,
+          sourceRef: typeof state.run.metadata?.sourceRef === 'string' ? state.run.metadata.sourceRef : undefined,
+          runtimeMetadata: isRecord(state.run.metadata?.runtimeMetadata)
+            ? state.run.metadata.runtimeMetadata as Record<string, unknown>
+            : undefined,
+        },
+      });
+
+      if (response.status === 'completed') {
+        return await this.applyConnectorResult(
+          state,
+          nodeRun,
+          node,
+          traceId,
+          response.externalSessionRef,
+          response.completion,
+        );
+      }
+
+      const connectorActionSessionId = isRecord(response.metadata) && typeof response.metadata.connectorActionSessionId === 'string'
+        ? response.metadata.connectorActionSessionId
+        : this.uuid();
+      const session: ConnectorActionSessionRecord = {
+        connectorActionSessionId,
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        actionBindingId: action.actionBindingId,
+        connectorBindingId: action.connectorBindingId,
+        capabilityId: action.capabilityId,
+        externalSessionRef: response.externalSessionRef,
+        publicCallbackKey: response.publicCallbackKey,
+        status: 'waiting_callback',
+        lastSequence: 0,
+        metadataJson: isRecord(response.metadata) ? response.metadata : undefined,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      state.connectorActionSessions.push(session);
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        connectorActionSessionId: session.connectorActionSessionId,
+        publicCallbackKey: response.publicCallbackKey,
+        externalSessionRef: response.externalSessionRef,
+      };
+      nodeRun.updatedAt = timestamp;
+      return [];
+    } catch (error) {
+      nodeRun.status = 'failed';
+      nodeRun.updatedAt = timestamp;
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        connectorError: serializeError(error),
+      };
+      state.run.status = 'failed';
+      state.run.updatedAt = timestamp;
+      return [
+        this.buildNodeStateEvent(traceId, state.run, nodeRun, 'failed'),
+        this.buildRunStateEvent(traceId, state.run, 'failed'),
+      ];
     }
   }
 
@@ -1307,6 +1704,71 @@ export class WorkflowRuntimeService {
       this.buildNodeStateEvent(traceId, state.run, nodeRun, 'running'),
       this.buildRunStateEvent(traceId, state.run, 'running'),
     ];
+  }
+
+  private async applyConnectorResult(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+    externalSessionRef: string,
+    completion: WorkflowCompatCompletionMetadata | undefined,
+  ): Promise<WorkflowFormalEvent[]> {
+    const timestamp = this.now();
+    nodeRun.status = 'completed';
+    nodeRun.updatedAt = timestamp;
+    this.cancelPendingApprovals(state, nodeRun.nodeRunId);
+    const completionMetadata = normalizeCompatCompletionMetadata(completion);
+    const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
+    this.applyCompatCompanionMetadata(state, completionMetadata);
+    if (createdArtifacts.length === 0) {
+      createdArtifacts.push(this.createArtifact(
+        state,
+        nodeRun,
+        'ActionReceipt',
+        'validated',
+        {
+          externalSessionRef,
+          nodeKey: nodeRun.nodeKey,
+        },
+      ));
+    }
+
+    const events: WorkflowFormalEvent[] = [
+      this.buildNodeStateEvent(traceId, state.run, nodeRun, 'completed'),
+    ];
+    for (const artifact of createdArtifacts) {
+      events.push({
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId,
+        runId: state.run.runId,
+        compatProviderId: state.run.compatProviderId,
+        timestampMs: timestamp,
+        kind: 'artifact_created',
+        payload: {
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          state: artifact.state,
+        },
+      });
+    }
+    if (node.transitions?.success) {
+      const tail = await this.advanceToNode(
+        state,
+        node.transitions.success,
+        traceId,
+        {},
+        new Set<string>([nodeRun.nodeKey]),
+        false,
+      );
+      return [...events, ...tail];
+    }
+    state.run.status = 'completed';
+    state.run.updatedAt = timestamp;
+    state.run.completedAt = timestamp;
+    events.push(this.buildRunStateEvent(traceId, state.run, 'completed'));
+    return events;
   }
 
   private async applyBridgeCallback(

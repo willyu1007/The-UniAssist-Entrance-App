@@ -2,6 +2,7 @@ import type { Request, Response } from 'express';
 import express from 'express';
 
 import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@baseinterface/shared';
+import { createConnectorRuntimeClient } from '@baseinterface/connector-sdk';
 import { createCompatExecutorClient, createExternalBridgeClient } from '@baseinterface/executor-sdk';
 import type {
   WorkflowApprovalDecisionRequest,
@@ -14,10 +15,16 @@ import type {
   WorkflowRuntimeBridgeCallbackRequest,
   WorkflowRuntimeBridgeCallbackResponse,
   WorkflowRuntimeCancelRunRequest,
+  WorkflowRuntimeConnectorActionSessionLookupResponse,
+  WorkflowRuntimeConnectorCallbackRequest,
+  WorkflowRuntimeConnectorCallbackResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
 import {
+  CONNECTOR_RUNTIME_ALLOWED_SUBJECTS,
+  CONNECTOR_RUNTIME_BASE_URL,
+  CONNECTOR_RUNTIME_SERVICE_ID,
   DATABASE_URL,
   EXECUTOR_REGISTRY,
   EXTERNAL_BRIDGE_ALLOWED_SUBJECTS,
@@ -59,6 +66,11 @@ const runtimeService = createWorkflowRuntimeService({
   compatExecutorClient: createCompatExecutorClient({
     internalAuthConfig: INTERNAL_AUTH_CONFIG,
     executorRegistry: EXECUTOR_REGISTRY,
+  }),
+  connectorRuntimeClient: createConnectorRuntimeClient({
+    baseUrl: CONNECTOR_RUNTIME_BASE_URL,
+    internalAuthConfig: INTERNAL_AUTH_CONFIG,
+    connectorRuntimeServiceId: CONNECTOR_RUNTIME_SERVICE_ID,
   }),
   externalBridgeClient: createExternalBridgeClient({
     internalAuthConfig: INTERNAL_AUTH_CONFIG,
@@ -157,6 +169,59 @@ app.post('/internal/runtime/bridge-callback', async (req: RawBodyRequest, res) =
   try {
     const payload = req.body as WorkflowRuntimeBridgeCallbackRequest;
     const response: WorkflowRuntimeBridgeCallbackResponse = await runtimeService.handleBridgeCallback(payload);
+    res.json(response);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const runtimeError = error as { status: number; code?: unknown };
+      res.status(Number((error as { status: number }).status) || 400).json({
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+      });
+      return;
+    }
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.post('/internal/runtime/connector-callback', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(
+    req,
+    res,
+    INTERNAL_AUTH_CONFIG.serviceId,
+    CONNECTOR_RUNTIME_ALLOWED_SUBJECTS,
+    ['connector:callback'],
+  );
+  if (!authorized) return;
+  try {
+    const payload = req.body as WorkflowRuntimeConnectorCallbackRequest;
+    const response: WorkflowRuntimeConnectorCallbackResponse = await runtimeService.handleConnectorCallback(payload);
+    res.json(response);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const runtimeError = error as { status: number; code?: unknown };
+      res.status(Number((error as { status: number }).status) || 400).json({
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+      });
+      return;
+    }
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.get('/internal/runtime/connector-action-sessions/:publicCallbackKey', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(
+    req,
+    res,
+    INTERNAL_AUTH_CONFIG.serviceId,
+    CONNECTOR_RUNTIME_ALLOWED_SUBJECTS,
+    ['connector:lookup'],
+  );
+  if (!authorized) return;
+  try {
+    const response: WorkflowRuntimeConnectorActionSessionLookupResponse = await runtimeService.getConnectorActionSessionByPublicCallbackKey(
+      req.params.publicCallbackKey,
+    );
     res.json(response);
   } catch (error) {
     if (error && typeof error === 'object' && 'status' in error) {

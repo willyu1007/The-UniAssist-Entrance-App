@@ -3,6 +3,7 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
+      "@baseinterface/connector-sdk": ["../../packages/connector-sdk/src/index.ts"],
       "@baseinterface/contracts": ["../../packages/contracts/src/index.ts"],
       "@baseinterface/executor-sdk": ["../../packages/executor-sdk/src/index.ts"],
       "@baseinterface/shared": ["../../packages/shared/src/index.ts"],

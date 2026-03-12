@@ -6,6 +6,8 @@ import type {
   AudienceSelectorRecord,
   BridgeCallbackReceiptRecord,
   BridgeInvokeSessionRecord,
+  ConnectorActionSessionRecord,
+  ConnectorEventReceiptRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
   WorkflowApprovalDecisionRecord,
@@ -32,6 +34,71 @@ function parseJson<T>(value: unknown, fallback: T): T {
     }
   }
   return value as T;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return Boolean(value) && typeof value === 'object' && Array.isArray(value) === false;
+}
+
+function parseConnectorActionSessions(value: unknown): ConnectorActionSessionRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .filter((item) => (
+      typeof item.connectorActionSessionId === 'string'
+      && typeof item.runId === 'string'
+      && typeof item.nodeRunId === 'string'
+      && typeof item.actionBindingId === 'string'
+      && typeof item.connectorBindingId === 'string'
+      && typeof item.capabilityId === 'string'
+      && typeof item.externalSessionRef === 'string'
+      && typeof item.publicCallbackKey === 'string'
+      && typeof item.status === 'string'
+      && typeof item.lastSequence === 'number'
+      && typeof item.createdAt === 'number'
+      && typeof item.updatedAt === 'number'
+    ))
+    .map((item) => ({
+      connectorActionSessionId: String(item.connectorActionSessionId),
+      runId: String(item.runId),
+      nodeRunId: String(item.nodeRunId),
+      actionBindingId: String(item.actionBindingId),
+      connectorBindingId: String(item.connectorBindingId),
+      capabilityId: String(item.capabilityId),
+      externalSessionRef: String(item.externalSessionRef),
+      publicCallbackKey: String(item.publicCallbackKey),
+      status: String(item.status) as ConnectorActionSessionRecord['status'],
+      lastSequence: Number(item.lastSequence),
+      cancelledAt: typeof item.cancelledAt === 'number' ? item.cancelledAt : undefined,
+      metadataJson: parseJson(item.metadataJson, undefined),
+      createdAt: Number(item.createdAt),
+      updatedAt: Number(item.updatedAt),
+    }));
+}
+
+function parseConnectorEventReceipts(value: unknown): ConnectorEventReceiptRecord[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .filter(isRecord)
+    .filter((item) => (
+      typeof item.connectorEventReceiptId === 'string'
+      && typeof item.receiptKey === 'string'
+      && typeof item.sourceKind === 'string'
+      && typeof item.status === 'string'
+      && typeof item.receivedAt === 'number'
+    ))
+    .map((item) => ({
+      connectorEventReceiptId: String(item.connectorEventReceiptId),
+      receiptKey: String(item.receiptKey),
+      sourceKind: String(item.sourceKind) as ConnectorEventReceiptRecord['sourceKind'],
+      connectorActionSessionId: typeof item.connectorActionSessionId === 'string' ? item.connectorActionSessionId : undefined,
+      eventSubscriptionId: typeof item.eventSubscriptionId === 'string' ? item.eventSubscriptionId : undefined,
+      sequence: typeof item.sequence === 'number' ? item.sequence : undefined,
+      eventType: typeof item.eventType === 'string' ? item.eventType : undefined,
+      status: String(item.status) as ConnectorEventReceiptRecord['status'],
+      errorMessage: typeof item.errorMessage === 'string' ? item.errorMessage : undefined,
+      receivedAt: Number(item.receivedAt),
+    }));
 }
 
 function toTemplateRecord(row: Record<string, unknown>): WorkflowTemplateRecord {
@@ -244,6 +311,7 @@ export type RuntimeRepository = {
   close: () => Promise<void>;
   saveState: (state: InternalRunState) => Promise<void>;
   loadRunState: (runId: string) => Promise<InternalRunState | undefined>;
+  findRunStateByConnectorPublicCallbackKey: (publicCallbackKey: string) => Promise<InternalRunState | undefined>;
   listRunStates: (limit?: number) => Promise<InternalRunState[]>;
   listApprovals: () => Promise<WorkflowApprovalRequestRecord[]>;
   getApproval: (approvalRequestId: string) => Promise<WorkflowApprovalRequestRecord | undefined>;
@@ -447,6 +515,10 @@ class PgRuntimeRepository implements RuntimeRepository {
       bridgeCallbackReceipts = callbackReceiptsResult.rows.map((row) => toBridgeCallbackReceiptRecord(row as Record<string, unknown>));
     }
 
+    const connectorRuntime = isRecord(run.metadata?.connectorRuntime)
+      ? run.metadata?.connectorRuntime as Record<string, unknown>
+      : {};
+
     return {
       template,
       version,
@@ -462,7 +534,27 @@ class PgRuntimeRepository implements RuntimeRepository {
       deliveryTargets,
       bridgeInvokeSessions,
       bridgeCallbackReceipts,
+      connectorActionSessions: parseConnectorActionSessions(connectorRuntime.actionSessions),
+      connectorEventReceipts: parseConnectorEventReceipts(connectorRuntime.eventReceipts),
     };
+  }
+
+  async findRunStateByConnectorPublicCallbackKey(publicCallbackKey: string): Promise<InternalRunState | undefined> {
+    const result = await this.pool.query(`
+      SELECT run_id
+      FROM workflow_runs
+      WHERE EXISTS (
+        SELECT 1
+        FROM jsonb_array_elements(COALESCE(metadata_json -> 'connectorRuntime' -> 'actionSessions', '[]'::jsonb)) AS action_session
+        WHERE action_session ->> 'publicCallbackKey' = $1
+      )
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `, [publicCallbackKey]);
+    if (result.rowCount === 0) {
+      return undefined;
+    }
+    return await this.loadRunState(String((result.rows[0] as Record<string, unknown>).run_id));
   }
 
   async listRunStates(limit = 25): Promise<InternalRunState[]> {

@@ -17,6 +17,12 @@ export const EXTERNAL_BRIDGE_ALLOWED_SUBJECTS = (process.env.UNIASSIST_EXTERNAL_
   .split(',')
   .map((value) => value.trim())
   .filter(Boolean);
+export const CONNECTOR_RUNTIME_BASE_URL = (process.env.UNIASSIST_CONNECTOR_RUNTIME_BASE_URL || 'http://127.0.0.1:8895').replace(/\/$/, '');
+export const CONNECTOR_RUNTIME_SERVICE_ID = process.env.UNIASSIST_CONNECTOR_RUNTIME_SERVICE_ID || 'connector-runtime';
+export const CONNECTOR_RUNTIME_ALLOWED_SUBJECTS = (process.env.UNIASSIST_CONNECTOR_RUNTIME_ALLOWED_SUBJECTS || 'connector-runtime')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
 export const DATABASE_URL = process.env.DATABASE_URL || '';
 
 export function now(): number {
