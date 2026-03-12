@@ -303,6 +303,153 @@ model ApprovalDecision {
   @@map("approval_decisions")
 }
 
+model AgentDefinition {
+  agentId            String   @id @map("agent_id")
+  workspaceId        String   @map("workspace_id")
+  templateVersionRef String   @map("template_version_ref")
+  name               String
+  description        String?
+  activationState    String   @map("activation_state")
+  identityRef        String?  @map("identity_ref")
+  executorStrategy   String   @map("executor_strategy")
+  toolProfile        String?  @map("tool_profile")
+  riskLevel          String?  @map("risk_level")
+  ownerActorRef      String?  @map("owner_actor_ref")
+  createdBy          String   @map("created_by")
+  updatedBy          String   @map("updated_by")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId, activationState], map: "idx_agent_definitions_workspace_state")
+  @@index([templateVersionRef], map: "idx_agent_definitions_template_version_ref")
+  @@map("agent_definitions")
+}
+
+model TriggerBinding {
+  triggerBindingId String    @id @map("trigger_binding_id")
+  workspaceId      String    @map("workspace_id")
+  agentId          String    @map("agent_id")
+  triggerKind      String    @map("trigger_kind")
+  status           String
+  configJson       Json      @map("config_json")
+  publicTriggerKey String?   @unique(map: "uq_trigger_bindings_public_trigger_key") @map("public_trigger_key")
+  lastTriggeredAt  DateTime? @map("last_triggered_at")
+  nextTriggerAt    DateTime? @map("next_trigger_at")
+  lastError        String?   @map("last_error")
+  createdBy        String    @map("created_by")
+  updatedBy        String    @map("updated_by")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+
+  @@index([agentId, status], map: "idx_trigger_bindings_agent_status")
+  @@index([triggerKind, status, nextTriggerAt], map: "idx_trigger_bindings_kind_status_next_trigger")
+  @@map("trigger_bindings")
+}
+
+model PolicyBinding {
+  policyBindingId String   @id @map("policy_binding_id")
+  workspaceId     String   @map("workspace_id")
+  policyKind      String   @map("policy_kind")
+  targetType      String   @map("target_type")
+  targetRef       String   @map("target_ref")
+  status          String
+  configJson      Json     @map("config_json")
+  createdBy       String   @map("created_by")
+  updatedBy       String   @map("updated_by")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  @@index([targetType, targetRef], map: "idx_policy_bindings_target")
+  @@index([workspaceId, status], map: "idx_policy_bindings_workspace_status")
+  @@map("policy_bindings")
+}
+
+model SecretRef {
+  secretRefId      String   @id @map("secret_ref_id")
+  workspaceId      String   @map("workspace_id")
+  environmentScope String   @map("environment_scope")
+  providerType     String   @map("provider_type")
+  status           String
+  metadataJson     Json     @map("metadata_json")
+  createdBy        String   @map("created_by")
+  updatedBy        String   @map("updated_by")
+  createdAt        DateTime @default(now()) @map("created_at")
+  updatedAt        DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId, status], map: "idx_secret_refs_workspace_status")
+  @@index([providerType], map: "idx_secret_refs_provider_type")
+  @@map("secret_refs")
+}
+
+model ScopeGrant {
+  scopeGrantId String    @id @map("scope_grant_id")
+  workspaceId  String    @map("workspace_id")
+  targetType   String    @map("target_type")
+  targetRef    String    @map("target_ref")
+  resourceType String    @map("resource_type")
+  resourceRef  String    @map("resource_ref")
+  status       String
+  scopeJson    Json      @map("scope_json")
+  expiresAt    DateTime? @map("expires_at")
+  createdBy    String    @map("created_by")
+  updatedBy    String    @map("updated_by")
+  createdAt    DateTime  @default(now()) @map("created_at")
+  updatedAt    DateTime  @updatedAt @map("updated_at")
+
+  @@index([targetType, targetRef], map: "idx_scope_grants_target")
+  @@index([resourceType, resourceRef], map: "idx_scope_grants_resource")
+  @@index([workspaceId, status], map: "idx_scope_grants_workspace_status")
+  @@map("scope_grants")
+}
+
+model GovernanceChangeRequest {
+  requestId          String   @id @map("request_id")
+  workspaceId        String   @map("workspace_id")
+  requestKind        String   @map("request_kind")
+  targetType         String   @map("target_type")
+  targetRef          String   @map("target_ref")
+  requestedByActorId String   @map("requested_by_actor_id")
+  status             String
+  riskLevel          String   @map("risk_level")
+  summary            String
+  justification      String?
+  desiredStateJson   Json     @map("desired_state_json")
+  createdAt          DateTime @default(now()) @map("created_at")
+  updatedAt          DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId, status], map: "idx_governance_change_requests_workspace_status")
+  @@index([targetType, targetRef], map: "idx_governance_change_requests_target")
+  @@map("governance_change_requests")
+}
+
+model GovernanceChangeDecision {
+  decisionId String   @id @map("decision_id")
+  requestId  String   @map("request_id")
+  actorRef   String   @map("actor_ref")
+  decision   String
+  comment    String?
+  decidedAt  DateTime @map("decided_at")
+
+  @@index([requestId], map: "idx_governance_change_decisions_request_id")
+  @@map("governance_change_decisions")
+}
+
+model TriggerDispatch {
+  triggerDispatchId String   @id @map("trigger_dispatch_id")
+  triggerBindingId  String   @map("trigger_binding_id")
+  dispatchKey       String   @unique(map: "uq_trigger_dispatches_dispatch_key") @map("dispatch_key")
+  sourceType        String   @map("source_type")
+  status            String
+  runId             String?  @map("run_id")
+  payloadJson       Json?    @map("payload_json")
+  errorMessage      String?  @map("error_message")
+  createdAt         DateTime @default(now()) @map("created_at")
+  updatedAt         DateTime @updatedAt @map("updated_at")
+
+  @@index([triggerBindingId, status], map: "idx_trigger_dispatches_binding_status")
+  @@map("trigger_dispatches")
+}
+
 model ActorProfile {
   runId       String   @map("run_id")
   actorId     String   @map("actor_id")

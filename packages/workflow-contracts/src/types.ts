@@ -869,6 +869,10 @@ export type WorkflowRuntimeStartRunRequest = {
   version: WorkflowTemplateVersionRecord;
   inputText?: string;
   inputPayload?: Record<string, unknown>;
+  agentId?: string;
+  sourceType?: 'message' | 'manual' | 'schedule' | 'webhook' | 'event';
+  sourceRef?: string;
+  runtimeMetadata?: Record<string, unknown>;
 };
 
 export type WorkflowRuntimeResumeRunRequest = {
