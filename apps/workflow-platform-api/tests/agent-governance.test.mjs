@@ -664,7 +664,7 @@ test('workflow platform api manages B5 agent governance and trigger dispatch', a
     },
   );
   assert.equal(enableEventSubscription.status, 409);
-  assert.equal(enableEventSubscription.json.code, 'EVENT_SUBSCRIPTION_NOT_AVAILABLE_IN_B5');
+  assert.equal(enableEventSubscription.json.code, 'EVENT_SUBSCRIPTION_REQUIRED');
 
   const listScopeGrants = await httpGet(`http://127.0.0.1:${ports.platform}/v1/scope-grants`);
   assert.equal(listScopeGrants.status, 200);
