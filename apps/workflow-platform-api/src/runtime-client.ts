@@ -1,5 +1,6 @@
 import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
 import type {
+  WorkflowRuntimeCancelRunRequest,
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
@@ -42,6 +43,10 @@ export class RuntimeClient {
 
   async resumeRun(body: WorkflowRuntimeResumeRunRequest): Promise<WorkflowCommandResponse> {
     return this.post('/internal/runtime/resume-run', body, this.runtimeServiceId);
+  }
+
+  async cancelRun(body: WorkflowRuntimeCancelRunRequest): Promise<WorkflowCommandResponse> {
+    return this.post('/internal/runtime/cancel-run', body, this.runtimeServiceId);
   }
 
   async getRun(runId: string): Promise<WorkflowRunQueryResponse> {

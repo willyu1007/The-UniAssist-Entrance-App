@@ -1,9 +1,17 @@
 import type {
+  AgentRunStartRequest,
   AgentDefinitionCreateRequest,
   AgentDefinitionLifecycleRequest,
   AgentDefinitionListResponse,
   AgentDefinitionRecord,
   AgentDefinitionResponse,
+  BridgeHealth,
+  BridgeManifest,
+  BridgeRegistrationCreateRequest,
+  BridgeRegistrationLifecycleRequest,
+  BridgeRegistrationListResponse,
+  BridgeRegistrationRecord,
+  BridgeRegistrationResponse,
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
@@ -43,6 +51,7 @@ import type {
   TriggerDispatchRequest,
   TriggerDispatchResponse,
   WebhookTriggerRuntimeConfigResponse,
+  WorkflowRunCancelRequest,
   WorkflowDraftCreateRequest,
   WorkflowDraftDetailResponse,
   WorkflowDraftFocusRequest,
@@ -65,6 +74,7 @@ import type {
   WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRunSnapshot,
+  WorkflowRuntimeCancelRunRequest,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowStartRequest,
@@ -73,6 +83,7 @@ import type {
   WorkflowTemplateVersionRecord,
 } from '@baseinterface/workflow-contracts';
 import { isWorkflowDraftTerminal } from '@baseinterface/workflow-contracts';
+import type { ExternalBridgeClient } from '@baseinterface/executor-sdk';
 import {
   canApplyApprovedChange,
   isSecretUsable,
@@ -98,6 +109,8 @@ type PlatformServiceDeps = {
   repository: PlatformRepository;
   governanceRepository: GovernanceRepository;
   runtimeClient: RuntimeClient;
+  externalBridgeClient: ExternalBridgeClient;
+  runtimePublicBaseUrl: string;
   now: () => number;
   uuid: () => string;
 };
@@ -109,6 +122,18 @@ function sanitizeText(value: string | undefined): string | undefined {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && Array.isArray(value) === false;
+}
+
+function toBridgeMetadataError(error: unknown): PlatformError {
+  if (error instanceof PlatformError) {
+    return error;
+  }
+  const message = error instanceof Error ? error.message : String(error);
+  return new PlatformError(
+    502,
+    message.includes('response invalid') ? 'BRIDGE_METADATA_INVALID' : 'BRIDGE_METADATA_FETCH_FAILED',
+    message || 'bridge metadata request failed',
+  );
 }
 
 function slugify(value: string): string {
@@ -362,6 +387,10 @@ export class PlatformService {
 
   private readonly runtimeClient: RuntimeClient;
 
+  private readonly externalBridgeClient: ExternalBridgeClient;
+
+  private readonly runtimePublicBaseUrl: string;
+
   private readonly now: () => number;
 
   private readonly uuid: () => string;
@@ -370,6 +399,8 @@ export class PlatformService {
     this.repository = deps.repository;
     this.governanceRepository = deps.governanceRepository;
     this.runtimeClient = deps.runtimeClient;
+    this.externalBridgeClient = deps.externalBridgeClient;
+    this.runtimePublicBaseUrl = deps.runtimePublicBaseUrl.replace(/\/$/, '');
     this.now = deps.now;
     this.uuid = deps.uuid;
   }
@@ -470,6 +501,127 @@ export class PlatformService {
     return await this.runtimeClient.getArtifact(artifactId);
   }
 
+  async listBridgeRegistrations(): Promise<BridgeRegistrationListResponse> {
+    return {
+      schemaVersion: 'v1',
+      bridges: await this.governanceRepository.listBridgeRegistrations(),
+    };
+  }
+
+  async getBridgeRegistration(bridgeId: string): Promise<BridgeRegistrationResponse> {
+    return {
+      schemaVersion: 'v1',
+      bridge: await this.requireBridgeRegistration(bridgeId),
+    };
+  }
+
+  async createBridgeRegistration(input: BridgeRegistrationCreateRequest): Promise<BridgeRegistrationResponse> {
+    const baseUrl = sanitizeText(input.baseUrl)?.replace(/\/$/, '');
+    const serviceId = sanitizeText(input.serviceId);
+    if (!baseUrl) {
+      throw new PlatformError(400, 'BRIDGE_BASE_URL_REQUIRED', 'bridge baseUrl is required');
+    }
+    if (!serviceId) {
+      throw new PlatformError(400, 'BRIDGE_SERVICE_ID_REQUIRED', 'bridge serviceId is required');
+    }
+    const bridgeRef = {
+      bridgeId: this.uuid(),
+      baseUrl,
+      serviceId,
+    };
+
+    let manifest: BridgeManifest;
+    let health: BridgeHealth;
+    try {
+      manifest = await this.externalBridgeClient.getManifest(bridgeRef);
+      health = await this.externalBridgeClient.getHealth(bridgeRef);
+    } catch (error) {
+      throw toBridgeMetadataError(error);
+    }
+    const timestamp = this.now();
+    const bridge = await this.governanceRepository.createBridgeRegistration({
+      bridgeId: bridgeRef.bridgeId,
+      workspaceId: input.workspaceId,
+      name: sanitizeText(input.name) || 'External Runtime Bridge',
+      description: sanitizeText(input.description),
+      baseUrl: bridgeRef.baseUrl,
+      serviceId: bridgeRef.serviceId,
+      status: 'registered',
+      runtimeType: 'external_agent_runtime',
+      manifestJson: manifest,
+      healthJson: health,
+      authConfigJson: input.authConfigJson || {},
+      callbackConfigJson: input.callbackConfigJson || {},
+      lastHealthAt: health.checkedAt,
+      createdBy: input.userId,
+      updatedBy: input.userId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    });
+    return {
+      schemaVersion: 'v1',
+      bridge,
+    };
+  }
+
+  async activateBridgeRegistration(
+    bridgeId: string,
+    input: BridgeRegistrationLifecycleRequest,
+  ): Promise<BridgeRegistrationResponse> {
+    const bridge = await this.governanceRepository.runInTransaction(async (repository) => {
+      await repository.lockBridgeRegistration(bridgeId);
+      const current = await repository.getBridgeRegistration(bridgeId);
+      if (!current) {
+        throw new PlatformError(404, 'BRIDGE_NOT_FOUND', 'bridge not found');
+      }
+      let manifest: BridgeManifest;
+      let health: BridgeHealth;
+      try {
+        manifest = await this.externalBridgeClient.getManifest(current);
+        health = await this.externalBridgeClient.getHealth(current);
+      } catch (error) {
+        throw toBridgeMetadataError(error);
+      }
+      const timestamp = this.now();
+      return await repository.updateBridgeRegistration({
+        ...current,
+        status: 'active',
+        manifestJson: manifest,
+        healthJson: health,
+        lastHealthAt: health.checkedAt,
+        updatedBy: input.userId,
+        updatedAt: timestamp,
+      });
+    });
+    return {
+      schemaVersion: 'v1',
+      bridge,
+    };
+  }
+
+  async suspendBridgeRegistration(
+    bridgeId: string,
+    input: BridgeRegistrationLifecycleRequest,
+  ): Promise<BridgeRegistrationResponse> {
+    const bridge = await this.governanceRepository.runInTransaction(async (repository) => {
+      await repository.lockBridgeRegistration(bridgeId);
+      const current = await repository.getBridgeRegistration(bridgeId);
+      if (!current) {
+        throw new PlatformError(404, 'BRIDGE_NOT_FOUND', 'bridge not found');
+      }
+      return await repository.updateBridgeRegistration({
+        ...current,
+        status: 'suspended',
+        updatedBy: input.userId,
+        updatedAt: this.now(),
+      });
+    });
+    return {
+      schemaVersion: 'v1',
+      bridge,
+    };
+  }
+
   async listAgents(): Promise<AgentDefinitionListResponse> {
     return {
       schemaVersion: 'v1',
@@ -490,6 +642,11 @@ export class PlatformService {
 
   async createAgent(input: AgentDefinitionCreateRequest): Promise<AgentDefinitionResponse> {
     const version = await this.requirePublishedVersion(input.templateVersionRef);
+    await this.validateAgentBridgeConfiguration(
+      input.workspaceId,
+      input.executorStrategy || 'platform_runtime',
+      sanitizeText(input.bridgeId),
+    );
     const timestamp = this.now();
     const agent: AgentDefinitionRecord = {
       agentId: this.uuid(),
@@ -498,6 +655,7 @@ export class PlatformService {
       name: sanitizeText(input.name) || `Agent ${version.workflowKey}`,
       description: sanitizeText(input.description),
       activationState: 'draft',
+      bridgeId: sanitizeText(input.bridgeId),
       identityRef: sanitizeText(input.identityRef),
       executorStrategy: input.executorStrategy || 'platform_runtime',
       toolProfile: sanitizeText(input.toolProfile),
@@ -512,6 +670,47 @@ export class PlatformService {
       schemaVersion: 'v1',
       agent: await this.governanceRepository.createAgent(agent),
     };
+  }
+
+  async startAgentRun(
+    agentId: string,
+    input: AgentRunStartRequest,
+  ): Promise<WorkflowCommandResponse> {
+    const agent = await this.requireAgent(agentId);
+    if (agent.activationState !== 'active') {
+      throw new PlatformError(409, 'AGENT_NOT_ACTIVE', 'agent must be active before starting a run');
+    }
+    const workflowVersion = await this.requirePublishedVersion(agent.templateVersionRef);
+    const workflowDetail = await this.repository.getWorkflow(workflowVersion.workflowId);
+    if (!workflowDetail) {
+      throw new PlatformError(404, 'WORKFLOW_NOT_FOUND', 'workflow not found');
+    }
+    return await this.startManagedAgentRun({
+      agent,
+      workflowDetail,
+      workflowVersion,
+      traceId: input.traceId,
+      sessionId: input.sessionId,
+      userId: input.userId,
+      inputText: input.inputText,
+      inputPayload: input.inputPayload,
+      sourceType: 'manual',
+      sourceRef: agent.agentId,
+      runtimeMetadata: {
+        workspaceId: agent.workspaceId,
+      },
+    });
+  }
+
+  async cancelRun(body: WorkflowRunCancelRequest & { runId: string }): Promise<WorkflowCommandResponse> {
+    const response = await this.runtimeClient.cancelRun({
+      schemaVersion: 'v1',
+      traceId: body.traceId,
+      userId: body.userId,
+      runId: body.runId,
+      reason: sanitizeText(body.reason),
+    } satisfies WorkflowRuntimeCancelRunRequest);
+    return await this.attachCapturedRecipeDrafts(response);
   }
 
   async activateAgent(agentId: string, input: AgentDefinitionLifecycleRequest): Promise<AgentDefinitionResponse> {
@@ -1442,6 +1641,14 @@ export class PlatformService {
     return agent;
   }
 
+  private async requireBridgeRegistration(bridgeId: string): Promise<BridgeRegistrationRecord> {
+    const bridge = await this.governanceRepository.getBridgeRegistration(bridgeId);
+    if (!bridge) {
+      throw new PlatformError(404, 'BRIDGE_NOT_FOUND', 'bridge not found');
+    }
+    return bridge;
+  }
+
   private async requireTriggerBinding(triggerBindingId: string): Promise<TriggerBindingRecord> {
     const triggerBinding = await this.governanceRepository.getTriggerBinding(triggerBindingId);
     if (!triggerBinding) {
@@ -1465,6 +1672,98 @@ export class PlatformService {
       return;
     }
     throw new PlatformError(400, 'INVALID_TRIGGER_KIND', 'unsupported trigger kind');
+  }
+
+  private async validateAgentBridgeConfiguration(
+    workspaceId: string,
+    executorStrategy: AgentDefinitionRecord['executorStrategy'],
+    bridgeId?: string,
+  ): Promise<void> {
+    if (executorStrategy === 'external_runtime') {
+      if (!bridgeId) {
+        throw new PlatformError(400, 'BRIDGE_ID_REQUIRED', 'external_runtime agents require bridgeId');
+      }
+      const bridge = await this.requireBridgeRegistration(bridgeId);
+      this.assertWorkspaceMatch(
+        bridge.workspaceId,
+        workspaceId,
+        'BRIDGE_WORKSPACE_MISMATCH',
+        'bridge workspace must match the owning agent workspace',
+      );
+      return;
+    }
+    if (bridgeId) {
+      throw new PlatformError(409, 'BRIDGE_ID_NOT_ALLOWED', 'platform_runtime agents cannot bind a bridgeId');
+    }
+  }
+
+  private buildExternalRuntimeSnapshot(bridge: BridgeRegistrationRecord): WorkflowRuntimeStartRunRequest['externalRuntime'] {
+    return {
+      bridgeId: bridge.bridgeId,
+      workspaceId: bridge.workspaceId,
+      name: bridge.name,
+      baseUrl: bridge.baseUrl,
+      serviceId: bridge.serviceId,
+      runtimeType: bridge.runtimeType,
+      manifest: bridge.manifestJson,
+      authConfigJson: bridge.authConfigJson,
+      callbackConfigJson: bridge.callbackConfigJson,
+      callbackUrl: `${this.runtimePublicBaseUrl}/internal/runtime/bridge-callback`,
+    };
+  }
+
+  private async startManagedAgentRun(params: {
+    agent: AgentDefinitionRecord;
+    workflowDetail: WorkflowDetail;
+    workflowVersion: WorkflowTemplateVersionRecord;
+    traceId: string;
+    sessionId: string;
+    userId: string;
+    inputText?: string;
+    inputPayload?: Record<string, unknown>;
+    sourceType: NonNullable<WorkflowRuntimeStartRunRequest['sourceType']>;
+    sourceRef?: string;
+    runtimeMetadata?: Record<string, unknown>;
+  }): Promise<WorkflowCommandResponse> {
+    let externalRuntime: WorkflowRuntimeStartRunRequest['externalRuntime'];
+    if (params.agent.executorStrategy === 'external_runtime') {
+      if (!params.agent.bridgeId) {
+        throw new PlatformError(409, 'AGENT_BRIDGE_NOT_BOUND', 'external_runtime agent must bind a bridge');
+      }
+      const bridge = await this.requireBridgeRegistration(params.agent.bridgeId);
+      this.assertWorkspaceMatch(
+        bridge.workspaceId,
+        params.agent.workspaceId,
+        'BRIDGE_WORKSPACE_MISMATCH',
+        'bridge workspace must match the owning agent workspace',
+      );
+      if (bridge.status !== 'active') {
+        throw new PlatformError(409, 'BRIDGE_NOT_ACTIVE', 'bridge must be active before starting an external-runtime run');
+      }
+      externalRuntime = this.buildExternalRuntimeSnapshot(bridge);
+    }
+
+    const response = await this.runtimeClient.startRun({
+      schemaVersion: 'v1',
+      traceId: params.traceId,
+      sessionId: params.sessionId,
+      userId: params.userId,
+      template: params.workflowDetail.workflow,
+      version: params.workflowVersion,
+      inputText: params.inputText,
+      inputPayload: params.inputPayload,
+      agentId: params.agent.agentId,
+      sourceType: params.sourceType,
+      sourceRef: params.sourceRef,
+      runtimeMetadata: {
+        ...(params.runtimeMetadata || {}),
+        workspaceId: params.agent.workspaceId,
+        executorStrategy: params.agent.executorStrategy,
+        ...(externalRuntime ? { bridgeId: externalRuntime.bridgeId } : {}),
+      },
+      externalRuntime,
+    });
+    return await this.attachCapturedRecipeDrafts(response);
   }
 
   private assertWorkspaceMatch(expectedWorkspaceId: string, actualWorkspaceId: string, code: string, message: string): void {
@@ -1557,6 +1856,21 @@ export class PlatformService {
         );
         if (agent.activationState === 'retired' || agent.activationState === 'archived') {
           throw new PlatformError(409, 'GOVERNANCE_CHANGE_NOT_APPLICABLE', 'governance change cannot be applied');
+        }
+        if (agent.executorStrategy === 'external_runtime') {
+          if (!agent.bridgeId) {
+            throw new PlatformError(409, 'AGENT_BRIDGE_NOT_BOUND', 'external_runtime agent must bind a bridge before activation');
+          }
+          const bridge = await this.requireBridgeRegistration(agent.bridgeId);
+          this.assertWorkspaceMatch(
+            bridge.workspaceId,
+            params.workspaceId,
+            'BRIDGE_WORKSPACE_MISMATCH',
+            'bridge workspace must match the target agent workspace',
+          );
+          if (bridge.status !== 'active') {
+            throw new PlatformError(409, 'BRIDGE_NOT_ACTIVE', 'bridge must be active before activating an external-runtime agent');
+          }
         }
         return;
       }
@@ -1951,13 +2265,13 @@ export class PlatformService {
       if (!workflowDetail) {
         throw new PlatformError(404, 'WORKFLOW_NOT_FOUND', 'workflow not found');
       }
-      const runResponse = await this.runtimeClient.startRun({
-        schemaVersion: 'v1',
+      const runResponse = await this.startManagedAgentRun({
+        agent: claimed.agent,
+        workflowDetail,
+        workflowVersion,
         traceId: this.uuid(),
         sessionId: `agent:${claimed.agent.agentId}`,
         userId: claimed.agent.ownerActorRef || claimed.agent.createdBy,
-        template: workflowDetail.workflow,
-        version: workflowVersion,
         inputPayload: {
           trigger: {
             triggerBindingId,
@@ -1968,11 +2282,9 @@ export class PlatformService {
           },
           input: input.payload || {},
         },
-        agentId: claimed.agent.agentId,
         sourceType,
         sourceRef: triggerBindingId,
         runtimeMetadata: {
-          workspaceId: claimed.agent.workspaceId,
           triggerBindingId,
           dispatchKey: input.dispatchKey,
           headers: input.headers || {},

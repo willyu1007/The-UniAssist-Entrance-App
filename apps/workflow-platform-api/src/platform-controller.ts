@@ -3,8 +3,11 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 
 import type {
+  AgentRunStartRequest,
   AgentDefinitionCreateRequest,
   AgentDefinitionLifecycleRequest,
+  BridgeRegistrationCreateRequest,
+  BridgeRegistrationLifecycleRequest,
   GovernanceChangeDecisionRequest,
   GovernanceChangeRequestCreateRequest,
   PolicyBindingCreateRequest,
@@ -24,6 +27,7 @@ import type {
   WorkflowDraftIntakeRequest,
   WorkflowDraftPublishRequest,
   WorkflowDraftSpecPatchRequest,
+  WorkflowRunCancelRequest,
   WorkflowResumeRequest,
   WorkflowStartRequest,
 } from '@baseinterface/workflow-contracts';
@@ -386,6 +390,24 @@ export function createPlatformController(
       }
     },
 
+    cancelRun: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as WorkflowRunCancelRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        const response = await service.cancelRun({
+          schemaVersion: 'v1',
+          traceId: requireString(body.traceId, 'traceId'),
+          userId: requireString(body.userId, 'userId'),
+          runId: requireString(req.params.runId, 'runId'),
+          reason: optionalString(body.reason),
+        });
+        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        res.json(response);
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
     listApprovals: async (_req: Request, res: Response) => {
       try {
         res.json(await service.listApprovals());
@@ -654,6 +676,72 @@ export function createPlatformController(
       }
     },
 
+    listBridgeRegistrations: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listBridgeRegistrations());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getBridgeRegistration: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getBridgeRegistration(req.params.bridgeId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createBridgeRegistration: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as BridgeRegistrationCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createBridgeRegistration({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          name: requireString(body.name, 'name'),
+          baseUrl: requireString(body.baseUrl, 'baseUrl'),
+          serviceId: requireString(body.serviceId, 'serviceId'),
+          description: optionalString(body.description),
+          authConfigJson: optionalRecord(body.authConfigJson) || {},
+          callbackConfigJson: optionalRecord(body.callbackConfigJson) || {},
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    activateBridgeRegistration: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as BridgeRegistrationLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.activateBridgeRegistration(req.params.bridgeId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    suspendBridgeRegistration: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as BridgeRegistrationLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.suspendBridgeRegistration(req.params.bridgeId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
     listAgents: async (_req: Request, res: Response) => {
       try {
         res.json(await service.listAgents());
@@ -681,6 +769,7 @@ export function createPlatformController(
           name: requireString(body.name, 'name'),
           createdBy: requireString(body.createdBy, 'createdBy'),
           description: optionalString(body.description),
+          bridgeId: optionalString(body.bridgeId),
           identityRef: optionalString(body.identityRef),
           executorStrategy: optionalEnum(body.executorStrategy, 'executorStrategy', EXECUTOR_STRATEGIES) as AgentDefinitionCreateRequest['executorStrategy'],
           toolProfile: optionalString(body.toolProfile),
@@ -733,6 +822,25 @@ export function createPlatformController(
           summary: optionalString(body.summary),
           justification: optionalString(body.justification),
         }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    startAgentRun: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as AgentRunStartRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        const response = await service.startAgentRun(req.params.agentId, {
+          schemaVersion: 'v1',
+          traceId: requireString(body.traceId, 'traceId'),
+          sessionId: requireString(body.sessionId, 'sessionId'),
+          userId: requireString(body.userId, 'userId'),
+          inputText: optionalString(body.inputText),
+          inputPayload: body.inputPayload,
+        });
+        publishConsoleEvents(controlConsoleBroker, buildRunConsoleEvents(response.run));
+        res.status(201).json(response);
       } catch (error) {
         handleError(res, error);
       }

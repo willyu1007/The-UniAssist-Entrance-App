@@ -2,6 +2,7 @@ import { Pool, type PoolClient } from 'pg';
 
 import type {
   AgentDefinitionRecord,
+  BridgeRegistrationRecord,
   DueScheduleTrigger,
   GovernanceChangeDecisionRecord,
   GovernanceChangeRequestRecord,
@@ -36,6 +37,7 @@ function toAgentDefinitionRecord(row: Record<string, unknown>): AgentDefinitionR
     name: String(row.name),
     description: row.description ? String(row.description) : undefined,
     activationState: String(row.activation_state) as AgentDefinitionRecord['activationState'],
+    bridgeId: row.bridge_id ? String(row.bridge_id) : undefined,
     identityRef: row.identity_ref ? String(row.identity_ref) : undefined,
     executorStrategy: String(row.executor_strategy) as AgentDefinitionRecord['executorStrategy'],
     toolProfile: row.tool_profile ? String(row.tool_profile) : undefined,
@@ -46,6 +48,28 @@ function toAgentDefinitionRecord(row: Record<string, unknown>): AgentDefinitionR
     createdAt: toMs(row.created_at),
     updatedAt: toMs(row.updated_at),
   };
+}
+
+function toBridgeRegistrationRecord(row: Record<string, unknown>): BridgeRegistrationRecord {
+  return {
+    bridgeId: String(row.bridge_id),
+    workspaceId: String(row.workspace_id),
+    name: String(row.name),
+    description: row.description ? String(row.description) : undefined,
+    baseUrl: String(row.base_url),
+    serviceId: String(row.service_id),
+    status: String(row.status) as BridgeRegistrationRecord['status'],
+    runtimeType: String(row.runtime_type) as BridgeRegistrationRecord['runtimeType'],
+    manifestJson: parseJson(row.manifest_json, {}),
+    healthJson: parseJson(row.health_json, undefined),
+    authConfigJson: parseJson(row.auth_config_json, {}),
+    callbackConfigJson: parseJson(row.callback_config_json, {}),
+    lastHealthAt: row.last_health_at ? toMs(row.last_health_at) : undefined,
+    createdBy: String(row.created_by),
+    updatedBy: String(row.updated_by),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  } as BridgeRegistrationRecord;
 }
 
 function toTriggerBindingRecord(row: Record<string, unknown>): TriggerBindingRecord {
@@ -164,11 +188,16 @@ export type GovernanceRepository = {
   close: () => Promise<void>;
   runInTransaction: <T>(callback: (repository: GovernanceRepository) => Promise<T>) => Promise<T>;
   lockAgent: (agentId: string) => Promise<void>;
+  lockBridgeRegistration: (bridgeId: string) => Promise<void>;
   lockTriggerBinding: (triggerBindingId: string) => Promise<void>;
   listAgents: () => Promise<AgentDefinitionRecord[]>;
   getAgent: (agentId: string) => Promise<AgentDefinitionRecord | undefined>;
   createAgent: (record: AgentDefinitionRecord) => Promise<AgentDefinitionRecord>;
   updateAgent: (record: AgentDefinitionRecord) => Promise<AgentDefinitionRecord>;
+  listBridgeRegistrations: () => Promise<BridgeRegistrationRecord[]>;
+  getBridgeRegistration: (bridgeId: string) => Promise<BridgeRegistrationRecord | undefined>;
+  createBridgeRegistration: (record: BridgeRegistrationRecord) => Promise<BridgeRegistrationRecord>;
+  updateBridgeRegistration: (record: BridgeRegistrationRecord) => Promise<BridgeRegistrationRecord>;
   listTriggerBindingsByAgent: (agentId: string) => Promise<TriggerBindingRecord[]>;
   getTriggerBinding: (triggerBindingId: string) => Promise<TriggerBindingRecord | undefined>;
   getTriggerBindingByPublicKey: (publicTriggerKey: string) => Promise<TriggerBindingRecord | undefined>;
@@ -201,6 +230,7 @@ export type GovernanceRepository = {
 
 export class MemoryGovernanceRepository implements GovernanceRepository {
   private readonly agents = new Map<string, AgentDefinitionRecord>();
+  private readonly bridges = new Map<string, BridgeRegistrationRecord>();
   private readonly triggerBindings = new Map<string, TriggerBindingRecord>();
   private readonly policyBindings = new Map<string, PolicyBindingRecord>();
   private readonly secretRefs = new Map<string, SecretRefRecord>();
@@ -218,6 +248,10 @@ export class MemoryGovernanceRepository implements GovernanceRepository {
   }
 
   async lockAgent(_agentId: string): Promise<void> {
+    return;
+  }
+
+  async lockBridgeRegistration(_bridgeId: string): Promise<void> {
     return;
   }
 
@@ -240,6 +274,24 @@ export class MemoryGovernanceRepository implements GovernanceRepository {
 
   async updateAgent(record: AgentDefinitionRecord): Promise<AgentDefinitionRecord> {
     this.agents.set(record.agentId, record);
+    return record;
+  }
+
+  async listBridgeRegistrations(): Promise<BridgeRegistrationRecord[]> {
+    return [...this.bridges.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  async getBridgeRegistration(bridgeId: string): Promise<BridgeRegistrationRecord | undefined> {
+    return this.bridges.get(bridgeId);
+  }
+
+  async createBridgeRegistration(record: BridgeRegistrationRecord): Promise<BridgeRegistrationRecord> {
+    this.bridges.set(record.bridgeId, record);
+    return record;
+  }
+
+  async updateBridgeRegistration(record: BridgeRegistrationRecord): Promise<BridgeRegistrationRecord> {
+    this.bridges.set(record.bridgeId, record);
     return record;
   }
 
@@ -425,6 +477,10 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
     await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`agent:${agentId}`]);
   }
 
+  async lockBridgeRegistration(bridgeId: string): Promise<void> {
+    await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`bridge:${bridgeId}`]);
+  }
+
   async lockTriggerBinding(triggerBindingId: string): Promise<void> {
     await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`trigger:${triggerBindingId}`]);
   }
@@ -443,12 +499,12 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
     const result = await this.queryable.query(`
       INSERT INTO agent_definitions (
         agent_id, workspace_id, template_version_ref, name, description, activation_state,
-        identity_ref, executor_strategy, tool_profile, risk_level, owner_actor_ref,
-        created_by, updated_by, created_at, updated_at
+        bridge_id, identity_ref, executor_strategy, tool_profile, risk_level,
+        owner_actor_ref, created_by, updated_by, created_at, updated_at
       ) VALUES (
         $1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11,
-        $12, $13, to_timestamp($14 / 1000.0), to_timestamp($15 / 1000.0)
+        $12, $13, $14, to_timestamp($15 / 1000.0), to_timestamp($16 / 1000.0)
       )
       RETURNING *
     `, [
@@ -458,6 +514,7 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
       record.name,
       record.description || null,
       record.activationState,
+      record.bridgeId || null,
       record.identityRef || null,
       record.executorStrategy,
       record.toolProfile || null,
@@ -479,13 +536,14 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
           name = $4,
           description = $5,
           activation_state = $6,
-          identity_ref = $7,
-          executor_strategy = $8,
-          tool_profile = $9,
-          risk_level = $10,
-          owner_actor_ref = $11,
-          updated_by = $12,
-          updated_at = to_timestamp($13 / 1000.0)
+          bridge_id = $7,
+          identity_ref = $8,
+          executor_strategy = $9,
+          tool_profile = $10,
+          risk_level = $11,
+          owner_actor_ref = $12,
+          updated_by = $13,
+          updated_at = to_timestamp($14 / 1000.0)
       WHERE agent_id = $1
       RETURNING *
     `, [
@@ -495,6 +553,7 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
       record.name,
       record.description || null,
       record.activationState,
+      record.bridgeId || null,
       record.identityRef || null,
       record.executorStrategy,
       record.toolProfile || null,
@@ -504,6 +563,89 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
       record.updatedAt,
     ]);
     return toAgentDefinitionRecord(result.rows[0]);
+  }
+
+  async listBridgeRegistrations(): Promise<BridgeRegistrationRecord[]> {
+    const result = await this.queryable.query('SELECT * FROM bridge_registrations ORDER BY updated_at DESC');
+    return result.rows.map((row) => toBridgeRegistrationRecord(row));
+  }
+
+  async getBridgeRegistration(bridgeId: string): Promise<BridgeRegistrationRecord | undefined> {
+    const result = await this.queryable.query('SELECT * FROM bridge_registrations WHERE bridge_id = $1', [bridgeId]);
+    return result.rows[0] ? toBridgeRegistrationRecord(result.rows[0]) : undefined;
+  }
+
+  async createBridgeRegistration(record: BridgeRegistrationRecord): Promise<BridgeRegistrationRecord> {
+    const result = await this.queryable.query(`
+      INSERT INTO bridge_registrations (
+        bridge_id, workspace_id, name, description, base_url, service_id,
+        status, runtime_type, manifest_json, health_json, auth_config_json,
+        callback_config_json, last_health_at, created_by, updated_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7, $8, $9::jsonb, $10::jsonb, $11::jsonb,
+        $12::jsonb, to_timestamp($13 / 1000.0), $14, $15, to_timestamp($16 / 1000.0), to_timestamp($17 / 1000.0)
+      )
+      RETURNING *
+    `, [
+      record.bridgeId,
+      record.workspaceId,
+      record.name,
+      record.description || null,
+      record.baseUrl,
+      record.serviceId,
+      record.status,
+      record.runtimeType,
+      JSON.stringify(record.manifestJson),
+      record.healthJson ? JSON.stringify(record.healthJson) : null,
+      JSON.stringify(record.authConfigJson),
+      JSON.stringify(record.callbackConfigJson),
+      record.lastHealthAt || null,
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+    return toBridgeRegistrationRecord(result.rows[0]);
+  }
+
+  async updateBridgeRegistration(record: BridgeRegistrationRecord): Promise<BridgeRegistrationRecord> {
+    const result = await this.queryable.query(`
+      UPDATE bridge_registrations
+      SET workspace_id = $2,
+          name = $3,
+          description = $4,
+          base_url = $5,
+          service_id = $6,
+          status = $7,
+          runtime_type = $8,
+          manifest_json = $9::jsonb,
+          health_json = $10::jsonb,
+          auth_config_json = $11::jsonb,
+          callback_config_json = $12::jsonb,
+          last_health_at = to_timestamp($13 / 1000.0),
+          updated_by = $14,
+          updated_at = to_timestamp($15 / 1000.0)
+      WHERE bridge_id = $1
+      RETURNING *
+    `, [
+      record.bridgeId,
+      record.workspaceId,
+      record.name,
+      record.description || null,
+      record.baseUrl,
+      record.serviceId,
+      record.status,
+      record.runtimeType,
+      JSON.stringify(record.manifestJson),
+      record.healthJson ? JSON.stringify(record.healthJson) : null,
+      JSON.stringify(record.authConfigJson),
+      JSON.stringify(record.callbackConfigJson),
+      record.lastHealthAt || null,
+      record.updatedBy,
+      record.updatedAt,
+    ]);
+    return toBridgeRegistrationRecord(result.rows[0]);
   }
 
   async listTriggerBindingsByAgent(agentId: string): Promise<TriggerBindingRecord[]> {

@@ -12,6 +12,7 @@ export const INTERNAL_AUTH_CONFIG = (() => {
   return config;
 })();
 export const WORKFLOW_RUNTIME_BASE_URL = (process.env.UNIASSIST_WORKFLOW_RUNTIME_BASE_URL || 'http://127.0.0.1:8792').replace(/\/$/, '');
+export const WORKFLOW_RUNTIME_PUBLIC_BASE_URL = (process.env.UNIASSIST_WORKFLOW_RUNTIME_PUBLIC_BASE_URL || WORKFLOW_RUNTIME_BASE_URL).replace(/\/$/, '');
 export const WORKFLOW_RUNTIME_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID || 'workflow-runtime';
 export const TRIGGER_SCHEDULER_SERVICE_ID = process.env.UNIASSIST_TRIGGER_SCHEDULER_SERVICE_ID || 'trigger-scheduler';
 export const DATABASE_URL = process.env.DATABASE_URL || '';

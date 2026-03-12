@@ -2,7 +2,12 @@
   "extends": "../../tsconfig.json",
   "compilerOptions": {
     "baseUrl": ".",
-    "rootDir": "src",
+    "paths": {
+      "@baseinterface/executor-sdk": ["../../packages/executor-sdk/src/index.ts"],
+      "@baseinterface/policy-sdk": ["../../packages/policy-sdk/src/index.ts"],
+      "@baseinterface/shared": ["../../packages/shared/src/index.ts"],
+      "@baseinterface/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
+    },
     "types": ["node"],
     "lib": ["ES2022"],
     "noEmit": true

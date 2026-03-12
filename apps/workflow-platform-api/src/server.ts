@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import express from 'express';
 
+import { createExternalBridgeClient } from '@baseinterface/executor-sdk';
 import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
 import {
   DATABASE_URL,
@@ -8,6 +9,7 @@ import {
   PORT,
   TRIGGER_SCHEDULER_SERVICE_ID,
   WORKFLOW_RUNTIME_BASE_URL,
+  WORKFLOW_RUNTIME_PUBLIC_BASE_URL,
   WORKFLOW_RUNTIME_SERVICE_ID,
   now,
   uuid,
@@ -31,10 +33,15 @@ const runtimeClient = new RuntimeClient({
   internalAuthConfig: INTERNAL_AUTH_CONFIG,
   runtimeServiceId: WORKFLOW_RUNTIME_SERVICE_ID,
 });
+const externalBridgeClient = createExternalBridgeClient({
+  internalAuthConfig: INTERNAL_AUTH_CONFIG,
+});
 const service = createPlatformService({
   repository,
   governanceRepository,
   runtimeClient,
+  externalBridgeClient,
+  runtimePublicBaseUrl: WORKFLOW_RUNTIME_PUBLIC_BASE_URL,
   now,
   uuid,
 });
@@ -150,13 +157,20 @@ app.get('/v1/approvals/queue', controller.listApprovalQueue);
 app.get('/v1/approvals/:approvalRequestId', controller.getApprovalDetail);
 app.post('/v1/approvals/:approvalRequestId/decision', controller.decideApproval);
 app.get('/v1/artifacts/:artifactId', controller.getArtifact);
+app.post('/v1/runs/:runId/cancel', controller.cancelRun);
 app.patch('/v1/workflow-drafts/:draftId/spec', controller.patchDraftSpec);
+app.get('/v1/bridge-registrations', controller.listBridgeRegistrations);
+app.post('/v1/bridge-registrations', controller.createBridgeRegistration);
+app.get('/v1/bridge-registrations/:bridgeId', controller.getBridgeRegistration);
+app.post('/v1/bridge-registrations/:bridgeId/activate', controller.activateBridgeRegistration);
+app.post('/v1/bridge-registrations/:bridgeId/suspend', controller.suspendBridgeRegistration);
 app.get('/v1/agents', controller.listAgents);
 app.post('/v1/agents', controller.createAgent);
 app.get('/v1/agents/:agentId', controller.getAgent);
 app.post('/v1/agents/:agentId/activate', controller.activateAgent);
 app.post('/v1/agents/:agentId/suspend', controller.suspendAgent);
 app.post('/v1/agents/:agentId/retire', controller.retireAgent);
+app.post('/v1/agents/:agentId/runs', controller.startAgentRun);
 app.get('/v1/agents/:agentId/trigger-bindings', controller.listTriggerBindings);
 app.post('/v1/agents/:agentId/trigger-bindings', controller.createTriggerBinding);
 app.post('/v1/trigger-bindings/:triggerBindingId/enable', controller.enableTriggerBinding);
