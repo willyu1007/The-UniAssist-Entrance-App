@@ -2,5 +2,5 @@ version: 1
 task_id: T-024
 project: main
 slug: ua-builder-draft-publish-implementation
-status: in-progress
-updated: "2026-03-11"
+status: done
+updated: "2026-03-12"

@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: ready-for-review
+- State: done
 - Status note: `B3` implementation 与 review-driven hardening 已完成；sample workflow、runtime 定向持久化、run-derived recipe capture、provider sample 去语义漂移与回归测试已重新对齐。
 - Next step: 如需落到真实环境 DB，按 `sync-db-schema-from-code` workflow 在获批后执行 schema apply；否则可在确认后归档本 task bundle。
 

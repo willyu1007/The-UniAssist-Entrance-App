@@ -1,7 +1,7 @@
 # 00 Overview
 
 ## Status
-- State: completed
+- State: done
 - Status note: `B2` 已按既定范围完成：builder draft SoT、publish path、chat intake 接线、recipe draft control-plane object、session active draft 约束与 Postgres smoke 均已落地并验证。
 - Next step: 若要进入后续阶段，应单独立项处理 Prisma migration 历史提交，以及 `B3` 的 recipe capture / evidence lineage。
 
