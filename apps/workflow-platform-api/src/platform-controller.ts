@@ -3,11 +3,16 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 
 import type {
+  ActionBindingCreateRequest,
   AgentRunStartRequest,
   AgentDefinitionCreateRequest,
   AgentDefinitionLifecycleRequest,
   BridgeRegistrationCreateRequest,
   BridgeRegistrationLifecycleRequest,
+  ConnectorBindingCreateRequest,
+  ConnectorDefinitionCreateRequest,
+  EventSubscriptionCreateRequest,
+  EventSubscriptionDispatchRequest,
   GovernanceChangeDecisionRequest,
   GovernanceChangeRequestCreateRequest,
   PolicyBindingCreateRequest,
@@ -37,8 +42,20 @@ import type { ControlConsoleStreamBroker } from './control-console-stream';
 
 const EXECUTOR_STRATEGIES = new Set(['platform_runtime', 'external_runtime']);
 const TRIGGER_KINDS = new Set(['schedule', 'webhook', 'event_subscription']);
+const CONNECTOR_EXECUTION_MODES = new Set(['sync', 'async']);
+const CONNECTOR_SIDE_EFFECT_CLASSES = new Set(['read', 'write']);
+const BROWSER_FALLBACK_MODES = new Set(['disabled', 'query_only']);
 const POLICY_KINDS = new Set(['approval', 'invoke', 'delivery', 'visibility', 'browser_fallback']);
-const GOVERNANCE_TARGET_TYPES = new Set(['agent_definition', 'trigger_binding', 'policy_binding', 'secret_ref', 'scope_grant']);
+const GOVERNANCE_TARGET_TYPES = new Set([
+  'agent_definition',
+  'trigger_binding',
+  'policy_binding',
+  'secret_ref',
+  'scope_grant',
+  'connector_binding',
+  'action_binding',
+  'event_subscription',
+]);
 const GOVERNANCE_RISK_LEVELS = new Set(['R0', 'R1', 'R2']);
 const GOVERNANCE_REQUEST_KINDS = new Set([
   'agent_activate',
@@ -742,6 +759,150 @@ export function createPlatformController(
       }
     },
 
+    listConnectorDefinitions: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listConnectorDefinitions());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getConnectorDefinition: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getConnectorDefinition(req.params.connectorDefinitionId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createConnectorDefinition: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as ConnectorDefinitionCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        if (!isRecord(body.catalogJson)) {
+          throw new PlatformError(400, 'INVALID_REQUEST', 'catalogJson must be an object');
+        }
+        res.status(201).json(await service.createConnectorDefinition({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          connectorKey: requireString(body.connectorKey, 'connectorKey'),
+          name: requireString(body.name, 'name'),
+          description: optionalString(body.description),
+          catalogJson: body.catalogJson as ConnectorDefinitionCreateRequest['catalogJson'],
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listConnectorBindings: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listConnectorBindings());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getConnectorBinding: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getConnectorBinding(req.params.connectorBindingId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createConnectorBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as ConnectorBindingCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createConnectorBinding({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          connectorDefinitionId: requireString(body.connectorDefinitionId, 'connectorDefinitionId'),
+          name: requireString(body.name, 'name'),
+          description: optionalString(body.description),
+          secretRefId: optionalString(body.secretRefId),
+          metadataJson: optionalRecord(body.metadataJson),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listActionBindings: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.listActionBindings(req.params.agentId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getActionBinding: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getActionBinding(req.params.actionBindingId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createActionBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as ActionBindingCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createActionBinding(req.params.agentId, {
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          actionRef: requireString(body.actionRef, 'actionRef'),
+          connectorBindingId: requireString(body.connectorBindingId, 'connectorBindingId'),
+          capabilityId: requireString(body.capabilityId, 'capabilityId'),
+          sideEffectClass: requireEnum(body.sideEffectClass, 'sideEffectClass', CONNECTOR_SIDE_EFFECT_CLASSES) as ActionBindingCreateRequest['sideEffectClass'],
+          executionMode: requireEnum(body.executionMode, 'executionMode', CONNECTOR_EXECUTION_MODES) as ActionBindingCreateRequest['executionMode'],
+          timeoutMs: optionalPositiveInt(body.timeoutMs),
+          browserFallbackMode: optionalEnum(body.browserFallbackMode, 'browserFallbackMode', BROWSER_FALLBACK_MODES) as ActionBindingCreateRequest['browserFallbackMode'],
+          configJson: optionalRecord(body.configJson),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listEventSubscriptions: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listEventSubscriptions());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getEventSubscription: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getEventSubscription(req.params.eventSubscriptionId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createEventSubscription: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as EventSubscriptionCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createEventSubscription({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          connectorBindingId: requireString(body.connectorBindingId, 'connectorBindingId'),
+          triggerBindingId: requireString(body.triggerBindingId, 'triggerBindingId'),
+          eventType: requireString(body.eventType, 'eventType'),
+          configJson: optionalRecord(body.configJson),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
     listAgents: async (_req: Request, res: Response) => {
       try {
         res.json(await service.listAgents());
@@ -1041,6 +1202,14 @@ export function createPlatformController(
       }
     },
 
+    getEventSubscriptionRuntimeConfig: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getEventSubscriptionRuntimeConfig(req.params.publicSubscriptionKey));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
     dispatchScheduleTrigger: async (req: Request, res: Response) => {
       try {
         const body = req.body as TriggerDispatchRequest;
@@ -1062,6 +1231,22 @@ export function createPlatformController(
         const body = req.body as TriggerDispatchRequest;
         ensureSchemaVersion(body?.schemaVersion);
         res.status(202).json(await service.dispatchWebhookTrigger(req.params.publicTriggerKey, {
+          schemaVersion: 'v1',
+          dispatchKey: requireString(body.dispatchKey, 'dispatchKey'),
+          firedAt: optionalPositiveInt(body.firedAt) || Date.now(),
+          payload: optionalRecord(body.payload),
+          headers: body.headers === undefined ? undefined : requireStringRecord(body.headers, 'headers'),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    dispatchEventSubscription: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as EventSubscriptionDispatchRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(202).json(await service.dispatchEventSubscription(req.params.publicSubscriptionKey, {
           schemaVersion: 'v1',
           dispatchKey: requireString(body.dispatchKey, 'dispatchKey'),
           firedAt: optionalPositiveInt(body.firedAt) || Date.now(),

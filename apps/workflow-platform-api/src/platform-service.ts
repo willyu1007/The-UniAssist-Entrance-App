@@ -1,4 +1,9 @@
 import type {
+  ActionBindingCreateRequest,
+  ConnectorActionExecutionSnapshot,
+  ActionBindingListResponse,
+  ActionBindingRecord,
+  ActionBindingResponse,
   AgentRunStartRequest,
   AgentDefinitionCreateRequest,
   AgentDefinitionLifecycleRequest,
@@ -12,6 +17,15 @@ import type {
   BridgeRegistrationListResponse,
   BridgeRegistrationRecord,
   BridgeRegistrationResponse,
+  ConnectorBindingCreateRequest,
+  ConnectorBindingListResponse,
+  ConnectorBindingRecord,
+  ConnectorBindingResponse,
+  ConnectorCatalog,
+  ConnectorDefinitionCreateRequest,
+  ConnectorDefinitionListResponse,
+  ConnectorDefinitionRecord,
+  ConnectorDefinitionResponse,
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
@@ -28,6 +42,13 @@ import type {
   GovernanceChangeRequestListResponse,
   GovernanceChangeRequestRecord,
   GovernanceChangeRequestResponse,
+  EventSubscriptionCreateRequest,
+  EventSubscriptionDispatchRequest,
+  EventSubscriptionDispatchResponse,
+  EventSubscriptionListResponse,
+  EventSubscriptionRecord,
+  EventSubscriptionResponse,
+  EventSubscriptionRuntimeConfigResponse,
   PolicyBindingCreateRequest,
   PolicyBindingListResponse,
   PolicyBindingRecord,
@@ -310,6 +331,16 @@ function validateDraftSpec(spec: WorkflowDraftSpec, timestamp: number): DraftVal
     nodeKeys.add(nodeKey);
     if (node.nodeType === 'executor' && !sanitizeText(node.executorId)) {
       errors.push(`executor node ${nodeKey} requires executorId`);
+    }
+    if (node.nodeType === 'executor' && sanitizeText(node.executorId) === 'connector-runtime') {
+      const config = isRecord(node.config) ? node.config : {};
+      const actionRef = sanitizeText(typeof config.actionRef === 'string' ? config.actionRef : undefined);
+      if (!actionRef) {
+        errors.push(`connector executor node ${nodeKey} requires config.actionRef`);
+      }
+      if ('actionBindingId' in config || 'connectorBindingId' in config) {
+        errors.push(`connector executor node ${nodeKey} must not embed binding ids`);
+      }
     }
   }
 
@@ -622,6 +653,234 @@ export class PlatformService {
     };
   }
 
+  async listConnectorDefinitions(): Promise<ConnectorDefinitionListResponse> {
+    return {
+      schemaVersion: 'v1',
+      connectorDefinitions: await this.governanceRepository.listConnectorDefinitions(),
+    };
+  }
+
+  async getConnectorDefinition(connectorDefinitionId: string): Promise<ConnectorDefinitionResponse> {
+    return {
+      schemaVersion: 'v1',
+      connectorDefinition: await this.requireConnectorDefinition(connectorDefinitionId),
+    };
+  }
+
+  async createConnectorDefinition(input: ConnectorDefinitionCreateRequest): Promise<ConnectorDefinitionResponse> {
+    if (!Array.isArray(input.catalogJson.actions) || !Array.isArray(input.catalogJson.events)) {
+      throw new PlatformError(400, 'INVALID_CONNECTOR_CATALOG', 'connector catalog must include actions and events');
+    }
+    if (await this.governanceRepository.getConnectorDefinitionByKey(input.workspaceId, input.connectorKey)) {
+      throw new PlatformError(409, 'CONNECTOR_DEFINITION_EXISTS', 'connector definition already exists');
+    }
+    const timestamp = this.now();
+    const connectorDefinition: ConnectorDefinitionRecord = {
+      connectorDefinitionId: this.uuid(),
+      workspaceId: input.workspaceId,
+      connectorKey: sanitizeText(input.connectorKey) || 'connector',
+      name: sanitizeText(input.name) || 'Connector',
+      description: sanitizeText(input.description),
+      status: 'active',
+      catalogJson: input.catalogJson as ConnectorCatalog,
+      createdBy: input.userId,
+      updatedBy: input.userId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    return {
+      schemaVersion: 'v1',
+      connectorDefinition: await this.governanceRepository.createConnectorDefinition(connectorDefinition),
+    };
+  }
+
+  async listConnectorBindings(): Promise<ConnectorBindingListResponse> {
+    return {
+      schemaVersion: 'v1',
+      connectorBindings: await this.governanceRepository.listConnectorBindings(),
+    };
+  }
+
+  async getConnectorBinding(connectorBindingId: string): Promise<ConnectorBindingResponse> {
+    return {
+      schemaVersion: 'v1',
+      connectorBinding: await this.requireConnectorBinding(connectorBindingId),
+    };
+  }
+
+  async createConnectorBinding(input: ConnectorBindingCreateRequest): Promise<ConnectorBindingResponse> {
+    const connectorDefinition = await this.requireConnectorDefinition(input.connectorDefinitionId);
+    this.assertWorkspaceMatch(
+      connectorDefinition.workspaceId,
+      input.workspaceId,
+      'CONNECTOR_DEFINITION_WORKSPACE_MISMATCH',
+      'connector definition workspace must match connector binding workspace',
+    );
+    if (input.secretRefId) {
+      const secretRef = await this.governanceRepository.getSecretRef(input.secretRefId);
+      if (!secretRef) {
+        throw new PlatformError(404, 'SECRET_REF_NOT_FOUND', 'secret ref not found');
+      }
+      this.assertWorkspaceMatch(
+        secretRef.workspaceId,
+        input.workspaceId,
+        'SECRET_REF_WORKSPACE_MISMATCH',
+        'secret ref workspace must match connector binding workspace',
+      );
+    }
+    const timestamp = this.now();
+    const connectorBinding: ConnectorBindingRecord = {
+      connectorBindingId: this.uuid(),
+      workspaceId: input.workspaceId,
+      connectorDefinitionId: connectorDefinition.connectorDefinitionId,
+      name: sanitizeText(input.name) || connectorDefinition.name,
+      description: sanitizeText(input.description),
+      status: 'active',
+      secretRefId: sanitizeText(input.secretRefId),
+      metadataJson: input.metadataJson || {},
+      createdBy: input.userId,
+      updatedBy: input.userId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    return {
+      schemaVersion: 'v1',
+      connectorBinding: await this.governanceRepository.createConnectorBinding(connectorBinding),
+    };
+  }
+
+  async listActionBindings(agentId: string): Promise<ActionBindingListResponse> {
+    await this.requireAgent(agentId);
+    return {
+      schemaVersion: 'v1',
+      actionBindings: await this.governanceRepository.listActionBindingsByAgent(agentId),
+    };
+  }
+
+  async getActionBinding(actionBindingId: string): Promise<ActionBindingResponse> {
+    return {
+      schemaVersion: 'v1',
+      actionBinding: await this.requireActionBinding(actionBindingId),
+    };
+  }
+
+  async createActionBinding(agentId: string, input: ActionBindingCreateRequest): Promise<ActionBindingResponse> {
+    const agent = await this.requireAgent(agentId);
+    this.assertWorkspaceMatch(
+      agent.workspaceId,
+      input.workspaceId,
+      'ACTION_BINDING_WORKSPACE_MISMATCH',
+      'action binding workspace must match agent workspace',
+    );
+    const connectorBinding = await this.requireConnectorBinding(input.connectorBindingId);
+    this.assertWorkspaceMatch(
+      connectorBinding.workspaceId,
+      input.workspaceId,
+      'CONNECTOR_BINDING_WORKSPACE_MISMATCH',
+      'connector binding workspace must match action binding workspace',
+    );
+    const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+    const capability = connectorDefinition.catalogJson.actions.find(
+      (item: ConnectorCatalog['actions'][number]) => item.capabilityId === input.capabilityId,
+    );
+    if (!capability) {
+      throw new PlatformError(404, 'CONNECTOR_CAPABILITY_NOT_FOUND', 'connector capability not found');
+    }
+    if (capability.sideEffectClass !== input.sideEffectClass || capability.executionMode !== input.executionMode) {
+      throw new PlatformError(
+        409,
+        'ACTION_BINDING_CAPABILITY_MISMATCH',
+        'action binding sideEffectClass/executionMode must match connector capability definition',
+      );
+    }
+    const browserFallbackMode = input.browserFallbackMode || 'disabled';
+    if (input.sideEffectClass === 'write' && browserFallbackMode !== 'disabled') {
+      throw new PlatformError(409, 'BROWSER_FALLBACK_WRITE_NOT_ALLOWED', 'browser fallback is not allowed for write capabilities');
+    }
+    const timestamp = this.now();
+    const actionBinding: ActionBindingRecord = {
+      actionBindingId: this.uuid(),
+      workspaceId: input.workspaceId,
+      agentId,
+      actionRef: sanitizeText(input.actionRef) || 'action',
+      connectorBindingId: connectorBinding.connectorBindingId,
+      capabilityId: input.capabilityId,
+      status: 'active',
+      sideEffectClass: input.sideEffectClass,
+      executionMode: input.executionMode,
+      timeoutMs: input.timeoutMs,
+      browserFallbackMode,
+      configJson: input.configJson || {},
+      createdBy: input.userId,
+      updatedBy: input.userId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    return {
+      schemaVersion: 'v1',
+      actionBinding: await this.governanceRepository.createActionBinding(actionBinding),
+    };
+  }
+
+  async listEventSubscriptions(): Promise<EventSubscriptionListResponse> {
+    return {
+      schemaVersion: 'v1',
+      eventSubscriptions: await this.governanceRepository.listEventSubscriptions(),
+    };
+  }
+
+  async getEventSubscription(eventSubscriptionId: string): Promise<EventSubscriptionResponse> {
+    return {
+      schemaVersion: 'v1',
+      eventSubscription: await this.requireEventSubscription(eventSubscriptionId),
+    };
+  }
+
+  async createEventSubscription(input: EventSubscriptionCreateRequest): Promise<EventSubscriptionResponse> {
+    const triggerBinding = await this.requireTriggerBinding(input.triggerBindingId);
+    if (triggerBinding.triggerKind !== 'event_subscription') {
+      throw new PlatformError(409, 'TRIGGER_KIND_INVALID', 'event subscription requires event_subscription trigger kind');
+    }
+    const connectorBinding = await this.requireConnectorBinding(input.connectorBindingId);
+    const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+    this.assertWorkspaceMatch(
+      triggerBinding.workspaceId,
+      input.workspaceId,
+      'TRIGGER_BINDING_WORKSPACE_MISMATCH',
+      'trigger binding workspace must match event subscription workspace',
+    );
+    this.assertWorkspaceMatch(
+      connectorBinding.workspaceId,
+      input.workspaceId,
+      'CONNECTOR_BINDING_WORKSPACE_MISMATCH',
+      'connector binding workspace must match event subscription workspace',
+    );
+    const eventType = sanitizeText(input.eventType) || 'event';
+    const eventCatalogEntry = connectorDefinition.catalogJson.events.find((item) => item.eventType === eventType);
+    if (!eventCatalogEntry) {
+      throw new PlatformError(404, 'CONNECTOR_EVENT_NOT_FOUND', 'connector event type not found');
+    }
+    const timestamp = this.now();
+    const eventSubscription: EventSubscriptionRecord = {
+      eventSubscriptionId: this.uuid(),
+      workspaceId: input.workspaceId,
+      connectorBindingId: connectorBinding.connectorBindingId,
+      triggerBindingId: triggerBinding.triggerBindingId,
+      eventType,
+      status: 'active',
+      publicSubscriptionKey: this.uuid(),
+      configJson: input.configJson || {},
+      createdBy: input.userId,
+      updatedBy: input.userId,
+      createdAt: timestamp,
+      updatedAt: timestamp,
+    };
+    return {
+      schemaVersion: 'v1',
+      eventSubscription: await this.governanceRepository.createEventSubscription(eventSubscription),
+    };
+  }
+
   async listAgents(): Promise<AgentDefinitionListResponse> {
     return {
       schemaVersion: 'v1',
@@ -827,7 +1086,14 @@ export class PlatformService {
   ): Promise<TriggerBindingResponse> {
     const triggerBinding = await this.requireTriggerBinding(triggerBindingId);
     if (triggerBinding.triggerKind === 'event_subscription') {
-      throw new PlatformError(409, 'EVENT_SUBSCRIPTION_NOT_AVAILABLE_IN_B5', 'event subscription triggers are not enabled in B5');
+      const subscriptions = await this.governanceRepository.listEventSubscriptionsByTriggerBinding(triggerBinding.triggerBindingId);
+      if (subscriptions.length === 0) {
+        throw new PlatformError(
+          409,
+          'EVENT_SUBSCRIPTION_REQUIRED',
+          'event_subscription trigger requires at least one event subscription before enable',
+        );
+      }
     }
     const agent = await this.requireAgent(triggerBinding.agentId);
     const request = await this.createGovernanceChangeRequestRecord({
@@ -882,6 +1148,13 @@ export class PlatformService {
   }
 
   async createPolicyBinding(input: PolicyBindingCreateRequest): Promise<PolicyBindingResponse> {
+    const targetWorkspaceId = await this.requireGovernanceTargetWorkspace(input.targetType, input.targetRef);
+    this.assertWorkspaceMatch(
+      targetWorkspaceId,
+      input.workspaceId,
+      'POLICY_BINDING_WORKSPACE_MISMATCH',
+      'policy binding workspace must match the target workspace',
+    );
     const timestamp = this.now();
     const record: PolicyBindingRecord = {
       policyBindingId: this.uuid(),
@@ -1097,6 +1370,101 @@ export class PlatformService {
         replayWindowMs: getWebhookReplayWindowMs(triggerBinding.configJson),
       },
     };
+  }
+
+  async getEventSubscriptionRuntimeConfig(
+    publicSubscriptionKey: string,
+  ): Promise<EventSubscriptionRuntimeConfigResponse> {
+    const eventSubscription = await this.governanceRepository.getEventSubscriptionByPublicKey(publicSubscriptionKey);
+    if (!eventSubscription) {
+      throw new PlatformError(404, 'EVENT_SUBSCRIPTION_NOT_FOUND', 'event subscription not found');
+    }
+    if (eventSubscription.status !== 'active') {
+      throw new PlatformError(409, 'EVENT_SUBSCRIPTION_NOT_ACTIVE', 'event subscription must be active');
+    }
+    const triggerBinding = await this.requireTriggerBinding(eventSubscription.triggerBindingId);
+    if (triggerBinding.triggerKind !== 'event_subscription') {
+      throw new PlatformError(409, 'TRIGGER_KIND_INVALID', 'event subscription trigger binding is invalid');
+    }
+    const agent = await this.requireAgent(triggerBinding.agentId);
+    if (await this.isTriggerBindingRunnable(agent, triggerBinding) === false) {
+      throw new PlatformError(409, 'TRIGGER_NOT_RUNNABLE', 'trigger is not runnable');
+    }
+    const connectorBinding = await this.requireConnectorBinding(eventSubscription.connectorBindingId);
+    const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+    const secretRef = await this.requireUsableConnectorSecret(
+      connectorBinding.secretRefId,
+      await this.collectScopeGrantsForTargets(this.governanceRepository, [
+        { targetType: 'agent_definition', targetRef: agent.agentId },
+        { targetType: 'trigger_binding', targetRef: triggerBinding.triggerBindingId },
+        { targetType: 'connector_binding', targetRef: connectorBinding.connectorBindingId },
+        { targetType: 'event_subscription', targetRef: eventSubscription.eventSubscriptionId },
+      ]),
+      'CONNECTOR_SECRET_SCOPE_REQUIRED',
+      'connector binding secret requires an active scope grant before enabling event delivery',
+    );
+    const secretEnvKey = secretRef
+      ? normalizeString(secretRef.metadataJson.envKey)
+      : undefined;
+
+    return {
+      schemaVersion: 'v1',
+      eventSubscription: {
+        eventSubscriptionId: eventSubscription.eventSubscriptionId,
+        triggerBindingId: eventSubscription.triggerBindingId,
+        publicSubscriptionKey,
+        connectorKey: connectorDefinition.connectorKey,
+        eventType: eventSubscription.eventType,
+        secretRefId: connectorBinding.secretRefId,
+        secretEnvKey,
+        signatureHeader: getWebhookSignatureHeader(eventSubscription.configJson),
+        timestampHeader: getWebhookTimestampHeader(eventSubscription.configJson),
+        dedupeHeader: getWebhookDedupeHeader(eventSubscription.configJson),
+        replayWindowMs: getWebhookReplayWindowMs(eventSubscription.configJson),
+      },
+    };
+  }
+
+  async dispatchEventSubscription(
+    publicSubscriptionKey: string,
+    input: EventSubscriptionDispatchRequest,
+  ): Promise<EventSubscriptionDispatchResponse> {
+    const eventSubscription = await this.governanceRepository.getEventSubscriptionByPublicKey(publicSubscriptionKey);
+    if (!eventSubscription) {
+      throw new PlatformError(404, 'EVENT_SUBSCRIPTION_NOT_FOUND', 'event subscription not found');
+    }
+    const triggerBinding = await this.requireTriggerBinding(eventSubscription.triggerBindingId);
+    const scopedDispatchKey = `${eventSubscription.eventSubscriptionId}:${input.dispatchKey}`;
+    try {
+      const dispatch = await this.dispatchTrigger('event_subscription', triggerBinding.triggerBindingId, {
+        schemaVersion: 'v1',
+        dispatchKey: scopedDispatchKey,
+        firedAt: input.firedAt,
+        payload: input.payload,
+        headers: input.headers,
+      });
+      if (!dispatch.duplicate) {
+        await this.governanceRepository.updateEventSubscription({
+          ...eventSubscription,
+          lastEventAt: input.firedAt,
+          lastError: undefined,
+          updatedAt: this.now(),
+        });
+      }
+      return {
+        schemaVersion: 'v1',
+        runId: dispatch.runId,
+        duplicate: dispatch.duplicate,
+        eventSubscription: await this.requireEventSubscription(eventSubscription.eventSubscriptionId),
+      };
+    } catch (error) {
+      await this.governanceRepository.updateEventSubscription({
+        ...eventSubscription,
+        lastError: error instanceof Error ? error.message : String(error),
+        updatedAt: this.now(),
+      });
+      throw error;
+    }
   }
 
   async dispatchScheduleTrigger(
@@ -1657,6 +2025,54 @@ export class PlatformService {
     return triggerBinding;
   }
 
+  private async requireConnectorDefinition(connectorDefinitionId: string): Promise<ConnectorDefinitionRecord> {
+    const connectorDefinition = await this.governanceRepository.getConnectorDefinition(connectorDefinitionId);
+    if (!connectorDefinition) {
+      throw new PlatformError(404, 'CONNECTOR_DEFINITION_NOT_FOUND', 'connector definition not found');
+    }
+    return connectorDefinition;
+  }
+
+  private async requireConnectorBinding(connectorBindingId: string): Promise<ConnectorBindingRecord> {
+    const connectorBinding = await this.governanceRepository.getConnectorBinding(connectorBindingId);
+    if (!connectorBinding) {
+      throw new PlatformError(404, 'CONNECTOR_BINDING_NOT_FOUND', 'connector binding not found');
+    }
+    return connectorBinding;
+  }
+
+  private async requireActionBinding(actionBindingId: string): Promise<ActionBindingRecord> {
+    const actionBinding = await this.governanceRepository.getActionBinding(actionBindingId);
+    if (!actionBinding) {
+      throw new PlatformError(404, 'ACTION_BINDING_NOT_FOUND', 'action binding not found');
+    }
+    return actionBinding;
+  }
+
+  private async requireEventSubscription(eventSubscriptionId: string): Promise<EventSubscriptionRecord> {
+    const eventSubscription = await this.governanceRepository.getEventSubscription(eventSubscriptionId);
+    if (!eventSubscription) {
+      throw new PlatformError(404, 'EVENT_SUBSCRIPTION_NOT_FOUND', 'event subscription not found');
+    }
+    return eventSubscription;
+  }
+
+  private async requirePolicyBinding(policyBindingId: string): Promise<PolicyBindingRecord> {
+    const policyBinding = await this.governanceRepository.getPolicyBinding(policyBindingId);
+    if (!policyBinding) {
+      throw new PlatformError(404, 'POLICY_BINDING_NOT_FOUND', 'policy binding not found');
+    }
+    return policyBinding;
+  }
+
+  private async requireScopeGrant(scopeGrantId: string): Promise<ScopeGrantRecord> {
+    const scopeGrant = await this.governanceRepository.getScopeGrant(scopeGrantId);
+    if (!scopeGrant) {
+      throw new PlatformError(404, 'SCOPE_GRANT_NOT_FOUND', 'scope grant not found');
+    }
+    return scopeGrant;
+  }
+
   private validateTriggerConfig(triggerKind: TriggerBindingRecord['triggerKind'], configJson: Record<string, unknown>): void {
     if (triggerKind === 'schedule') {
       computeNextScheduleTriggerAt(configJson, this.now());
@@ -1712,6 +2128,128 @@ export class PlatformService {
     };
   }
 
+  private async requireGovernanceTargetWorkspace(
+    targetType: GovernanceChangeRequestRecord['targetType'],
+    targetRef: string,
+  ): Promise<string> {
+    switch (targetType) {
+      case 'agent_definition':
+        return (await this.requireAgent(targetRef)).workspaceId;
+      case 'trigger_binding':
+        return (await this.requireTriggerBinding(targetRef)).workspaceId;
+      case 'policy_binding':
+        return (await this.requirePolicyBinding(targetRef)).workspaceId;
+      case 'secret_ref': {
+        const secretRef = await this.governanceRepository.getSecretRef(targetRef);
+        if (!secretRef) {
+          throw new PlatformError(404, 'SECRET_REF_NOT_FOUND', 'secret ref not found');
+        }
+        return secretRef.workspaceId;
+      }
+      case 'scope_grant':
+        return (await this.requireScopeGrant(targetRef)).workspaceId;
+      case 'connector_binding':
+        return (await this.requireConnectorBinding(targetRef)).workspaceId;
+      case 'action_binding':
+        return (await this.requireActionBinding(targetRef)).workspaceId;
+      case 'event_subscription':
+        return (await this.requireEventSubscription(targetRef)).workspaceId;
+      default:
+        throw new PlatformError(400, 'GOVERNANCE_TARGET_TYPE_INVALID', 'unsupported governance target type');
+    }
+  }
+
+  private async requirePolicyApprovalForTarget(
+    targetType: PolicyBindingRecord['targetType'],
+    targetRef: string,
+  ): Promise<void> {
+    const policyBindings = await this.governanceRepository.listPolicyBindingsForTarget(targetType, targetRef);
+    const allowed = policyBindings.some((item) => item.policyKind === 'invoke' && item.status === 'active');
+    if (!allowed) {
+      throw new PlatformError(
+        409,
+        'EXTERNAL_WRITE_ALLOW_REQUIRED',
+        'write-capable connector action requires an active invoke policy binding approved via external_write_allow',
+      );
+    }
+  }
+
+  private async resolveConnectorActionSnapshots(
+    agent: AgentDefinitionRecord,
+    spec: WorkflowTemplateVersionRecord['spec'],
+  ): Promise<Record<string, ConnectorActionExecutionSnapshot>> {
+    const actionBindings = await this.governanceRepository.listActionBindingsByAgent(agent.agentId);
+    const requiredActionRefs = new Set(
+      (spec.nodes || [])
+        .filter((node) => node.nodeType === 'executor' && node.executorId === 'connector-runtime')
+        .map((node) => normalizeString(node.config?.actionRef))
+        .filter(Boolean) as string[],
+    );
+    const snapshots: Record<string, ConnectorActionExecutionSnapshot> = {};
+
+    for (const actionBinding of actionBindings) {
+      if (actionBinding.status !== 'active') {
+        continue;
+      }
+      if (requiredActionRefs.size > 0 && requiredActionRefs.has(actionBinding.actionRef) === false) {
+        continue;
+      }
+      const connectorBinding = await this.requireConnectorBinding(actionBinding.connectorBindingId);
+      this.assertWorkspaceMatch(
+        connectorBinding.workspaceId,
+        agent.workspaceId,
+        'CONNECTOR_BINDING_WORKSPACE_MISMATCH',
+        'connector binding workspace must match agent workspace',
+      );
+      if (connectorBinding.status !== 'active') {
+        throw new PlatformError(409, 'CONNECTOR_BINDING_NOT_ACTIVE', 'connector binding must be active before starting a run');
+      }
+      const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+      if (connectorDefinition.status !== 'active') {
+        throw new PlatformError(409, 'CONNECTOR_DEFINITION_NOT_ACTIVE', 'connector definition must be active before starting a run');
+      }
+      const capability = connectorDefinition.catalogJson.actions.find(
+        (item: ConnectorCatalog['actions'][number]) => item.capabilityId === actionBinding.capabilityId,
+      );
+      if (!capability) {
+        throw new PlatformError(409, 'CONNECTOR_CAPABILITY_NOT_FOUND', 'connector capability no longer exists');
+      }
+      if (actionBinding.sideEffectClass === 'write') {
+        await this.requirePolicyApprovalForTarget('action_binding', actionBinding.actionBindingId);
+      }
+      await this.requireUsableConnectorSecret(
+        connectorBinding.secretRefId,
+        await this.collectScopeGrantsForTargets(this.governanceRepository, [
+          { targetType: 'agent_definition', targetRef: agent.agentId },
+          { targetType: 'connector_binding', targetRef: connectorBinding.connectorBindingId },
+          { targetType: 'action_binding', targetRef: actionBinding.actionBindingId },
+        ]),
+        'CONNECTOR_SECRET_SCOPE_REQUIRED',
+        'connector binding secret requires an active scope grant before starting a run',
+      );
+      snapshots[actionBinding.actionRef] = {
+        actionRef: actionBinding.actionRef,
+        actionBindingId: actionBinding.actionBindingId,
+        connectorBindingId: connectorBinding.connectorBindingId,
+        connectorKey: connectorDefinition.connectorKey,
+        capabilityId: actionBinding.capabilityId,
+        sideEffectClass: actionBinding.sideEffectClass,
+        executionMode: actionBinding.executionMode,
+        timeoutMs: actionBinding.timeoutMs,
+        browserFallbackMode: actionBinding.browserFallbackMode,
+        configJson: actionBinding.configJson,
+      };
+    }
+
+    for (const actionRef of requiredActionRefs) {
+      if (!snapshots[actionRef]) {
+        throw new PlatformError(409, 'ACTION_BINDING_REQUIRED', `active action binding is required for actionRef ${actionRef}`);
+      }
+    }
+
+    return snapshots;
+  }
+
   private async startManagedAgentRun(params: {
     agent: AgentDefinitionRecord;
     workflowDetail: WorkflowDetail;
@@ -1742,6 +2280,7 @@ export class PlatformService {
       }
       externalRuntime = this.buildExternalRuntimeSnapshot(bridge);
     }
+    const connectorActions = await this.resolveConnectorActionSnapshots(params.agent, params.workflowVersion.spec);
 
     const response = await this.runtimeClient.startRun({
       schemaVersion: 'v1',
@@ -1761,6 +2300,7 @@ export class PlatformService {
         executorStrategy: params.agent.executorStrategy,
         ...(externalRuntime ? { bridgeId: externalRuntime.bridgeId } : {}),
       },
+      connectorActions: Object.keys(connectorActions).length > 0 ? connectorActions : undefined,
       externalRuntime,
     });
     return await this.attachCapturedRecipeDrafts(response);
@@ -1884,33 +2424,67 @@ export class PlatformService {
           'governance request workspace must match the target trigger binding workspace',
         );
         if (triggerBinding.triggerKind === 'event_subscription') {
-          throw new PlatformError(409, 'EVENT_SUBSCRIPTION_NOT_AVAILABLE_IN_B5', 'event subscription triggers are not enabled in B5');
+          const subscriptions = await this.governanceRepository.listEventSubscriptionsByTriggerBinding(triggerBinding.triggerBindingId);
+          if (subscriptions.length === 0) {
+            throw new PlatformError(
+              409,
+              'EVENT_SUBSCRIPTION_REQUIRED',
+              'event_subscription trigger requires at least one event subscription before enable',
+            );
+          }
         }
         return;
       }
       case 'policy_bind_apply':
       case 'external_write_allow': {
-        this.assertGovernanceTargetType(params.requestKind, params.targetType, ['policy_binding']);
-        const policyBinding = await this.governanceRepository.getPolicyBinding(params.targetRef);
-        if (!policyBinding) {
-          throw new PlatformError(404, 'POLICY_BINDING_NOT_FOUND', 'policy binding not found');
+        this.assertGovernanceTargetType(params.requestKind, params.targetType, [
+          'policy_binding',
+          'connector_binding',
+          'action_binding',
+          'event_subscription',
+        ]);
+        const targetWorkspaceId = await this.requireGovernanceTargetWorkspace(params.targetType, params.targetRef);
+        this.assertWorkspaceMatch(
+          targetWorkspaceId,
+          params.workspaceId,
+          'GOVERNANCE_WORKSPACE_MISMATCH',
+          'governance request workspace must match the governance target workspace',
+        );
+        const policyBindingId = params.targetType === 'policy_binding'
+          ? params.targetRef
+          : normalizeString(params.desiredStateJson.policyBindingId);
+        if (!policyBindingId) {
+          throw new PlatformError(400, 'POLICY_BINDING_TARGET_REQUIRED', 'policy binding target is required');
         }
+        const policyBinding = await this.requirePolicyBinding(policyBindingId);
         this.assertWorkspaceMatch(
           policyBinding.workspaceId,
           params.workspaceId,
           'GOVERNANCE_WORKSPACE_MISMATCH',
           'governance request workspace must match the target policy binding workspace',
         );
+        if (params.targetType !== 'policy_binding'
+          && (policyBinding.targetType !== params.targetType || policyBinding.targetRef !== params.targetRef)) {
+          throw new PlatformError(
+            409,
+            'POLICY_BINDING_TARGET_MISMATCH',
+            'policy binding must target the same governance object referenced by the request',
+          );
+        }
         return;
       }
       case 'secret_grant_issue':
       case 'scope_grant_issue': {
-        this.assertGovernanceTargetType(params.requestKind, params.targetType, ['agent_definition', 'trigger_binding']);
-        const target = params.targetType === 'agent_definition'
-          ? await this.requireAgent(params.targetRef)
-          : await this.requireTriggerBinding(params.targetRef);
+        this.assertGovernanceTargetType(params.requestKind, params.targetType, [
+          'agent_definition',
+          'trigger_binding',
+          'connector_binding',
+          'action_binding',
+          'event_subscription',
+        ]);
+        const targetWorkspaceId = await this.requireGovernanceTargetWorkspace(params.targetType, params.targetRef);
         this.assertWorkspaceMatch(
-          target.workspaceId,
+          targetWorkspaceId,
           params.workspaceId,
           'GOVERNANCE_WORKSPACE_MISMATCH',
           'governance request workspace must match the target workspace',
@@ -1941,10 +2515,7 @@ export class PlatformService {
       }
       case 'scope_widen': {
         this.assertGovernanceTargetType(params.requestKind, params.targetType, ['scope_grant']);
-        const scopeGrant = await this.governanceRepository.getScopeGrant(params.targetRef);
-        if (!scopeGrant) {
-          throw new PlatformError(404, 'SCOPE_GRANT_NOT_FOUND', 'scope grant not found');
-        }
+        const scopeGrant = await this.requireScopeGrant(params.targetRef);
         this.assertWorkspaceMatch(
           scopeGrant.workspaceId,
           params.workspaceId,
@@ -2033,7 +2604,14 @@ export class PlatformService {
           throw new PlatformError(404, 'AGENT_NOT_FOUND', 'agent not found');
         }
         if (current.triggerKind === 'event_subscription') {
-          throw new PlatformError(409, 'EVENT_SUBSCRIPTION_NOT_AVAILABLE_IN_B5', 'event subscription triggers are not enabled in B5');
+          const subscriptions = await repository.listEventSubscriptionsByTriggerBinding(current.triggerBindingId);
+          if (subscriptions.length === 0) {
+            throw new PlatformError(
+              409,
+              'EVENT_SUBSCRIPTION_REQUIRED',
+              'event_subscription trigger requires at least one event subscription before enable',
+            );
+          }
         }
         if (currentAgent.activationState !== 'active') {
           throw new PlatformError(409, 'AGENT_NOT_ACTIVE', 'agent must be active before enabling triggers');
@@ -2180,6 +2758,37 @@ export class PlatformService {
   ): Promise<ScopeGrantRecord | undefined> {
     const grants = await this.collectScopeGrantsForTrigger(this.governanceRepository, triggerBinding);
     return grants.find((grant) => grant.resourceRef === secretRefId && grant.status === 'active');
+  }
+
+  private async collectScopeGrantsForTargets(
+    repository: GovernanceRepository,
+    targets: Array<{ targetType: ScopeGrantRecord['targetType']; targetRef: string }>,
+  ): Promise<ScopeGrantRecord[]> {
+    const grants = await Promise.all(
+      targets.map(async (target) => await repository.listScopeGrantsForTarget(target.targetType, target.targetRef)),
+    );
+    return grants.flat();
+  }
+
+  private async requireUsableConnectorSecret(
+    secretRefId: string | undefined,
+    scopeGrants: ScopeGrantRecord[],
+    errorCode: string,
+    errorMessage: string,
+    repository: GovernanceRepository = this.governanceRepository,
+  ): Promise<SecretRefRecord | undefined> {
+    if (!secretRefId) {
+      return undefined;
+    }
+    const secretRef = await repository.getSecretRef(secretRefId);
+    if (!secretRef) {
+      throw new PlatformError(404, 'SECRET_REF_NOT_FOUND', 'secret ref not found');
+    }
+    const scopeGrant = scopeGrants.find((grant) => grant.resourceRef === secretRefId && grant.status === 'active');
+    if (!isSecretUsable(secretRef, scopeGrant, secretRef.environmentScope)) {
+      throw new PlatformError(409, errorCode, errorMessage);
+    }
+    return secretRef;
   }
 
   private async isTriggerBindingRunnable(

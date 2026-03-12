@@ -1,9 +1,13 @@
 import { Pool, type PoolClient } from 'pg';
 
 import type {
+  ActionBindingRecord,
   AgentDefinitionRecord,
   BridgeRegistrationRecord,
+  ConnectorBindingRecord,
+  ConnectorDefinitionRecord,
   DueScheduleTrigger,
+  EventSubscriptionRecord,
   GovernanceChangeDecisionRecord,
   GovernanceChangeRequestRecord,
   PolicyBindingRecord,
@@ -83,6 +87,79 @@ function toTriggerBindingRecord(row: Record<string, unknown>): TriggerBindingRec
     publicTriggerKey: row.public_trigger_key ? String(row.public_trigger_key) : undefined,
     lastTriggeredAt: row.last_triggered_at ? toMs(row.last_triggered_at) : undefined,
     nextTriggerAt: row.next_trigger_at ? toMs(row.next_trigger_at) : undefined,
+    lastError: row.last_error ? String(row.last_error) : undefined,
+    createdBy: String(row.created_by),
+    updatedBy: String(row.updated_by),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toConnectorDefinitionRecord(row: Record<string, unknown>): ConnectorDefinitionRecord {
+  return {
+    connectorDefinitionId: String(row.connector_definition_id),
+    workspaceId: String(row.workspace_id),
+    connectorKey: String(row.connector_key),
+    name: String(row.name),
+    description: row.description ? String(row.description) : undefined,
+    status: String(row.status) as ConnectorDefinitionRecord['status'],
+    catalogJson: parseJson(row.catalog_json, { actions: [], events: [] }),
+    createdBy: String(row.created_by),
+    updatedBy: String(row.updated_by),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toConnectorBindingRecord(row: Record<string, unknown>): ConnectorBindingRecord {
+  return {
+    connectorBindingId: String(row.connector_binding_id),
+    workspaceId: String(row.workspace_id),
+    connectorDefinitionId: String(row.connector_definition_id),
+    name: String(row.name),
+    description: row.description ? String(row.description) : undefined,
+    status: String(row.status) as ConnectorBindingRecord['status'],
+    secretRefId: row.secret_ref_id ? String(row.secret_ref_id) : undefined,
+    metadataJson: parseJson(row.metadata_json, undefined),
+    createdBy: String(row.created_by),
+    updatedBy: String(row.updated_by),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toActionBindingRecord(row: Record<string, unknown>): ActionBindingRecord {
+  return {
+    actionBindingId: String(row.action_binding_id),
+    workspaceId: String(row.workspace_id),
+    agentId: String(row.agent_id),
+    actionRef: String(row.action_ref),
+    connectorBindingId: String(row.connector_binding_id),
+    capabilityId: String(row.capability_id),
+    status: String(row.status) as ActionBindingRecord['status'],
+    sideEffectClass: String(row.side_effect_class) as ActionBindingRecord['sideEffectClass'],
+    executionMode: String(row.execution_mode) as ActionBindingRecord['executionMode'],
+    timeoutMs: row.timeout_ms === null || row.timeout_ms === undefined ? undefined : Number(row.timeout_ms),
+    browserFallbackMode: String(row.browser_fallback_mode) as ActionBindingRecord['browserFallbackMode'],
+    configJson: parseJson(row.config_json, {}),
+    createdBy: String(row.created_by),
+    updatedBy: String(row.updated_by),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toEventSubscriptionRecord(row: Record<string, unknown>): EventSubscriptionRecord {
+  return {
+    eventSubscriptionId: String(row.event_subscription_id),
+    workspaceId: String(row.workspace_id),
+    connectorBindingId: String(row.connector_binding_id),
+    triggerBindingId: String(row.trigger_binding_id),
+    eventType: String(row.event_type),
+    status: String(row.status) as EventSubscriptionRecord['status'],
+    publicSubscriptionKey: row.public_subscription_key ? String(row.public_subscription_key) : undefined,
+    configJson: parseJson(row.config_json, {}),
+    lastEventAt: row.last_event_at ? toMs(row.last_event_at) : undefined,
     lastError: row.last_error ? String(row.last_error) : undefined,
     createdBy: String(row.created_by),
     updatedBy: String(row.updated_by),
@@ -190,6 +267,9 @@ export type GovernanceRepository = {
   lockAgent: (agentId: string) => Promise<void>;
   lockBridgeRegistration: (bridgeId: string) => Promise<void>;
   lockTriggerBinding: (triggerBindingId: string) => Promise<void>;
+  lockConnectorBinding: (connectorBindingId: string) => Promise<void>;
+  lockActionBinding: (actionBindingId: string) => Promise<void>;
+  lockEventSubscription: (eventSubscriptionId: string) => Promise<void>;
   listAgents: () => Promise<AgentDefinitionRecord[]>;
   getAgent: (agentId: string) => Promise<AgentDefinitionRecord | undefined>;
   createAgent: (record: AgentDefinitionRecord) => Promise<AgentDefinitionRecord>;
@@ -203,6 +283,25 @@ export type GovernanceRepository = {
   getTriggerBindingByPublicKey: (publicTriggerKey: string) => Promise<TriggerBindingRecord | undefined>;
   createTriggerBinding: (record: TriggerBindingRecord) => Promise<TriggerBindingRecord>;
   updateTriggerBinding: (record: TriggerBindingRecord) => Promise<TriggerBindingRecord>;
+  listConnectorDefinitions: () => Promise<ConnectorDefinitionRecord[]>;
+  getConnectorDefinition: (connectorDefinitionId: string) => Promise<ConnectorDefinitionRecord | undefined>;
+  getConnectorDefinitionByKey: (workspaceId: string, connectorKey: string) => Promise<ConnectorDefinitionRecord | undefined>;
+  createConnectorDefinition: (record: ConnectorDefinitionRecord) => Promise<ConnectorDefinitionRecord>;
+  updateConnectorDefinition: (record: ConnectorDefinitionRecord) => Promise<ConnectorDefinitionRecord>;
+  listConnectorBindings: () => Promise<ConnectorBindingRecord[]>;
+  getConnectorBinding: (connectorBindingId: string) => Promise<ConnectorBindingRecord | undefined>;
+  createConnectorBinding: (record: ConnectorBindingRecord) => Promise<ConnectorBindingRecord>;
+  updateConnectorBinding: (record: ConnectorBindingRecord) => Promise<ConnectorBindingRecord>;
+  listActionBindingsByAgent: (agentId: string) => Promise<ActionBindingRecord[]>;
+  getActionBinding: (actionBindingId: string) => Promise<ActionBindingRecord | undefined>;
+  createActionBinding: (record: ActionBindingRecord) => Promise<ActionBindingRecord>;
+  updateActionBinding: (record: ActionBindingRecord) => Promise<ActionBindingRecord>;
+  listEventSubscriptions: () => Promise<EventSubscriptionRecord[]>;
+  listEventSubscriptionsByTriggerBinding: (triggerBindingId: string) => Promise<EventSubscriptionRecord[]>;
+  getEventSubscription: (eventSubscriptionId: string) => Promise<EventSubscriptionRecord | undefined>;
+  getEventSubscriptionByPublicKey: (publicSubscriptionKey: string) => Promise<EventSubscriptionRecord | undefined>;
+  createEventSubscription: (record: EventSubscriptionRecord) => Promise<EventSubscriptionRecord>;
+  updateEventSubscription: (record: EventSubscriptionRecord) => Promise<EventSubscriptionRecord>;
   listDueScheduleTriggers: (timestamp: number) => Promise<DueScheduleTrigger[]>;
   listPolicyBindings: () => Promise<PolicyBindingRecord[]>;
   listPolicyBindingsForTarget: (targetType: string, targetRef: string) => Promise<PolicyBindingRecord[]>;
@@ -232,6 +331,10 @@ export class MemoryGovernanceRepository implements GovernanceRepository {
   private readonly agents = new Map<string, AgentDefinitionRecord>();
   private readonly bridges = new Map<string, BridgeRegistrationRecord>();
   private readonly triggerBindings = new Map<string, TriggerBindingRecord>();
+  private readonly connectorDefinitions = new Map<string, ConnectorDefinitionRecord>();
+  private readonly connectorBindings = new Map<string, ConnectorBindingRecord>();
+  private readonly actionBindings = new Map<string, ActionBindingRecord>();
+  private readonly eventSubscriptions = new Map<string, EventSubscriptionRecord>();
   private readonly policyBindings = new Map<string, PolicyBindingRecord>();
   private readonly secretRefs = new Map<string, SecretRefRecord>();
   private readonly scopeGrants = new Map<string, ScopeGrantRecord>();
@@ -256,6 +359,18 @@ export class MemoryGovernanceRepository implements GovernanceRepository {
   }
 
   async lockTriggerBinding(_triggerBindingId: string): Promise<void> {
+    return;
+  }
+
+  async lockConnectorBinding(_connectorBindingId: string): Promise<void> {
+    return;
+  }
+
+  async lockActionBinding(_actionBindingId: string): Promise<void> {
+    return;
+  }
+
+  async lockEventSubscription(_eventSubscriptionId: string): Promise<void> {
     return;
   }
 
@@ -316,6 +431,95 @@ export class MemoryGovernanceRepository implements GovernanceRepository {
 
   async updateTriggerBinding(record: TriggerBindingRecord): Promise<TriggerBindingRecord> {
     this.triggerBindings.set(record.triggerBindingId, record);
+    return record;
+  }
+
+  async listConnectorDefinitions(): Promise<ConnectorDefinitionRecord[]> {
+    return [...this.connectorDefinitions.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  async getConnectorDefinition(connectorDefinitionId: string): Promise<ConnectorDefinitionRecord | undefined> {
+    return this.connectorDefinitions.get(connectorDefinitionId);
+  }
+
+  async getConnectorDefinitionByKey(
+    workspaceId: string,
+    connectorKey: string,
+  ): Promise<ConnectorDefinitionRecord | undefined> {
+    return [...this.connectorDefinitions.values()].find((item) => item.workspaceId === workspaceId && item.connectorKey === connectorKey);
+  }
+
+  async createConnectorDefinition(record: ConnectorDefinitionRecord): Promise<ConnectorDefinitionRecord> {
+    this.connectorDefinitions.set(record.connectorDefinitionId, record);
+    return record;
+  }
+
+  async updateConnectorDefinition(record: ConnectorDefinitionRecord): Promise<ConnectorDefinitionRecord> {
+    this.connectorDefinitions.set(record.connectorDefinitionId, record);
+    return record;
+  }
+
+  async listConnectorBindings(): Promise<ConnectorBindingRecord[]> {
+    return [...this.connectorBindings.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  async getConnectorBinding(connectorBindingId: string): Promise<ConnectorBindingRecord | undefined> {
+    return this.connectorBindings.get(connectorBindingId);
+  }
+
+  async createConnectorBinding(record: ConnectorBindingRecord): Promise<ConnectorBindingRecord> {
+    this.connectorBindings.set(record.connectorBindingId, record);
+    return record;
+  }
+
+  async updateConnectorBinding(record: ConnectorBindingRecord): Promise<ConnectorBindingRecord> {
+    this.connectorBindings.set(record.connectorBindingId, record);
+    return record;
+  }
+
+  async listActionBindingsByAgent(agentId: string): Promise<ActionBindingRecord[]> {
+    return [...this.actionBindings.values()]
+      .filter((item) => item.agentId === agentId)
+      .sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  async getActionBinding(actionBindingId: string): Promise<ActionBindingRecord | undefined> {
+    return this.actionBindings.get(actionBindingId);
+  }
+
+  async createActionBinding(record: ActionBindingRecord): Promise<ActionBindingRecord> {
+    this.actionBindings.set(record.actionBindingId, record);
+    return record;
+  }
+
+  async updateActionBinding(record: ActionBindingRecord): Promise<ActionBindingRecord> {
+    this.actionBindings.set(record.actionBindingId, record);
+    return record;
+  }
+
+  async listEventSubscriptions(): Promise<EventSubscriptionRecord[]> {
+    return [...this.eventSubscriptions.values()].sort((a, b) => b.updatedAt - a.updatedAt);
+  }
+
+  async listEventSubscriptionsByTriggerBinding(triggerBindingId: string): Promise<EventSubscriptionRecord[]> {
+    return [...this.eventSubscriptions.values()].filter((item) => item.triggerBindingId === triggerBindingId);
+  }
+
+  async getEventSubscription(eventSubscriptionId: string): Promise<EventSubscriptionRecord | undefined> {
+    return this.eventSubscriptions.get(eventSubscriptionId);
+  }
+
+  async getEventSubscriptionByPublicKey(publicSubscriptionKey: string): Promise<EventSubscriptionRecord | undefined> {
+    return [...this.eventSubscriptions.values()].find((item) => item.publicSubscriptionKey === publicSubscriptionKey);
+  }
+
+  async createEventSubscription(record: EventSubscriptionRecord): Promise<EventSubscriptionRecord> {
+    this.eventSubscriptions.set(record.eventSubscriptionId, record);
+    return record;
+  }
+
+  async updateEventSubscription(record: EventSubscriptionRecord): Promise<EventSubscriptionRecord> {
+    this.eventSubscriptions.set(record.eventSubscriptionId, record);
     return record;
   }
 
@@ -483,6 +687,18 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
 
   async lockTriggerBinding(triggerBindingId: string): Promise<void> {
     await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`trigger:${triggerBindingId}`]);
+  }
+
+  async lockConnectorBinding(connectorBindingId: string): Promise<void> {
+    await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`connector-binding:${connectorBindingId}`]);
+  }
+
+  async lockActionBinding(actionBindingId: string): Promise<void> {
+    await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`action-binding:${actionBindingId}`]);
+  }
+
+  async lockEventSubscription(eventSubscriptionId: string): Promise<void> {
+    await this.queryable.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`event-subscription:${eventSubscriptionId}`]);
   }
 
   async listAgents(): Promise<AgentDefinitionRecord[]> {
@@ -729,6 +945,319 @@ export class PostgresGovernanceRepository implements GovernanceRepository {
       record.updatedAt,
     ]);
     return toTriggerBindingRecord(result.rows[0]);
+  }
+
+  async listConnectorDefinitions(): Promise<ConnectorDefinitionRecord[]> {
+    const result = await this.queryable.query('SELECT * FROM connector_definitions ORDER BY updated_at DESC');
+    return result.rows.map((row) => toConnectorDefinitionRecord(row));
+  }
+
+  async getConnectorDefinition(connectorDefinitionId: string): Promise<ConnectorDefinitionRecord | undefined> {
+    const result = await this.queryable.query('SELECT * FROM connector_definitions WHERE connector_definition_id = $1', [connectorDefinitionId]);
+    return result.rows[0] ? toConnectorDefinitionRecord(result.rows[0]) : undefined;
+  }
+
+  async getConnectorDefinitionByKey(
+    workspaceId: string,
+    connectorKey: string,
+  ): Promise<ConnectorDefinitionRecord | undefined> {
+    const result = await this.queryable.query(
+      'SELECT * FROM connector_definitions WHERE workspace_id = $1 AND connector_key = $2 LIMIT 1',
+      [workspaceId, connectorKey],
+    );
+    return result.rows[0] ? toConnectorDefinitionRecord(result.rows[0]) : undefined;
+  }
+
+  async createConnectorDefinition(record: ConnectorDefinitionRecord): Promise<ConnectorDefinitionRecord> {
+    const result = await this.queryable.query(`
+      INSERT INTO connector_definitions (
+        connector_definition_id, workspace_id, connector_key, name, description, status,
+        catalog_json, created_by, updated_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6,
+        $7::jsonb, $8, $9, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0)
+      )
+      RETURNING *
+    `, [
+      record.connectorDefinitionId,
+      record.workspaceId,
+      record.connectorKey,
+      record.name,
+      record.description || null,
+      record.status,
+      JSON.stringify(record.catalogJson),
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+    return toConnectorDefinitionRecord(result.rows[0]);
+  }
+
+  async updateConnectorDefinition(record: ConnectorDefinitionRecord): Promise<ConnectorDefinitionRecord> {
+    const result = await this.queryable.query(`
+      UPDATE connector_definitions
+      SET workspace_id = $2,
+          connector_key = $3,
+          name = $4,
+          description = $5,
+          status = $6,
+          catalog_json = $7::jsonb,
+          updated_by = $8,
+          updated_at = to_timestamp($9 / 1000.0)
+      WHERE connector_definition_id = $1
+      RETURNING *
+    `, [
+      record.connectorDefinitionId,
+      record.workspaceId,
+      record.connectorKey,
+      record.name,
+      record.description || null,
+      record.status,
+      JSON.stringify(record.catalogJson),
+      record.updatedBy,
+      record.updatedAt,
+    ]);
+    return toConnectorDefinitionRecord(result.rows[0]);
+  }
+
+  async listConnectorBindings(): Promise<ConnectorBindingRecord[]> {
+    const result = await this.queryable.query('SELECT * FROM connector_bindings ORDER BY updated_at DESC');
+    return result.rows.map((row) => toConnectorBindingRecord(row));
+  }
+
+  async getConnectorBinding(connectorBindingId: string): Promise<ConnectorBindingRecord | undefined> {
+    const result = await this.queryable.query('SELECT * FROM connector_bindings WHERE connector_binding_id = $1', [connectorBindingId]);
+    return result.rows[0] ? toConnectorBindingRecord(result.rows[0]) : undefined;
+  }
+
+  async createConnectorBinding(record: ConnectorBindingRecord): Promise<ConnectorBindingRecord> {
+    const result = await this.queryable.query(`
+      INSERT INTO connector_bindings (
+        connector_binding_id, workspace_id, connector_definition_id, name, description,
+        status, secret_ref_id, metadata_json, created_by, updated_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8::jsonb, $9, $10, to_timestamp($11 / 1000.0), to_timestamp($12 / 1000.0)
+      )
+      RETURNING *
+    `, [
+      record.connectorBindingId,
+      record.workspaceId,
+      record.connectorDefinitionId,
+      record.name,
+      record.description || null,
+      record.status,
+      record.secretRefId || null,
+      record.metadataJson ? JSON.stringify(record.metadataJson) : null,
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+    return toConnectorBindingRecord(result.rows[0]);
+  }
+
+  async updateConnectorBinding(record: ConnectorBindingRecord): Promise<ConnectorBindingRecord> {
+    const result = await this.queryable.query(`
+      UPDATE connector_bindings
+      SET workspace_id = $2,
+          connector_definition_id = $3,
+          name = $4,
+          description = $5,
+          status = $6,
+          secret_ref_id = $7,
+          metadata_json = $8::jsonb,
+          updated_by = $9,
+          updated_at = to_timestamp($10 / 1000.0)
+      WHERE connector_binding_id = $1
+      RETURNING *
+    `, [
+      record.connectorBindingId,
+      record.workspaceId,
+      record.connectorDefinitionId,
+      record.name,
+      record.description || null,
+      record.status,
+      record.secretRefId || null,
+      record.metadataJson ? JSON.stringify(record.metadataJson) : null,
+      record.updatedBy,
+      record.updatedAt,
+    ]);
+    return toConnectorBindingRecord(result.rows[0]);
+  }
+
+  async listActionBindingsByAgent(agentId: string): Promise<ActionBindingRecord[]> {
+    const result = await this.queryable.query(
+      'SELECT * FROM action_bindings WHERE agent_id = $1 ORDER BY updated_at DESC',
+      [agentId],
+    );
+    return result.rows.map((row) => toActionBindingRecord(row));
+  }
+
+  async getActionBinding(actionBindingId: string): Promise<ActionBindingRecord | undefined> {
+    const result = await this.queryable.query('SELECT * FROM action_bindings WHERE action_binding_id = $1', [actionBindingId]);
+    return result.rows[0] ? toActionBindingRecord(result.rows[0]) : undefined;
+  }
+
+  async createActionBinding(record: ActionBindingRecord): Promise<ActionBindingRecord> {
+    const result = await this.queryable.query(`
+      INSERT INTO action_bindings (
+        action_binding_id, workspace_id, agent_id, action_ref, connector_binding_id,
+        capability_id, status, side_effect_class, execution_mode, timeout_ms,
+        browser_fallback_mode, config_json, created_by, updated_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8, $9, $10,
+        $11, $12::jsonb, $13, $14, to_timestamp($15 / 1000.0), to_timestamp($16 / 1000.0)
+      )
+      RETURNING *
+    `, [
+      record.actionBindingId,
+      record.workspaceId,
+      record.agentId,
+      record.actionRef,
+      record.connectorBindingId,
+      record.capabilityId,
+      record.status,
+      record.sideEffectClass,
+      record.executionMode,
+      record.timeoutMs ?? null,
+      record.browserFallbackMode,
+      JSON.stringify(record.configJson),
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+    return toActionBindingRecord(result.rows[0]);
+  }
+
+  async updateActionBinding(record: ActionBindingRecord): Promise<ActionBindingRecord> {
+    const result = await this.queryable.query(`
+      UPDATE action_bindings
+      SET workspace_id = $2,
+          agent_id = $3,
+          action_ref = $4,
+          connector_binding_id = $5,
+          capability_id = $6,
+          status = $7,
+          side_effect_class = $8,
+          execution_mode = $9,
+          timeout_ms = $10,
+          browser_fallback_mode = $11,
+          config_json = $12::jsonb,
+          updated_by = $13,
+          updated_at = to_timestamp($14 / 1000.0)
+      WHERE action_binding_id = $1
+      RETURNING *
+    `, [
+      record.actionBindingId,
+      record.workspaceId,
+      record.agentId,
+      record.actionRef,
+      record.connectorBindingId,
+      record.capabilityId,
+      record.status,
+      record.sideEffectClass,
+      record.executionMode,
+      record.timeoutMs ?? null,
+      record.browserFallbackMode,
+      JSON.stringify(record.configJson),
+      record.updatedBy,
+      record.updatedAt,
+    ]);
+    return toActionBindingRecord(result.rows[0]);
+  }
+
+  async listEventSubscriptions(): Promise<EventSubscriptionRecord[]> {
+    const result = await this.queryable.query('SELECT * FROM event_subscriptions ORDER BY updated_at DESC');
+    return result.rows.map((row) => toEventSubscriptionRecord(row));
+  }
+
+  async listEventSubscriptionsByTriggerBinding(triggerBindingId: string): Promise<EventSubscriptionRecord[]> {
+    const result = await this.queryable.query(
+      'SELECT * FROM event_subscriptions WHERE trigger_binding_id = $1 ORDER BY updated_at DESC',
+      [triggerBindingId],
+    );
+    return result.rows.map((row) => toEventSubscriptionRecord(row));
+  }
+
+  async getEventSubscription(eventSubscriptionId: string): Promise<EventSubscriptionRecord | undefined> {
+    const result = await this.queryable.query('SELECT * FROM event_subscriptions WHERE event_subscription_id = $1', [eventSubscriptionId]);
+    return result.rows[0] ? toEventSubscriptionRecord(result.rows[0]) : undefined;
+  }
+
+  async getEventSubscriptionByPublicKey(publicSubscriptionKey: string): Promise<EventSubscriptionRecord | undefined> {
+    const result = await this.queryable.query(
+      'SELECT * FROM event_subscriptions WHERE public_subscription_key = $1 LIMIT 1',
+      [publicSubscriptionKey],
+    );
+    return result.rows[0] ? toEventSubscriptionRecord(result.rows[0]) : undefined;
+  }
+
+  async createEventSubscription(record: EventSubscriptionRecord): Promise<EventSubscriptionRecord> {
+    const result = await this.queryable.query(`
+      INSERT INTO event_subscriptions (
+        event_subscription_id, workspace_id, connector_binding_id, trigger_binding_id, event_type,
+        status, public_subscription_key, config_json, last_event_at, last_error,
+        created_by, updated_by, created_at, updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5,
+        $6, $7, $8::jsonb, $9, $10,
+        $11, $12, to_timestamp($13 / 1000.0), to_timestamp($14 / 1000.0)
+      )
+      RETURNING *
+    `, [
+      record.eventSubscriptionId,
+      record.workspaceId,
+      record.connectorBindingId,
+      record.triggerBindingId,
+      record.eventType,
+      record.status,
+      record.publicSubscriptionKey || null,
+      JSON.stringify(record.configJson),
+      record.lastEventAt ? new Date(record.lastEventAt) : null,
+      record.lastError || null,
+      record.createdBy,
+      record.updatedBy,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+    return toEventSubscriptionRecord(result.rows[0]);
+  }
+
+  async updateEventSubscription(record: EventSubscriptionRecord): Promise<EventSubscriptionRecord> {
+    const result = await this.queryable.query(`
+      UPDATE event_subscriptions
+      SET workspace_id = $2,
+          connector_binding_id = $3,
+          trigger_binding_id = $4,
+          event_type = $5,
+          status = $6,
+          public_subscription_key = $7,
+          config_json = $8::jsonb,
+          last_event_at = $9,
+          last_error = $10,
+          updated_by = $11,
+          updated_at = to_timestamp($12 / 1000.0)
+      WHERE event_subscription_id = $1
+      RETURNING *
+    `, [
+      record.eventSubscriptionId,
+      record.workspaceId,
+      record.connectorBindingId,
+      record.triggerBindingId,
+      record.eventType,
+      record.status,
+      record.publicSubscriptionKey || null,
+      JSON.stringify(record.configJson),
+      record.lastEventAt ? new Date(record.lastEventAt) : null,
+      record.lastError || null,
+      record.updatedBy,
+      record.updatedAt,
+    ]);
+    return toEventSubscriptionRecord(result.rows[0]);
   }
 
   async listDueScheduleTriggers(timestamp: number): Promise<DueScheduleTrigger[]> {

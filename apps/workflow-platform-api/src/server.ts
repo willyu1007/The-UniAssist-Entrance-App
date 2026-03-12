@@ -4,6 +4,7 @@ import express from 'express';
 import { createExternalBridgeClient } from '@baseinterface/executor-sdk';
 import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
 import {
+  CONNECTOR_RUNTIME_SERVICE_ID,
   DATABASE_URL,
   INTERNAL_AUTH_CONFIG,
   PORT,
@@ -59,6 +60,7 @@ async function guardInternalAuth(
   req: RawBodyRequest,
   res: Response,
   expectedAudience: string,
+  allowedSubjects: string[] = [TRIGGER_SCHEDULER_SERVICE_ID],
 ): Promise<boolean> {
   if (INTERNAL_AUTH_CONFIG.mode === 'off') return true;
   const verification = await verifyInternalAuthRequest({
@@ -69,7 +71,7 @@ async function guardInternalAuth(
     config: INTERNAL_AUTH_CONFIG,
     nonceStore: internalNonceStore,
     expectedAudience,
-    allowedSubjects: [TRIGGER_SCHEDULER_SERVICE_ID],
+    allowedSubjects,
   });
   if (verification.ok || INTERNAL_AUTH_CONFIG.mode === 'audit') {
     return true;
@@ -164,6 +166,12 @@ app.post('/v1/bridge-registrations', controller.createBridgeRegistration);
 app.get('/v1/bridge-registrations/:bridgeId', controller.getBridgeRegistration);
 app.post('/v1/bridge-registrations/:bridgeId/activate', controller.activateBridgeRegistration);
 app.post('/v1/bridge-registrations/:bridgeId/suspend', controller.suspendBridgeRegistration);
+app.get('/v1/connector-definitions', controller.listConnectorDefinitions);
+app.post('/v1/connector-definitions', controller.createConnectorDefinition);
+app.get('/v1/connector-definitions/:connectorDefinitionId', controller.getConnectorDefinition);
+app.get('/v1/connector-bindings', controller.listConnectorBindings);
+app.post('/v1/connector-bindings', controller.createConnectorBinding);
+app.get('/v1/connector-bindings/:connectorBindingId', controller.getConnectorBinding);
 app.get('/v1/agents', controller.listAgents);
 app.post('/v1/agents', controller.createAgent);
 app.get('/v1/agents/:agentId', controller.getAgent);
@@ -171,8 +179,14 @@ app.post('/v1/agents/:agentId/activate', controller.activateAgent);
 app.post('/v1/agents/:agentId/suspend', controller.suspendAgent);
 app.post('/v1/agents/:agentId/retire', controller.retireAgent);
 app.post('/v1/agents/:agentId/runs', controller.startAgentRun);
+app.get('/v1/agents/:agentId/action-bindings', controller.listActionBindings);
+app.post('/v1/agents/:agentId/action-bindings', controller.createActionBinding);
 app.get('/v1/agents/:agentId/trigger-bindings', controller.listTriggerBindings);
 app.post('/v1/agents/:agentId/trigger-bindings', controller.createTriggerBinding);
+app.get('/v1/action-bindings/:actionBindingId', controller.getActionBinding);
+app.get('/v1/event-subscriptions', controller.listEventSubscriptions);
+app.post('/v1/event-subscriptions', controller.createEventSubscription);
+app.get('/v1/event-subscriptions/:eventSubscriptionId', controller.getEventSubscription);
 app.post('/v1/trigger-bindings/:triggerBindingId/enable', controller.enableTriggerBinding);
 app.post('/v1/trigger-bindings/:triggerBindingId/disable', controller.disableTriggerBinding);
 app.get('/v1/policy-bindings', controller.listPolicyBindings);
@@ -201,6 +215,14 @@ app.post('/internal/trigger-bindings/:triggerBindingId/dispatch', async (req: Ra
 app.post('/internal/webhook-triggers/:publicTriggerKey/dispatch', async (req: RawBodyRequest, res) => {
   if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId))) return;
   await controller.dispatchWebhookTrigger(req, res);
+});
+app.get('/internal/event-subscriptions/:publicSubscriptionKey/runtime-config', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId, [CONNECTOR_RUNTIME_SERVICE_ID]))) return;
+  await controller.getEventSubscriptionRuntimeConfig(req, res);
+});
+app.post('/internal/event-subscriptions/:publicSubscriptionKey/dispatch', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId, [CONNECTOR_RUNTIME_SERVICE_ID]))) return;
+  await controller.dispatchEventSubscription(req, res);
 });
 
 const server = app.listen(PORT, () => {
