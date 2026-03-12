@@ -40,4 +40,5 @@ Project: `main`
 | T-026 ua-control-console-foundation-implementation | done | dev-docs/active/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | dev-docs/active/ua-agent-governance-implementation |
 | T-028 ua-external-runtime-bridge-implementation | done | dev-docs/active/ua-external-runtime-bridge-implementation |
+| T-029 ua-connector-runtime-and-first-capabilities-implementation | done | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
 <!-- AUTO-GENERATED:END feature-map -->

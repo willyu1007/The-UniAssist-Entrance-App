@@ -1,0 +1,90 @@
+# 04 Verification
+
+## Planned checks
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- `pnpm --filter @baseinterface/workflow-contracts typecheck`
+- `pnpm --filter @baseinterface/workflow-platform-api test`
+- `pnpm --filter @baseinterface/workflow-runtime test`
+- `pnpm --filter @baseinterface/connector-runtime test`
+- `pnpm prisma validate`
+- `pnpm db:sync-context`
+
+## Execution log
+- `2026-03-12` `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed
+  - Notes: 创建 `.ai-task.yaml`，分配 `T-029`，并更新 registry / dashboard / feature-map / task-index。
+- `2026-03-12` `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: passed
+  - Notes: 在 `sync` 完成后复跑 lint，无 warning。
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-contracts typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-runtime typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm install`
+  - Result: passed
+  - Notes: 为新增 workspace packages 建立依赖链接；仅有既有 peer warning（`apps/control-console` 的 `@types/react-dom`）。
+- `2026-03-12` `pnpm --filter @baseinterface/connector-sdk typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/connector-issue-tracker-sample typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/connector-ci-pipeline-sample typecheck`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/connector-runtime typecheck`
+  - Result: passed
+- `2026-03-12` `DATABASE_URL=postgresql://localhost:5432/uniassist pnpm prisma validate`
+  - Result: passed
+  - Notes: 仅做 schema validate；未执行 migration / DB apply。
+- `2026-03-12` `node --test tests/connector-runtime-governance.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+- `2026-03-12` `node --test tests/connector-runtime.test.mjs`
+  - Workdir: `apps/workflow-runtime`
+  - Result: passed
+- `2026-03-12` `node --test tests/agent-governance.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+  - Notes: 断言已升级到 B7 语义下的 `EVENT_SUBSCRIPTION_REQUIRED`。
+- `2026-03-12` `node --test tests/external-runtime-bridge.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+- `2026-03-12` `node --test tests/external-runtime-bridge.test.mjs`
+  - Workdir: `apps/workflow-runtime`
+  - Result: passed
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-contracts typecheck`
+  - Result: passed
+  - Notes: review-driven hardening 后复跑，新增 connector callback lookup contract 类型通过编译。
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+  - Result: passed
+  - Notes: 覆盖 connector secret scope enforcement 与 event-subscription dispatch key namespacing。
+- `2026-03-12` `pnpm --filter @baseinterface/workflow-runtime typecheck`
+  - Result: passed
+  - Notes: 覆盖 `publicCallbackKey` lookup internal API 与 runtime repository 查询扩展。
+- `2026-03-12` `pnpm --filter @baseinterface/connector-runtime typecheck`
+  - Result: passed
+  - Notes: 覆盖 callback miss fallback 到 workflow-runtime lookup 的修复。
+- `2026-03-12` `node --test tests/connector-runtime-governance.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+  - Notes: 新增 `CONNECTOR_SECRET_SCOPE_REQUIRED` 负例，以及双 subscription 共用同一 event id 的回归断言。
+- `2026-03-12` `node --test tests/connector-runtime.test.mjs`
+  - Workdir: `apps/workflow-runtime`
+  - Result: passed
+  - Notes: 新增 `connector-runtime` 重启后 async callback 恢复路径。
+- `2026-03-12` `node --test tests/agent-governance.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+  - Notes: B5 trigger governance 回归通过，未受 connector secret 校验改动影响。
+- `2026-03-12` `node --test tests/external-runtime-bridge.test.mjs`
+  - Workdir: `apps/workflow-platform-api`
+  - Result: passed
+- `2026-03-12` `node --test tests/external-runtime-bridge.test.mjs`
+  - Workdir: `apps/workflow-runtime`
+  - Result: passed
+- `2026-03-12` `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: passed
+  - Notes: 将 review-driven hardening 的 task 状态与备注同步回 project hub。
+- `2026-03-12` `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: passed

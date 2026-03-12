@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 28 (planned: 0, in-progress: 18, blocked: 1, done: 8, archived: 1)
+- Tasks: 29 (planned: 0, in-progress: 18, blocked: 1, done: 9, archived: 1)
 
 ## Recent tasks
 
@@ -19,6 +19,7 @@ Project: `main`
 | T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
 | T-028 ua-external-runtime-bridge-implementation | done | F-000 | dev-docs/active/ua-external-runtime-bridge-implementation |
+| T-029 ua-connector-runtime-and-first-capabilities-implementation | done | F-000 | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
 | T-011 ua-openclaw-collab-platform | in-progress | F-000 | dev-docs/active/ua-openclaw-collab-platform |
 | T-012 ua-workflow-core-skeleton-design | in-progress | F-000 | dev-docs/active/ua-workflow-core-skeleton-design |
 | T-013 ua-builder-draft-sot-design | in-progress | F-000 | dev-docs/active/ua-builder-draft-sot-design |
@@ -33,5 +34,4 @@ Project: `main`
 | T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
 | T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
-| T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 <!-- AUTO-GENERATED:END dashboard -->

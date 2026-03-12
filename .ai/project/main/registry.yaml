@@ -219,3 +219,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-external-runtime-bridge-implementation
     updated: 2026-03-12
+  - id: T-029
+    slug: ua-connector-runtime-and-first-capabilities-implementation
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation
+    updated: 2026-03-12
