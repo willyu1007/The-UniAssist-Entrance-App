@@ -1,0 +1,23 @@
+{
+  "name": "@baseinterface/trigger-scheduler",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx src/server.ts",
+    "start": "tsx src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "dependencies": {
+    "@baseinterface/shared": "workspace:*",
+    "@baseinterface/workflow-contracts": "workspace:*",
+    "express": "^4.21.2"
+  },
+  "devDependencies": {
+    "@types/express": "^4.17.21",
+    "@types/node": "^22.13.8",
+    "tsx": "^4.19.2",
+    "typescript": "~5.9.2"
+  }
+}

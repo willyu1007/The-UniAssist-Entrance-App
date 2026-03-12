@@ -12,6 +12,7 @@
     "dev:provider-sample": "pnpm --filter @baseinterface/provider-sample start",
     "dev:workflow-platform-api": "pnpm --filter @baseinterface/workflow-platform-api start",
     "dev:workflow-runtime": "pnpm --filter @baseinterface/workflow-runtime start",
+    "dev:trigger-scheduler": "pnpm --filter @baseinterface/trigger-scheduler start",
     "dev:control-console": "pnpm --filter @baseinterface/control-console dev",
     "dev:worker": "pnpm --filter @baseinterface/worker start",
     "smoke:redis:e2e": "pnpm --filter @baseinterface/worker smoke:redis:e2e",
