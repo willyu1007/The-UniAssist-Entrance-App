@@ -1,10 +1,12 @@
+import type { Request, Response } from 'express';
 import express from 'express';
 
-import { createLogger } from '@baseinterface/shared';
+import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
 import {
   DATABASE_URL,
   INTERNAL_AUTH_CONFIG,
   PORT,
+  TRIGGER_SCHEDULER_SERVICE_ID,
   WORKFLOW_RUNTIME_BASE_URL,
   WORKFLOW_RUNTIME_SERVICE_ID,
   now,
@@ -12,13 +14,18 @@ import {
 } from './config';
 import { ControlConsoleStreamBroker } from './control-console-stream';
 import { createPlatformController } from './platform-controller';
+import { createGovernanceRepository } from './governance-repository';
 import { createPlatformRepository } from './platform-repository';
 import { createPlatformService } from './platform-service';
 import { RuntimeClient } from './runtime-client';
 
+type RawBodyRequest = Request & { rawBody?: string };
+
 const logger = createLogger({ service: 'workflow-platform-api' });
+const internalNonceStore = createMemoryNonceStore();
 
 const repository = createPlatformRepository(DATABASE_URL || undefined);
+const governanceRepository = createGovernanceRepository(DATABASE_URL || undefined);
 const runtimeClient = new RuntimeClient({
   baseUrl: WORKFLOW_RUNTIME_BASE_URL,
   internalAuthConfig: INTERNAL_AUTH_CONFIG,
@@ -26,6 +33,7 @@ const runtimeClient = new RuntimeClient({
 });
 const service = createPlatformService({
   repository,
+  governanceRepository,
   runtimeClient,
   now,
   uuid,
@@ -34,7 +42,38 @@ const controlConsoleBroker = new ControlConsoleStreamBroker();
 const controller = createPlatformController(service, controlConsoleBroker);
 
 const app = express();
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    (req as RawBodyRequest).rawBody = buf.toString('utf8');
+  },
+}));
+
+async function guardInternalAuth(
+  req: RawBodyRequest,
+  res: Response,
+  expectedAudience: string,
+): Promise<boolean> {
+  if (INTERNAL_AUTH_CONFIG.mode === 'off') return true;
+  const verification = await verifyInternalAuthRequest({
+    method: req.method,
+    path: req.path,
+    rawBody: req.rawBody || '',
+    headers: req.headers as Record<string, string | string[] | undefined>,
+    config: INTERNAL_AUTH_CONFIG,
+    nonceStore: internalNonceStore,
+    expectedAudience,
+    allowedSubjects: [TRIGGER_SCHEDULER_SERVICE_ID],
+  });
+  if (verification.ok || INTERNAL_AUTH_CONFIG.mode === 'audit') {
+    return true;
+  }
+  res.status(verification.status).json({
+    schemaVersion: 'v1',
+    error: verification.message,
+    code: verification.code,
+  });
+  return false;
+}
 
 app.use((req, res, next) => {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -112,6 +151,43 @@ app.get('/v1/approvals/:approvalRequestId', controller.getApprovalDetail);
 app.post('/v1/approvals/:approvalRequestId/decision', controller.decideApproval);
 app.get('/v1/artifacts/:artifactId', controller.getArtifact);
 app.patch('/v1/workflow-drafts/:draftId/spec', controller.patchDraftSpec);
+app.get('/v1/agents', controller.listAgents);
+app.post('/v1/agents', controller.createAgent);
+app.get('/v1/agents/:agentId', controller.getAgent);
+app.post('/v1/agents/:agentId/activate', controller.activateAgent);
+app.post('/v1/agents/:agentId/suspend', controller.suspendAgent);
+app.post('/v1/agents/:agentId/retire', controller.retireAgent);
+app.get('/v1/agents/:agentId/trigger-bindings', controller.listTriggerBindings);
+app.post('/v1/agents/:agentId/trigger-bindings', controller.createTriggerBinding);
+app.post('/v1/trigger-bindings/:triggerBindingId/enable', controller.enableTriggerBinding);
+app.post('/v1/trigger-bindings/:triggerBindingId/disable', controller.disableTriggerBinding);
+app.get('/v1/policy-bindings', controller.listPolicyBindings);
+app.post('/v1/policy-bindings', controller.createPolicyBinding);
+app.get('/v1/secret-refs', controller.listSecretRefs);
+app.post('/v1/secret-refs', controller.createSecretRef);
+app.get('/v1/scope-grants', controller.listScopeGrants);
+app.get('/v1/governance-change-requests', controller.listGovernanceChangeRequests);
+app.post('/v1/governance-change-requests', controller.createGovernanceChangeRequest);
+app.get('/v1/governance-change-requests/:requestId', controller.getGovernanceChangeRequest);
+app.post('/v1/governance-change-requests/:requestId/approve', controller.approveGovernanceChangeRequest);
+app.post('/v1/governance-change-requests/:requestId/reject', controller.rejectGovernanceChangeRequest);
+
+app.get('/internal/trigger-bindings/due', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId))) return;
+  await controller.listDueScheduleTriggers(req, res);
+});
+app.get('/internal/webhook-triggers/:publicTriggerKey/runtime-config', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId))) return;
+  await controller.getWebhookTriggerRuntimeConfig(req, res);
+});
+app.post('/internal/trigger-bindings/:triggerBindingId/dispatch', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId))) return;
+  await controller.dispatchScheduleTrigger(req, res);
+});
+app.post('/internal/webhook-triggers/:publicTriggerKey/dispatch', async (req: RawBodyRequest, res) => {
+  if (!(await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId))) return;
+  await controller.dispatchWebhookTrigger(req, res);
+});
 
 const server = app.listen(PORT, () => {
   logger.info('workflow platform api listening', {

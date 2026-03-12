@@ -3,8 +3,17 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 
 import type {
+  AgentDefinitionCreateRequest,
+  AgentDefinitionLifecycleRequest,
+  GovernanceChangeDecisionRequest,
+  GovernanceChangeRequestCreateRequest,
+  PolicyBindingCreateRequest,
   RecipeDraftCreateRequest,
   RecipeDraftUpdateRequest,
+  SecretRefCreateRequest,
+  TriggerBindingCreateRequest,
+  TriggerBindingLifecycleRequest,
+  TriggerDispatchRequest,
   WorkflowConsoleStreamEvent,
   WorkflowDraftSpecPatch,
   WorkflowNodeSpec,
@@ -21,6 +30,25 @@ import type {
 import { isPlatformError, PlatformError } from './platform-errors';
 import type { PlatformService } from './platform-service';
 import type { ControlConsoleStreamBroker } from './control-console-stream';
+
+const EXECUTOR_STRATEGIES = new Set(['platform_runtime', 'external_runtime']);
+const TRIGGER_KINDS = new Set(['schedule', 'webhook', 'event_subscription']);
+const POLICY_KINDS = new Set(['approval', 'invoke', 'delivery', 'visibility', 'browser_fallback']);
+const GOVERNANCE_TARGET_TYPES = new Set(['agent_definition', 'trigger_binding', 'policy_binding', 'secret_ref', 'scope_grant']);
+const GOVERNANCE_RISK_LEVELS = new Set(['R0', 'R1', 'R2']);
+const GOVERNANCE_REQUEST_KINDS = new Set([
+  'agent_activate',
+  'trigger_enable',
+  'policy_bind_apply',
+  'secret_grant_issue',
+  'scope_grant_issue',
+  'scope_widen',
+  'external_write_allow',
+  'agent_suspend',
+  'agent_retire',
+  'trigger_disable',
+  'scope_grant_revoke',
+]);
 
 function ensureSchemaVersion(value: unknown): void {
   if (value !== 'v1') {
@@ -66,6 +94,31 @@ function requireStringArray(value: unknown, field: string): string[] {
     throw new PlatformError(400, 'INVALID_REQUEST', `${field} must be an array`);
   }
   return value.map((item) => requireString(item, field));
+}
+
+function requireStringRecord(value: unknown, field: string): Record<string, string> {
+  const record = optionalRecord(value);
+  if (!record) {
+    throw new PlatformError(400, 'INVALID_REQUEST', `${field} must be an object`);
+  }
+  return Object.fromEntries(
+    Object.entries(record).map(([key, entryValue]) => [key, requireString(entryValue, `${field}.${key}`)]),
+  );
+}
+
+function requireEnum(value: unknown, field: string, allowed: Set<string>): string {
+  const next = requireString(value, field);
+  if (!allowed.has(next)) {
+    throw new PlatformError(400, 'INVALID_REQUEST', `${field} is invalid`);
+  }
+  return next;
+}
+
+function optionalEnum(value: unknown, field: string, allowed: Set<string>): string | undefined {
+  if (value === undefined) {
+    return undefined;
+  }
+  return requireEnum(value, field, allowed);
 }
 
 function requireNodeSpecArray(value: unknown): WorkflowNodeSpec[] {
@@ -596,6 +649,317 @@ export function createPlatformController(
           schemaVersion: 'v1',
           recipeDraft: await service.updateRecipeDraft(req.params.recipeDraftId, body),
         });
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listAgents: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listAgents());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getAgent: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getAgent(req.params.agentId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createAgent: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as AgentDefinitionCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        const response = await service.createAgent({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          templateVersionRef: requireString(body.templateVersionRef, 'templateVersionRef'),
+          name: requireString(body.name, 'name'),
+          createdBy: requireString(body.createdBy, 'createdBy'),
+          description: optionalString(body.description),
+          identityRef: optionalString(body.identityRef),
+          executorStrategy: optionalEnum(body.executorStrategy, 'executorStrategy', EXECUTOR_STRATEGIES) as AgentDefinitionCreateRequest['executorStrategy'],
+          toolProfile: optionalString(body.toolProfile),
+          riskLevel: optionalEnum(body.riskLevel, 'riskLevel', GOVERNANCE_RISK_LEVELS) as AgentDefinitionCreateRequest['riskLevel'],
+          ownerActorRef: optionalString(body.ownerActorRef),
+        });
+        res.status(201).json(response);
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    activateAgent: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as AgentDefinitionLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(202).json(await service.activateAgent(req.params.agentId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    suspendAgent: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as AgentDefinitionLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.suspendAgent(req.params.agentId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    retireAgent: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as AgentDefinitionLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.retireAgent(req.params.agentId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listTriggerBindings: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.listTriggerBindings(req.params.agentId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createTriggerBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as TriggerBindingCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createTriggerBinding(req.params.agentId, {
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          triggerKind: requireEnum(body.triggerKind, 'triggerKind', TRIGGER_KINDS) as TriggerBindingCreateRequest['triggerKind'],
+          configJson: optionalRecord(body.configJson) || {},
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    enableTriggerBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as TriggerBindingLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(202).json(await service.enableTriggerBinding(req.params.triggerBindingId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    disableTriggerBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as TriggerBindingLifecycleRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.disableTriggerBinding(req.params.triggerBindingId, {
+          schemaVersion: 'v1',
+          userId: requireString(body.userId, 'userId'),
+          summary: optionalString(body.summary),
+          justification: optionalString(body.justification),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listPolicyBindings: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listPolicyBindings());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createPolicyBinding: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as PolicyBindingCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createPolicyBinding({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          policyKind: requireEnum(body.policyKind, 'policyKind', POLICY_KINDS) as PolicyBindingCreateRequest['policyKind'],
+          targetType: requireEnum(body.targetType, 'targetType', GOVERNANCE_TARGET_TYPES) as PolicyBindingCreateRequest['targetType'],
+          targetRef: requireString(body.targetRef, 'targetRef'),
+          configJson: optionalRecord(body.configJson) || {},
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listSecretRefs: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listSecretRefs());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createSecretRef: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as SecretRefCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createSecretRef({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          userId: requireString(body.userId, 'userId'),
+          environmentScope: requireString(body.environmentScope, 'environmentScope'),
+          providerType: requireString(body.providerType, 'providerType'),
+          metadataJson: optionalRecord(body.metadataJson),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listScopeGrants: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listScopeGrants());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listGovernanceChangeRequests: async (_req: Request, res: Response) => {
+      try {
+        res.json(await service.listGovernanceChangeRequests());
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getGovernanceChangeRequest: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getGovernanceChangeRequest(req.params.requestId));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    createGovernanceChangeRequest: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as GovernanceChangeRequestCreateRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(201).json(await service.createGovernanceChangeRequest({
+          schemaVersion: 'v1',
+          workspaceId: requireString(body.workspaceId, 'workspaceId'),
+          requestKind: requireEnum(body.requestKind, 'requestKind', GOVERNANCE_REQUEST_KINDS) as GovernanceChangeRequestCreateRequest['requestKind'],
+          targetType: requireEnum(body.targetType, 'targetType', GOVERNANCE_TARGET_TYPES) as GovernanceChangeRequestCreateRequest['targetType'],
+          targetRef: requireString(body.targetRef, 'targetRef'),
+          requestedByActorId: requireString(body.requestedByActorId, 'requestedByActorId'),
+          riskLevel: requireEnum(body.riskLevel, 'riskLevel', GOVERNANCE_RISK_LEVELS) as GovernanceChangeRequestCreateRequest['riskLevel'],
+          summary: requireString(body.summary, 'summary'),
+          justification: optionalString(body.justification),
+          desiredStateJson: optionalRecord(body.desiredStateJson),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    approveGovernanceChangeRequest: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as GovernanceChangeDecisionRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.approveGovernanceChangeRequest(req.params.requestId, {
+          schemaVersion: 'v1',
+          actorRef: requireString(body.actorRef, 'actorRef'),
+          comment: optionalString(body.comment),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    rejectGovernanceChangeRequest: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as GovernanceChangeDecisionRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.json(await service.rejectGovernanceChangeRequest(req.params.requestId, {
+          schemaVersion: 'v1',
+          actorRef: requireString(body.actorRef, 'actorRef'),
+          comment: optionalString(body.comment),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    listDueScheduleTriggers: async (req: Request, res: Response) => {
+      try {
+        const timestamp = optionalPositiveInt(req.query.timestampMs) || Date.now();
+        res.json(await service.listDueScheduleTriggers(timestamp));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    getWebhookTriggerRuntimeConfig: async (req: Request, res: Response) => {
+      try {
+        res.json(await service.getWebhookTriggerRuntimeConfig(req.params.publicTriggerKey));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    dispatchScheduleTrigger: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as TriggerDispatchRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(202).json(await service.dispatchScheduleTrigger(req.params.triggerBindingId, {
+          schemaVersion: 'v1',
+          dispatchKey: requireString(body.dispatchKey, 'dispatchKey'),
+          firedAt: optionalPositiveInt(body.firedAt) || Date.now(),
+          payload: optionalRecord(body.payload),
+          headers: body.headers === undefined ? undefined : requireStringRecord(body.headers, 'headers'),
+        }));
+      } catch (error) {
+        handleError(res, error);
+      }
+    },
+
+    dispatchWebhookTrigger: async (req: Request, res: Response) => {
+      try {
+        const body = req.body as TriggerDispatchRequest;
+        ensureSchemaVersion(body?.schemaVersion);
+        res.status(202).json(await service.dispatchWebhookTrigger(req.params.publicTriggerKey, {
+          schemaVersion: 'v1',
+          dispatchKey: requireString(body.dispatchKey, 'dispatchKey'),
+          firedAt: optionalPositiveInt(body.firedAt) || Date.now(),
+          payload: optionalRecord(body.payload),
+          headers: body.headers === undefined ? undefined : requireStringRecord(body.headers, 'headers'),
+        }));
       } catch (error) {
         handleError(res, error);
       }

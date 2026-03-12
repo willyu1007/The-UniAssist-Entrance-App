@@ -331,6 +331,10 @@ export class WorkflowRuntimeService {
     const runMetadata: Record<string, unknown> = {};
     if (request.inputText) runMetadata.inputText = request.inputText;
     if (request.inputPayload) runMetadata.inputPayload = request.inputPayload;
+    if (request.agentId) runMetadata.agentId = request.agentId;
+    if (request.sourceType) runMetadata.sourceType = request.sourceType;
+    if (request.sourceRef) runMetadata.sourceRef = request.sourceRef;
+    if (request.runtimeMetadata) runMetadata.runtimeMetadata = request.runtimeMetadata;
     const run: WorkflowRunRecord = {
       runId: this.uuid(),
       workflowId: request.template.workflowId,
