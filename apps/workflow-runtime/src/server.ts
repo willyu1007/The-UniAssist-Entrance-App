@@ -4,7 +4,12 @@ import express from 'express';
 import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@baseinterface/shared';
 import { createCompatExecutorClient } from '@baseinterface/executor-sdk';
 import type {
+  WorkflowApprovalDecisionRequest,
+  WorkflowApprovalDecisionResponse,
+  WorkflowApprovalDetailResponse,
+  WorkflowApprovalQueueResponse,
   WorkflowArtifactDetailResponse,
+  WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
@@ -103,6 +108,16 @@ app.post('/internal/runtime/resume-run', async (req: RawBodyRequest, res) => {
   }
 });
 
+app.get('/internal/runtime/runs', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  const limit = Number(req.query.limit || 25);
+  const response: WorkflowRunListResponse = await runtimeService.listRunSummaries(
+    Number.isFinite(limit) && limit > 0 ? limit : 25,
+  );
+  res.json(response);
+});
+
 app.get('/internal/runtime/runs/:runId', async (req: RawBodyRequest, res) => {
   const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
   if (!authorized) return;
@@ -125,6 +140,48 @@ app.get('/internal/runtime/approvals', async (req: RawBodyRequest, res) => {
     schemaVersion: 'v1',
     approvals: await runtimeService.listApprovals(),
   });
+});
+
+app.get('/internal/runtime/approvals/queue', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  const response: WorkflowApprovalQueueResponse = {
+    schemaVersion: 'v1',
+    approvals: await runtimeService.listApprovalQueue(),
+  };
+  res.json(response);
+});
+
+app.get('/internal/runtime/approvals/:approvalRequestId', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  const detail = await runtimeService.getApprovalDetail(req.params.approvalRequestId);
+  if (!detail) {
+    res.status(404).json({ error: 'approval not found' });
+    return;
+  }
+  const response: WorkflowApprovalDetailResponse = detail;
+  res.json(response);
+});
+
+app.post('/internal/runtime/approvals/:approvalRequestId/decision', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  try {
+    const body = req.body as WorkflowApprovalDecisionRequest;
+    const response: WorkflowApprovalDecisionResponse = await runtimeService.decideApproval(
+      req.params.approvalRequestId,
+      {
+        traceId: body.traceId,
+        userId: body.userId,
+        decision: body.decision,
+        comment: body.comment,
+      },
+    );
+    res.json(response);
+  } catch (error) {
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
 });
 
 app.get('/internal/runtime/artifacts/:artifactId', async (req: RawBodyRequest, res) => {

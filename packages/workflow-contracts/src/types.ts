@@ -475,6 +475,61 @@ export type WorkflowRunSnapshot = {
   deliveryTargets: DeliveryTargetRecord[];
 };
 
+export type WorkflowRunSummary = {
+  runId: string;
+  workflowId: string;
+  workflowKey: string;
+  templateVersionId: string;
+  compatProviderId: string;
+  status: WorkflowRunStatus;
+  sessionId: string;
+  userId: string;
+  createdAt: number;
+  updatedAt: number;
+  completedAt?: number;
+  currentNodeRunId?: string;
+  currentNodeKey?: string;
+  currentNodeType?: WorkflowNodeType;
+  currentNodeStatus?: WorkflowNodeRunStatus;
+  blocker: 'waiting_input' | 'waiting_approval' | 'failed' | 'paused' | null;
+  pendingApprovalCount: number;
+  deliverySummary: {
+    pendingResolution: number;
+    ready: number;
+    blocked: number;
+    delivered: number;
+    failed: number;
+    cancelled: number;
+  };
+  artifactTypes: string[];
+  requestedActorIds: string[];
+};
+
+export type WorkflowArtifactDetail = {
+  artifact: WorkflowArtifactRecord;
+  typedPayload: Record<string, unknown>;
+  lineage: Record<string, unknown>;
+};
+
+export type WorkflowApprovalQueueItem = {
+  approvalRequestId: string;
+  runId: string;
+  workflowKey: string;
+  templateVersionId: string;
+  compatProviderId: string;
+  runStatus: WorkflowRunStatus;
+  nodeRunId?: string;
+  nodeKey?: string;
+  status: ApprovalRequestStatus;
+  requestedActorId?: string;
+  approverDisplayName?: string;
+  artifactId?: string;
+  artifactIds: string[];
+  artifactTypes: string[];
+  createdAt: number;
+  updatedAt: number;
+};
+
 export type WorkflowFormalEventBase = {
   schemaVersion: WorkflowSchemaVersion;
   eventId: string;
@@ -631,6 +686,47 @@ export type WorkflowDraftPublishResponse = {
   sessionLinks: WorkflowDraftSessionLinkRecord[];
 };
 
+export type WorkflowDraftSpecPatch =
+  | {
+      section: 'metadata';
+      value: {
+        workflowKey?: string;
+        name?: string;
+        compatProviderId?: string;
+        entryNode?: string;
+      };
+    }
+  | {
+      section: 'requirements';
+      value: {
+        requirements: string[];
+      };
+    }
+  | {
+      section: 'nodes';
+      value: {
+        entryNode?: string;
+        nodes: WorkflowNodeSpec[];
+      };
+    };
+
+export type WorkflowDraftSpecPatchRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  sessionId: string;
+  userId: string;
+  baseRevisionId: string;
+  changeSummary: string;
+  patch: WorkflowDraftSpecPatch;
+};
+
+export type WorkflowDraftSpecPatchResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  draft: WorkflowDraftRecord;
+  revision: DraftRevisionRecord;
+  sessionDrafts: WorkflowDraftRecord[];
+  sessionLinks: WorkflowDraftSessionLinkRecord[];
+};
+
 export type RecipeDraftCreateRequest = {
   schemaVersion: WorkflowSchemaVersion;
   title?: string;
@@ -691,6 +787,43 @@ export type WorkflowCommandResponse = {
   capturedRecipeDrafts?: RecipeDraftRecord[];
 };
 
+export type WorkflowRunListResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  runs: WorkflowRunSummary[];
+};
+
+export type WorkflowApprovalQueueResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  approvals: WorkflowApprovalQueueItem[];
+};
+
+export type WorkflowApprovalDetailResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  approval: WorkflowApprovalRequestRecord;
+  runSummary: WorkflowRunSummary;
+  approverContext?: ActorProfileRecord;
+  artifacts: WorkflowArtifactDetail[];
+  decisions: WorkflowApprovalDecisionRecord[];
+  capturedRecipeDrafts?: RecipeDraftRecord[];
+};
+
+export type WorkflowApprovalDecisionRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  traceId: string;
+  userId: string;
+  decision: 'approved' | 'rejected';
+  comment?: string;
+};
+
+export type WorkflowApprovalDecisionResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  approval: WorkflowApprovalRequestRecord;
+  decision: WorkflowApprovalDecisionRecord;
+  run: WorkflowRunSnapshot;
+  events: WorkflowFormalEvent[];
+  capturedRecipeDrafts?: RecipeDraftRecord[];
+};
+
 export type WorkflowRunQueryResponse = {
   schemaVersion: WorkflowSchemaVersion;
   run: WorkflowRunSnapshot;
@@ -702,6 +835,29 @@ export type WorkflowArtifactDetailResponse = {
   artifact: WorkflowArtifactRecord;
   typedPayload: Record<string, unknown>;
   lineage: Record<string, unknown>;
+};
+
+export type WorkflowConsoleStreamEvent = {
+  schemaVersion: WorkflowSchemaVersion;
+  eventId: string;
+  timestampMs: number;
+  kind: 'run.updated' | 'approval.updated' | 'draft.updated' | 'artifact.updated';
+  runId?: string;
+  approvalRequestId?: string;
+  draftId?: string;
+  artifactId?: string;
+};
+
+export type WorkflowConsoleStreamEnvelope = {
+  schemaVersion: WorkflowSchemaVersion;
+  type: 'control_console_event';
+  event: WorkflowConsoleStreamEvent;
+};
+
+export type WorkflowConsoleHeartbeatEnvelope = {
+  schemaVersion: WorkflowSchemaVersion;
+  type: 'heartbeat';
+  timestampMs: number;
 };
 
 export type WorkflowRuntimeStartRunRequest = {

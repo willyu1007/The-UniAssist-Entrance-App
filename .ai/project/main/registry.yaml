@@ -198,3 +198,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-teaching-validation-implementation
     updated: 2026-03-11
+  - id: T-026
+    slug: ua-control-console-foundation-implementation
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-control-console-foundation-implementation
+    updated: 2026-03-12

@@ -1,0 +1,21 @@
+{
+  "approval_version": 1,
+  "approval_type": "spec_change",
+  "approved_at_utc": "2026-03-12T02:44:45Z",
+  "approved_by": "system-baseline",
+  "fingerprint": "d54d07f6906968d408820a992fa57bb52dace1318671a339c53f29626ed85ac1",
+  "files": [
+    "ui/contract/contract.json",
+    "ui/patterns/AGENTS.md",
+    "ui/patterns/detail.md",
+    "ui/patterns/form.md",
+    "ui/patterns/list-with-filters.md",
+    "ui/styles/contract.css",
+    "ui/styles/tokens.css",
+    "ui/styles/ui.css",
+    "ui/tokens/base.json",
+    "ui/tokens/themes/default.dark.json",
+    "ui/tokens/themes/default.light.json"
+  ],
+  "notes": "Auto-created baseline to avoid bootstrapping deadlock. Subsequent spec changes require explicit approval."
+}

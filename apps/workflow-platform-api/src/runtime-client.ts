@@ -1,11 +1,17 @@
 import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
 import type {
+  WorkflowApprovalDecisionRequest,
+  WorkflowApprovalDecisionResponse,
+  WorkflowApprovalDetailResponse,
+  WorkflowApprovalQueueResponse,
   WorkflowArtifactDetailResponse,
   WorkflowCommandResponse,
+  WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
+import { PlatformError } from './platform-errors';
 
 type RuntimeClientDeps = {
   baseUrl: string;
@@ -42,19 +48,64 @@ export class RuntimeClient {
     return this.get(`/internal/runtime/runs/${encodeURIComponent(runId)}`, this.runtimeServiceId);
   }
 
+  async listRuns(limit = 25): Promise<WorkflowRunListResponse> {
+    return this.get(`/internal/runtime/runs?limit=${encodeURIComponent(String(limit))}`, this.runtimeServiceId);
+  }
+
   async listApprovals(): Promise<Record<string, unknown>> {
     return this.get('/internal/runtime/approvals', this.runtimeServiceId);
+  }
+
+  async listApprovalQueue(): Promise<WorkflowApprovalQueueResponse> {
+    return this.get('/internal/runtime/approvals/queue', this.runtimeServiceId);
+  }
+
+  async getApprovalDetail(approvalRequestId: string): Promise<WorkflowApprovalDetailResponse> {
+    return this.get(`/internal/runtime/approvals/${encodeURIComponent(approvalRequestId)}`, this.runtimeServiceId);
+  }
+
+  async decideApproval(
+    approvalRequestId: string,
+    body: WorkflowApprovalDecisionRequest,
+  ): Promise<WorkflowApprovalDecisionResponse> {
+    return this.post(`/internal/runtime/approvals/${encodeURIComponent(approvalRequestId)}/decision`, body, this.runtimeServiceId);
   }
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactDetailResponse> {
     return this.get(`/internal/runtime/artifacts/${encodeURIComponent(artifactId)}`, this.runtimeServiceId);
   }
 
+  private getSignablePath(path: string): string {
+    return path.split('?')[0] || path;
+  }
+
+  private async parseRuntimeError(response: Response): Promise<PlatformError> {
+    const contentType = response.headers.get('content-type') || '';
+    if (contentType.includes('application/json')) {
+      const json = await response.json().catch(() => undefined) as {
+        error?: string;
+        code?: string;
+      } | undefined;
+      return new PlatformError(
+        response.status,
+        json?.code || 'RUNTIME_REQUEST_FAILED',
+        json?.error || `runtime responded ${response.status}`,
+      );
+    }
+
+    const text = await response.text().catch(() => '');
+    return new PlatformError(
+      response.status,
+      'RUNTIME_REQUEST_FAILED',
+      text || `runtime responded ${response.status}`,
+    );
+  }
+
   private async post<T>(path: string, body: unknown, audience: string): Promise<T> {
     const rawBody = JSON.stringify(body);
     const headers = buildInternalAuthHeaders(this.internalAuthConfig, {
       method: 'POST',
-      path,
+      path: this.getSignablePath(path),
       rawBody,
       audience,
     });
@@ -75,9 +126,21 @@ export class RuntimeClient {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new Error(`runtime responded ${response.status}`);
+        throw await this.parseRuntimeError(response);
       }
       return await response.json() as T;
+    } catch (error) {
+      if (error instanceof PlatformError) {
+        throw error;
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new PlatformError(504, 'RUNTIME_TIMEOUT', 'runtime request timed out');
+      }
+      throw new PlatformError(
+        502,
+        'RUNTIME_UNAVAILABLE',
+        error instanceof Error ? error.message : 'runtime request failed',
+      );
     } finally {
       clearTimeout(timer);
     }
@@ -86,7 +149,7 @@ export class RuntimeClient {
   private async get<T>(path: string, audience: string): Promise<T> {
     const headers = buildInternalAuthHeaders(this.internalAuthConfig, {
       method: 'GET',
-      path,
+      path: this.getSignablePath(path),
       audience,
     });
     const controller = new AbortController();
@@ -104,9 +167,21 @@ export class RuntimeClient {
         signal: controller.signal,
       });
       if (!response.ok) {
-        throw new Error(`runtime responded ${response.status}`);
+        throw await this.parseRuntimeError(response);
       }
       return await response.json() as T;
+    } catch (error) {
+      if (error instanceof PlatformError) {
+        throw error;
+      }
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new PlatformError(504, 'RUNTIME_TIMEOUT', 'runtime request timed out');
+      }
+      throw new PlatformError(
+        502,
+        'RUNTIME_UNAVAILABLE',
+        error instanceof Error ? error.message : 'runtime request failed',
+      );
     } finally {
       clearTimeout(timer);
     }

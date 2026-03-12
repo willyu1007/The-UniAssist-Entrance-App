@@ -35,4 +35,5 @@ Project: `main`
 | T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
 | T-024 ua-builder-draft-publish-implementation | in-progress | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
 | T-025 ua-teaching-validation-implementation | in-progress | F-000 | dev-docs/active/ua-teaching-validation-implementation |
+| T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
 <!-- AUTO-GENERATED:END task-index -->

@@ -13,8 +13,12 @@ import type {
   AudienceSelectorRecord,
   DeliverySpecRecord,
   DeliveryTargetRecord,
+  WorkflowApprovalDecisionResponse,
+  WorkflowApprovalDetailResponse,
+  WorkflowApprovalQueueItem,
   WorkflowApprovalDecisionRecord,
   WorkflowApprovalRequestRecord,
+  WorkflowArtifactDetail,
   WorkflowArtifactRecord,
   WorkflowCommandResponse,
   WorkflowCompatActorMembershipSeed,
@@ -28,8 +32,10 @@ import type {
   WorkflowFormalEvent,
   WorkflowNodeRunRecord,
   WorkflowNodeSpec,
+  WorkflowRunListResponse,
   WorkflowRunRecord,
   WorkflowRunSnapshot,
+  WorkflowRunSummary,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowTemplateSpec,
@@ -95,6 +101,103 @@ function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
     audienceSelectors: state.audienceSelectors.map((item) => ({ ...item, selectorJson: { ...item.selectorJson } })),
     deliverySpecs: state.deliverySpecs.map((item) => ({ ...item, configJson: item.configJson ? { ...item.configJson } : undefined })),
     deliveryTargets: state.deliveryTargets.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
+  };
+}
+
+function toArtifactDetail(artifact: WorkflowArtifactRecord): WorkflowArtifactDetail {
+  return {
+    artifact,
+    typedPayload: artifact.payloadJson,
+    lineage: (
+      artifact.metadataJson
+      && typeof artifact.metadataJson.lineage === 'object'
+      && artifact.metadataJson.lineage !== null
+      && Array.isArray(artifact.metadataJson.lineage) === false
+    )
+      ? artifact.metadataJson.lineage as Record<string, unknown>
+      : {},
+  };
+}
+
+function buildRunSummary(snapshot: WorkflowRunSnapshot): WorkflowRunSummary {
+  const currentNode = snapshot.nodeRuns.find((item) => item.nodeRunId === snapshot.run.currentNodeRunId);
+  const deliverySummary = {
+    pendingResolution: snapshot.deliveryTargets.filter((item) => item.status === 'pending_resolution').length,
+    ready: snapshot.deliveryTargets.filter((item) => item.status === 'ready').length,
+    blocked: snapshot.deliveryTargets.filter((item) => item.status === 'blocked').length,
+    delivered: snapshot.deliveryTargets.filter((item) => item.status === 'delivered').length,
+    failed: snapshot.deliveryTargets.filter((item) => item.status === 'failed').length,
+    cancelled: snapshot.deliveryTargets.filter((item) => item.status === 'cancelled').length,
+  };
+  const blocker = snapshot.run.status === 'waiting_input'
+    ? 'waiting_input'
+    : snapshot.run.status === 'waiting_approval'
+      ? 'waiting_approval'
+      : snapshot.run.status === 'failed'
+        ? 'failed'
+        : snapshot.run.status === 'paused'
+          ? 'paused'
+          : null;
+  return {
+    runId: snapshot.run.runId,
+    workflowId: snapshot.run.workflowId,
+    workflowKey: snapshot.run.workflowKey,
+    templateVersionId: snapshot.run.templateVersionId,
+    compatProviderId: snapshot.run.compatProviderId,
+    status: snapshot.run.status,
+    sessionId: snapshot.run.sessionId,
+    userId: snapshot.run.userId,
+    createdAt: snapshot.run.createdAt,
+    updatedAt: snapshot.run.updatedAt,
+    completedAt: snapshot.run.completedAt,
+    currentNodeRunId: snapshot.run.currentNodeRunId,
+    currentNodeKey: currentNode?.nodeKey,
+    currentNodeType: currentNode?.nodeType,
+    currentNodeStatus: currentNode?.status,
+    blocker,
+    pendingApprovalCount: snapshot.approvals.filter((item) => item.status === 'pending').length,
+    deliverySummary,
+    artifactTypes: [...new Set(snapshot.artifacts.map((item) => item.artifactType))],
+    requestedActorIds: [...new Set(snapshot.approvals.map((item) => item.requestedActorId).filter(Boolean) as string[])],
+  };
+}
+
+function buildApprovalQueueItem(
+  approval: WorkflowApprovalRequestRecord,
+  snapshot: WorkflowRunSnapshot,
+): WorkflowApprovalQueueItem {
+  const nodeRun = snapshot.nodeRuns.find((item) => item.nodeRunId === approval.nodeRunId);
+  const actor = approval.requestedActorId
+    ? snapshot.actorProfiles.find((item) => item.actorId === approval.requestedActorId)
+    : undefined;
+  const payload = isRecord(approval.payloadJson) ? approval.payloadJson : {};
+  const artifactIds = Array.isArray(payload.artifactIds)
+    ? payload.artifactIds.map((item) => String(item))
+    : approval.artifactId
+      ? [approval.artifactId]
+      : [];
+  const artifactTypes = Array.isArray(payload.artifactTypes)
+    ? payload.artifactTypes.map((item) => String(item))
+    : artifactIds
+      .map((artifactId) => snapshot.artifacts.find((artifact) => artifact.artifactId === artifactId)?.artifactType)
+      .filter(Boolean) as string[];
+  return {
+    approvalRequestId: approval.approvalRequestId,
+    runId: approval.runId,
+    workflowKey: snapshot.run.workflowKey,
+    templateVersionId: snapshot.run.templateVersionId,
+    compatProviderId: snapshot.run.compatProviderId,
+    runStatus: snapshot.run.status,
+    nodeRunId: approval.nodeRunId,
+    nodeKey: nodeRun?.nodeKey,
+    status: approval.status,
+    requestedActorId: approval.requestedActorId,
+    approverDisplayName: actor?.displayName,
+    artifactId: approval.artifactId,
+    artifactIds,
+    artifactTypes,
+    createdAt: approval.createdAt,
+    updatedAt: approval.updatedAt,
   };
 }
 
@@ -300,11 +403,131 @@ export class WorkflowRuntimeService {
     };
   }
 
+  async listRunSummaries(limit = 25): Promise<WorkflowRunListResponse> {
+    const states = this.repository
+      ? await this.repository.listRunStates(limit)
+      : this.store.listRuns(limit);
+    states.forEach((state) => {
+      this.store.saveRun(state);
+    });
+    return {
+      schemaVersion: 'v1',
+      runs: states.map((state) => buildRunSummary(cloneSnapshot(state))),
+    };
+  }
+
   async listApprovals(): Promise<WorkflowApprovalRequestRecord[]> {
     if (this.repository) {
       return await this.repository.listApprovals();
     }
     return this.store.listApprovals();
+  }
+
+  async listApprovalQueue(): Promise<WorkflowApprovalQueueItem[]> {
+    const approvals = await this.listApprovals();
+    const runCache = new Map<string, WorkflowRunSnapshot>();
+    const queue: WorkflowApprovalQueueItem[] = [];
+
+    for (const approval of approvals) {
+      let snapshot = runCache.get(approval.runId);
+      if (!snapshot) {
+        snapshot = await this.getRun(approval.runId);
+        if (!snapshot) {
+          continue;
+        }
+        runCache.set(approval.runId, snapshot);
+      }
+      queue.push(buildApprovalQueueItem(approval, snapshot));
+    }
+
+    return queue.sort((a, b) => {
+      if (a.status === b.status) {
+        return b.updatedAt - a.updatedAt;
+      }
+      if (a.status === 'pending') return -1;
+      if (b.status === 'pending') return 1;
+      return b.updatedAt - a.updatedAt;
+    });
+  }
+
+  async getApprovalDetail(approvalRequestId: string): Promise<WorkflowApprovalDetailResponse | undefined> {
+    const approval = await this.getApprovalRecord(approvalRequestId);
+    if (!approval) {
+      return undefined;
+    }
+    const snapshot = await this.getRun(approval.runId);
+    if (!snapshot) {
+      return undefined;
+    }
+    const payload = isRecord(approval.payloadJson) ? approval.payloadJson : {};
+    const artifactIds = Array.isArray(payload.artifactIds)
+      ? payload.artifactIds.map((item) => String(item))
+      : approval.artifactId
+        ? [approval.artifactId]
+        : [];
+    const artifacts = artifactIds.length > 0
+      ? snapshot.artifacts.filter((artifact) => artifactIds.includes(artifact.artifactId))
+      : snapshot.artifacts.filter((artifact) => artifact.artifactId === approval.artifactId);
+    return {
+      schemaVersion: 'v1',
+      approval,
+      runSummary: buildRunSummary(snapshot),
+      approverContext: approval.requestedActorId
+        ? snapshot.actorProfiles.find((item) => item.actorId === approval.requestedActorId)
+        : undefined,
+      artifacts: artifacts.map((artifact) => toArtifactDetail(artifact)),
+      decisions: snapshot.approvalDecisions.filter((item) => item.approvalRequestId === approvalRequestId),
+    };
+  }
+
+  async decideApproval(
+    approvalRequestId: string,
+    request: {
+      traceId: string;
+      userId: string;
+      decision: 'approved' | 'rejected';
+      comment?: string;
+    },
+  ): Promise<WorkflowApprovalDecisionResponse> {
+    const approval = await this.getApprovalRecord(approvalRequestId);
+    if (!approval) {
+      throw new Error(`approval request not found: ${approvalRequestId}`);
+    }
+    if (approval.status !== 'pending') {
+      throw new Error(`approval request is not pending: ${approvalRequestId}`);
+    }
+
+    const state = await this.requireRunState(approval.runId);
+    const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === approval.nodeRunId);
+    if (!nodeRun) {
+      throw new Error(`approval node not found for request: ${approvalRequestId}`);
+    }
+    const events = await this.applyApprovalDecision(
+      state,
+      nodeRun,
+      request.traceId,
+      request.decision === 'approved',
+      request.userId,
+      request.comment,
+    );
+    await this.persistState(state);
+    await this.enqueueFormalEvents(request.traceId, state, events);
+
+    const nextApproval = state.approvals.find((item) => item.approvalRequestId === approvalRequestId);
+    const decision = [...state.decisions]
+      .reverse()
+      .find((item) => item.approvalRequestId === approvalRequestId);
+    if (!nextApproval || !decision) {
+      throw new Error(`approval decision persistence failed: ${approvalRequestId}`);
+    }
+
+    return {
+      schemaVersion: 'v1',
+      approval: { ...nextApproval, payloadJson: nextApproval.payloadJson ? { ...nextApproval.payloadJson } : undefined },
+      decision: { ...decision, payloadJson: decision.payloadJson ? { ...decision.payloadJson } : undefined },
+      run: cloneSnapshot(state),
+      events,
+    };
   }
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactRecord | undefined> {
@@ -331,6 +554,14 @@ export class WorkflowRuntimeService {
     }
     this.store.createRun(loaded);
     return loaded;
+  }
+
+  private async getApprovalRecord(approvalRequestId: string): Promise<WorkflowApprovalRequestRecord | undefined> {
+    const inMemory = this.store.getApproval(approvalRequestId);
+    if (inMemory) {
+      return inMemory;
+    }
+    return await this.repository?.getApproval(approvalRequestId);
   }
 
   private async persistState(state: InternalRunState): Promise<void> {
@@ -452,21 +683,38 @@ export class WorkflowRuntimeService {
     traceId: string,
     actionId: string,
   ): Promise<WorkflowFormalEvent[]> {
+    return await this.applyApprovalDecision(
+      state,
+      nodeRun,
+      traceId,
+      actionId.includes('approve'),
+      state.run.userId,
+    );
+  }
+
+  private async applyApprovalDecision(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    traceId: string,
+    approved: boolean,
+    decidedActorId: string,
+    comment?: string,
+  ): Promise<WorkflowFormalEvent[]> {
     const approval = state.approvals.find((item) => item.nodeRunId === nodeRun.nodeRunId && item.status === 'pending');
     if (!approval) {
       throw new Error(`approval request not found for node ${nodeRun.nodeRunId}`);
     }
 
-    const approved = actionId.includes('approve');
     const decision: WorkflowApprovalDecisionRecord = {
       approvalDecisionId: this.uuid(),
       approvalRequestId: approval.approvalRequestId,
       decision: approved ? 'approved' : 'rejected',
-      decidedActorId: state.run.userId,
+      decidedActorId,
+      comment,
       createdAt: this.now(),
     };
     state.decisions.push(decision);
-    approval.status = approved ? 'approved' : 'rejected';
+    approval.status = decision.decision;
     approval.updatedAt = this.now();
 
     if (approved) {

@@ -1,0 +1,9 @@
+{
+  "approval_version": 1,
+  "approval_type": "exception",
+  "approved_at_utc": "2026-03-12T02:44:45Z",
+  "approved_by": "system-baseline",
+  "fingerprint": "0bc6dc9563ca256cfce2bd58927a4f6fb7d045b58cd868151f08ed028c79ba50",
+  "expires_at_utc": "9999-12-31T00:00:00Z",
+  "notes": "Auto-created baseline for governance policy. Any future policy relaxation should use an explicit exception approval with expiry."
+}

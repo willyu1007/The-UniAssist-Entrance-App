@@ -59,7 +59,8 @@ function signInternalHeaders({
   const tokenSig = createHmac('sha256', internalAuth.secret).update(unsigned).digest('base64url');
   const token = `${unsigned}.${tokenSig}`;
   const bodyHash = createHash('sha256').update(rawBody).digest('hex');
-  const signPayload = `${ts}.${nonce}.${method.toUpperCase()}.${path}.${bodyHash}`;
+  const signablePath = path.split('?')[0] || path;
+  const signPayload = `${ts}.${nonce}.${method.toUpperCase()}.${signablePath}.${bodyHash}`;
   const requestSig = createHmac('sha256', internalAuth.secret).update(signPayload).digest('hex');
   return {
     authorization: `Bearer ${token}`,
@@ -305,6 +306,33 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
   assert.equal(recipeArtifactResponse.json.typedPayload.title, 'Alex 评估配方候选');
   assert.equal(recipeArtifactResponse.json.lineage.nodeKey, 'generate_assessment');
 
+  const approvalRequestId = approvalRequested.payload.approvalRequestId;
+  const runListBeforeDecision = await getInternal(runtimeBaseUrl, '/internal/runtime/runs?limit=10');
+  assert.equal(runListBeforeDecision.status, 200);
+  assert.equal(runListBeforeDecision.json.runs.some((run) => run.runId === startResponse.json.run.run.runId), true);
+  assert.equal(runListBeforeDecision.json.runs[0].status, 'waiting_approval');
+  assert.equal(runListBeforeDecision.json.runs[0].blocker, 'waiting_approval');
+
+  const approvalQueueBeforeDecision = await getInternal(runtimeBaseUrl, '/internal/runtime/approvals/queue');
+  assert.equal(approvalQueueBeforeDecision.status, 200);
+  assert.equal(
+    approvalQueueBeforeDecision.json.approvals.some((approval) => approval.approvalRequestId === approvalRequestId),
+    true,
+  );
+  assert.equal(
+    approvalQueueBeforeDecision.json.approvals.find((approval) => approval.approvalRequestId === approvalRequestId)?.status,
+    'pending',
+  );
+
+  const approvalDetailBeforeDecision = await getInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/approvals/${approvalRequestId}`,
+  );
+  assert.equal(approvalDetailBeforeDecision.status, 200);
+  assert.equal(approvalDetailBeforeDecision.json.approval.approvalRequestId, approvalRequestId);
+  assert.equal(approvalDetailBeforeDecision.json.artifacts.length, 2);
+  assert.equal(approvalDetailBeforeDecision.json.decisions.length, 0);
+
   const approvalResume = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
     schemaVersion: 'v1',
     traceId: randomUUID(),
@@ -338,6 +366,44 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
   assert.equal(runQuery.json.run.approvalDecisions.length, 1);
   assert.equal(runQuery.json.run.deliveryTargets.length, 3);
   assert.equal(runQuery.json.run.actorProfiles.length, 5);
+
+  const decisionStart = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
+    ...teachingInput,
+    traceId: randomUUID(),
+    sessionId: 's-runtime-teaching-decision',
+  });
+  assert.equal(decisionStart.status, 200);
+  const decisionApproval = decisionStart.json.events.find((event) => event.kind === 'approval_requested');
+  assert.ok(decisionApproval);
+
+  const approvalDecisionResponse = await postInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/approvals/${decisionApproval.payload.approvalRequestId}/decision`,
+    {
+      schemaVersion: 'v1',
+      traceId: randomUUID(),
+      userId: 'u-runtime',
+      decision: 'approved',
+      comment: 'LGTM',
+    },
+  );
+  assert.equal(approvalDecisionResponse.status, 200);
+  assert.equal(approvalDecisionResponse.json.approval.status, 'approved');
+  assert.equal(approvalDecisionResponse.json.decision.comment, 'LGTM');
+  assert.equal(approvalDecisionResponse.json.run.run.status, 'completed');
+  assert.equal(
+    approvalDecisionResponse.json.run.artifacts.find((artifact) => artifact.artifactType === 'AssessmentDraft')?.state,
+    'published',
+  );
+
+  const runListAfterDecision = await getInternal(runtimeBaseUrl, '/internal/runtime/runs?limit=10');
+  assert.equal(runListAfterDecision.status, 200);
+  assert.equal(
+    runListAfterDecision.json.runs.some((run) => (
+      run.runId === approvalDecisionResponse.json.run.run.runId && run.status === 'completed'
+    )),
+    true,
+  );
 
   const rejectStart = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
     ...teachingInput,

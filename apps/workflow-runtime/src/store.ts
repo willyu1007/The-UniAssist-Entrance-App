@@ -45,6 +45,11 @@ export class RuntimeStore {
     return this.runs.get(runId);
   }
 
+  listRuns(limit?: number): InternalRunState[] {
+    const runs = [...this.runs.values()].sort((a, b) => b.run.updatedAt - a.run.updatedAt);
+    return typeof limit === 'number' ? runs.slice(0, limit) : runs;
+  }
+
   saveRun(state: InternalRunState): InternalRunState {
     this.runs.set(state.run.runId, state);
     state.artifacts.forEach((artifact) => {
@@ -58,6 +63,10 @@ export class RuntimeStore {
 
   listApprovals(): WorkflowApprovalRequestRecord[] {
     return [...this.approvals.values()].sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  getApproval(approvalRequestId: string): WorkflowApprovalRequestRecord | undefined {
+    return this.approvals.get(approvalRequestId);
   }
 
   getArtifact(artifactId: string): WorkflowArtifactRecord | undefined {

@@ -212,7 +212,9 @@ export type RuntimeRepository = {
   close: () => Promise<void>;
   saveState: (state: InternalRunState) => Promise<void>;
   loadRunState: (runId: string) => Promise<InternalRunState | undefined>;
+  listRunStates: (limit?: number) => Promise<InternalRunState[]>;
   listApprovals: () => Promise<WorkflowApprovalRequestRecord[]>;
+  getApproval: (approvalRequestId: string) => Promise<WorkflowApprovalRequestRecord | undefined>;
   getArtifact: (artifactId: string) => Promise<WorkflowArtifactRecord | undefined>;
 };
 
@@ -400,6 +402,19 @@ class PgRuntimeRepository implements RuntimeRepository {
     };
   }
 
+  async listRunStates(limit = 25): Promise<InternalRunState[]> {
+    const result = await this.pool.query(`
+      SELECT run_id
+      FROM workflow_runs
+      ORDER BY updated_at DESC
+      LIMIT $1
+    `, [limit]);
+    const states = await Promise.all(
+      result.rows.map(async (row) => await this.loadRunState(String((row as Record<string, unknown>).run_id))),
+    );
+    return states.filter((item): item is InternalRunState => Boolean(item));
+  }
+
   async listApprovals(): Promise<WorkflowApprovalRequestRecord[]> {
     const result = await this.pool.query(`
       SELECT *
@@ -407,6 +422,16 @@ class PgRuntimeRepository implements RuntimeRepository {
       ORDER BY created_at DESC
     `);
     return result.rows.map((row) => toApprovalRecord(row as Record<string, unknown>));
+  }
+
+  async getApproval(approvalRequestId: string): Promise<WorkflowApprovalRequestRecord | undefined> {
+    const result = await this.pool.query(`
+      SELECT *
+      FROM approval_requests
+      WHERE approval_request_id = $1
+      LIMIT 1
+    `, [approvalRequestId]);
+    return result.rows[0] ? toApprovalRecord(result.rows[0] as Record<string, unknown>) : undefined;
   }
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactRecord | undefined> {

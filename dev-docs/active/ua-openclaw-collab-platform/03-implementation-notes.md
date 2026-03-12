@@ -1,9 +1,9 @@
 # 03 Implementation Notes
 
 ## Current state
-- 本任务处于规划阶段，尚未开始产品代码改造。
+- 本任务本身仍是总包协调层，不承接直接产品代码改造。
 - 当前文档用于固定升级节奏与后续实施顺序，不用于记录代码层实施细节。
-- 当前已进入“设计闭环完成 + implementation tranche 编排”阶段，不再停留在纯路线讨论。
+- 当前已进入“设计闭环完成 + implementation tranche 编排 + child implementation bundles 启动”阶段，不再停留在纯路线讨论。
 
 ## Initial decisions
 - 新任务 slug 固定为 `ua-openclaw-collab-platform`。
@@ -67,7 +67,7 @@
 - 保持 `T-011` 与 `T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016` 的冻结结论一致
 - 保持 `T-019 / T-021 / T-020 / T-022` 的冻结结论与 `B5-B8` 映射保持一致
 - `B2 / ua-builder-draft-publish-implementation` 已由 `T-024` 完成
-- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 启动，当前作为 implementation 主线推进
-- `B4 / ua-control-console-foundation-implementation` 继续保持后续并行候选，不抢占 `B3` 主线
+- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 推进至 `ready-for-review`
+- `B4 / ua-control-console-foundation-implementation` 已由 `T-026` 启动，当前与 `B3` 收口并行推进
 - 在 `B3/B4` 稳定后，再进入 `B5 / ua-agent-governance-implementation`
 - 将 `B9 / ua-convex-projection-experiment` 明确维持为条件实验包，不作为主线 implementation 的阻塞项

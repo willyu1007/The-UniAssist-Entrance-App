@@ -82,11 +82,64 @@ async function httpPatch(url, body) {
   return { status: response.status, json };
 }
 
+async function openSse(url) {
+  const controller = new AbortController();
+  const response = await fetch(url, {
+    headers: {
+      accept: 'text/event-stream',
+    },
+    signal: controller.signal,
+  });
+  assert.equal(response.status, 200);
+  assert.ok(response.body);
+  return {
+    controller,
+    reader: response.body.getReader(),
+  };
+}
+
+async function readNextSseEvent(reader, timeoutMs = 5_000) {
+  const decoder = new TextDecoder();
+  const startedAt = Date.now();
+  let buffer = '';
+
+  while (Date.now() - startedAt < timeoutMs) {
+    const remaining = Math.max(1, timeoutMs - (Date.now() - startedAt));
+    const result = await Promise.race([
+      reader.read(),
+      sleep(remaining).then(() => {
+        throw new Error('sse read timeout');
+      }),
+    ]);
+    if (result.done) {
+      break;
+    }
+    buffer += decoder.decode(result.value, { stream: true });
+    const frames = buffer.split('\n\n');
+    buffer = frames.pop() || '';
+    for (const frame of frames) {
+      const dataLine = frame
+        .split('\n')
+        .map((line) => line.trim())
+        .find((line) => line.startsWith('data: '));
+      if (dataLine) {
+        return JSON.parse(dataLine.slice(6));
+      }
+    }
+  }
+
+  throw new Error('sse stream ended before data event');
+}
+
 test('workflow platform api manages drafts, publish, recipes, and runtime commands', async (t) => {
   const runtimeRequests = [];
   const workflowKey = 'sample-b3-platform';
   const compatProviderId = 'sample';
   let runResumed = false;
+  let currentRunContext = {
+    sessionId: 's-platform',
+    userId: 'u-platform',
+  };
 
   function buildPendingRunSnapshot(body) {
     const now = Date.now();
@@ -100,10 +153,22 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
         status: 'waiting_approval',
         sessionId: body.sessionId,
         userId: body.userId,
+        currentNodeRunId: 'node-teacher-review',
         createdAt: now,
         updatedAt: now,
       },
-      nodeRuns: [],
+      nodeRuns: [
+        {
+          nodeRunId: 'node-teacher-review',
+          runId: 'run-platform-start',
+          nodeKey: 'teacher_review',
+          nodeType: 'approval_gate',
+          status: 'waiting_approval',
+          taskId: 'task-teacher-review',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
       approvals: [
         {
           approvalRequestId: 'approval-1',
@@ -204,11 +269,143 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
           updatedAt: now,
         },
       ],
-      actorProfiles: [],
+      actorProfiles: [
+        {
+          runId: 'run-platform-start',
+          actorId: 'teacher:primary',
+          workspaceId: 'workspace:run-platform-start',
+          status: 'active',
+          displayName: 'Ms. Li',
+          actorType: 'person',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
       actorMemberships: [],
       audienceSelectors: [],
       deliverySpecs: [],
       deliveryTargets: [],
+    };
+  }
+
+  function buildRunSummary() {
+    const now = Date.now();
+    return {
+      runId: 'run-platform-start',
+      workflowId: 'wf-platform',
+      workflowKey,
+      templateVersionId: 'ver-platform',
+      compatProviderId,
+      status: runResumed ? 'completed' : 'waiting_approval',
+      sessionId: currentRunContext.sessionId,
+      userId: currentRunContext.userId,
+      createdAt: now,
+      updatedAt: now,
+      completedAt: runResumed ? now : undefined,
+      currentNodeRunId: runResumed ? undefined : 'node-teacher-review',
+      currentNodeKey: runResumed ? undefined : 'teacher_review',
+      currentNodeType: runResumed ? undefined : 'approval_gate',
+      currentNodeStatus: runResumed ? undefined : 'waiting_approval',
+      blocker: runResumed ? null : 'waiting_approval',
+      pendingApprovalCount: runResumed ? 0 : 1,
+      deliverySummary: {
+        pendingResolution: 0,
+        ready: 0,
+        blocked: 0,
+        delivered: runResumed ? 1 : 0,
+        failed: 0,
+        cancelled: 0,
+      },
+      artifactTypes: runResumed
+        ? ['ObservationArtifact', 'AssessmentDraft', 'EvidencePack', 'AnalysisRecipeCandidate', 'ReviewableDelivery']
+        : ['ObservationArtifact', 'AssessmentDraft', 'EvidencePack', 'AnalysisRecipeCandidate'],
+      requestedActorIds: ['teacher:primary'],
+    };
+  }
+
+  function buildApprovalQueueItem() {
+    const now = Date.now();
+    return {
+      approvalRequestId: 'approval-1',
+      runId: 'run-platform-start',
+      workflowKey,
+      templateVersionId: 'ver-platform',
+      compatProviderId,
+      runStatus: runResumed ? 'completed' : 'waiting_approval',
+      nodeRunId: 'node-teacher-review',
+      nodeKey: 'teacher_review',
+      status: runResumed ? 'approved' : 'pending',
+      requestedActorId: 'teacher:primary',
+      approverDisplayName: 'Ms. Li',
+      artifactId: 'artifact-assessment-1',
+      artifactIds: ['artifact-assessment-1', 'artifact-evidence-1'],
+      artifactTypes: ['AssessmentDraft', 'EvidencePack'],
+      createdAt: now,
+      updatedAt: now,
+    };
+  }
+
+  function buildApprovalDetail() {
+    const snapshot = runResumed
+      ? buildCompletedRunSnapshot(currentRunContext.sessionId, currentRunContext.userId)
+      : buildPendingRunSnapshot({
+          template: {
+            workflowId: 'wf-platform',
+            workflowKey,
+            compatProviderId,
+          },
+          version: {
+            templateVersionId: 'ver-platform',
+          },
+          sessionId: currentRunContext.sessionId,
+          userId: currentRunContext.userId,
+        });
+
+    return {
+      schemaVersion: 'v1',
+      approval: {
+        approvalRequestId: 'approval-1',
+        runId: 'run-platform-start',
+        nodeRunId: 'node-teacher-review',
+        artifactId: 'artifact-assessment-1',
+        status: runResumed ? 'approved' : 'pending',
+        requestedActorId: 'teacher:primary',
+        payloadJson: {
+          artifactIds: ['artifact-assessment-1', 'artifact-evidence-1'],
+          artifactTypes: ['AssessmentDraft', 'EvidencePack'],
+        },
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      runSummary: buildRunSummary(),
+      approverContext: {
+        runId: 'run-platform-start',
+        actorId: 'teacher:primary',
+        workspaceId: 'workspace:run-platform-start',
+        status: 'active',
+        displayName: 'Ms. Li',
+        actorType: 'person',
+        createdAt: Date.now(),
+        updatedAt: Date.now(),
+      },
+      artifacts: snapshot.artifacts
+        .filter((artifact) => ['artifact-assessment-1', 'artifact-evidence-1'].includes(artifact.artifactId))
+        .map((artifact) => ({
+          artifact,
+          typedPayload: artifact.payloadJson,
+          lineage: artifact.metadataJson?.lineage || {},
+        })),
+      decisions: runResumed
+        ? [{
+            approvalDecisionId: 'approval-decision-1',
+            approvalRequestId: 'approval-1',
+            decision: 'approved',
+            decidedActorId: currentRunContext.userId,
+            comment: 'ship it',
+            createdAt: Date.now(),
+          }]
+        : [],
+      capturedRecipeDrafts: [],
     };
   }
 
@@ -340,6 +537,10 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
 
     if (req.url === '/internal/runtime/start-run' && req.method === 'POST') {
       runResumed = false;
+      currentRunContext = {
+        sessionId: body.sessionId,
+        userId: body.userId,
+      };
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
         schemaVersion: 'v1',
@@ -351,11 +552,24 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
 
     if (req.url === '/internal/runtime/resume-run' && req.method === 'POST') {
       runResumed = true;
+      currentRunContext = {
+        sessionId: body.sessionId,
+        userId: body.userId,
+      };
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
         schemaVersion: 'v1',
         run: buildCompletedRunSnapshot(body.sessionId, body.userId),
         events: [],
+      }));
+      return;
+    }
+
+    if (req.url?.startsWith('/internal/runtime/runs?') && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        schemaVersion: 'v1',
+        runs: [buildRunSummary()],
       }));
       return;
     }
@@ -373,6 +587,58 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
             updatedAt: Date.now(),
           },
         ],
+      }));
+      return;
+    }
+
+    if (req.url === '/internal/runtime/approvals/queue' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        schemaVersion: 'v1',
+        approvals: [buildApprovalQueueItem()],
+      }));
+      return;
+    }
+
+    if (req.url === '/internal/runtime/approvals/approval-1' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify(buildApprovalDetail()));
+      return;
+    }
+
+    if (req.url === '/internal/runtime/approvals/approval-1/decision' && req.method === 'POST') {
+      runResumed = true;
+      currentRunContext = {
+        sessionId: currentRunContext.sessionId,
+        userId: body.userId,
+      };
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        schemaVersion: 'v1',
+        approval: {
+          approvalRequestId: 'approval-1',
+          runId: 'run-platform-start',
+          nodeRunId: 'node-teacher-review',
+          artifactId: 'artifact-assessment-1',
+          status: 'approved',
+          requestedActorId: 'teacher:primary',
+          payloadJson: {
+            artifactIds: ['artifact-assessment-1', 'artifact-evidence-1'],
+            artifactTypes: ['AssessmentDraft', 'EvidencePack'],
+          },
+          createdAt: Date.now(),
+          updatedAt: Date.now(),
+        },
+        decision: {
+          approvalDecisionId: 'approval-decision-1',
+          approvalRequestId: 'approval-1',
+          decision: body.decision,
+          decidedActorId: body.userId,
+          comment: body.comment,
+          createdAt: Date.now(),
+        },
+        run: buildCompletedRunSnapshot(currentRunContext.sessionId, body.userId),
+        events: [],
       }));
       return;
     }
@@ -577,6 +843,12 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   assert.equal(listedAfterSecondCreate.json.drafts.length, 2);
   assert.equal(listedAfterSecondCreate.json.sessionLinks.find((link) => link.isActive).draftId, secondDraftId);
 
+  const corsPreflight = await fetch(`http://127.0.0.1:${ports.platform}/v1/runs`, {
+    method: 'OPTIONS',
+  });
+  assert.equal(corsPreflight.status, 204);
+  assert.equal(corsPreflight.headers.get('access-control-allow-origin'), '*');
+
   const focusFirst = await httpPost(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${firstPublish.draftId}/focus`, {
     schemaVersion: 'v1',
     sessionId,
@@ -592,6 +864,71 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   });
   assert.equal(focusSecond.status, 200);
   assert.equal(focusSecond.json.sessionLinks.find((link) => link.isActive).draftId, secondDraftId);
+
+  const invalidPatch = await httpPatch(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${secondDraftId}/spec`, {
+    schemaVersion: 'v1',
+    sessionId,
+    userId,
+    baseRevisionId: 'rev-invalid',
+    changeSummary: 'invalid patch should be rejected',
+    patch: {
+      section: 'requirements',
+    },
+  });
+  assert.equal(invalidPatch.status, 400);
+  assert.equal(invalidPatch.json.code, 'INVALID_REQUEST');
+
+  const secondDraftDetailBeforePatch = await httpGet(
+    `http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${secondDraftId}?sessionId=${encodeURIComponent(sessionId)}`,
+  );
+  assert.equal(secondDraftDetailBeforePatch.status, 200);
+  const staleRevisionId = secondDraftDetailBeforePatch.json.revisions.at(-1).revisionId;
+
+  const sse = await openSse(`http://127.0.0.1:${ports.platform}/v1/control-console/stream`);
+  t.after(async () => {
+    sse.controller.abort();
+    await sse.reader.cancel().catch(() => undefined);
+  });
+
+  const patchedDraft = await httpPatch(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${secondDraftId}/spec`, {
+    schemaVersion: 'v1',
+    sessionId,
+    userId,
+    baseRevisionId: staleRevisionId,
+    changeSummary: 'Rename and pin entry node from control console',
+    patch: {
+      section: 'metadata',
+      value: {
+        name: 'Sample Platform Flow v2 Console Edit',
+        entryNode: 'draft_start',
+      },
+    },
+  });
+  assert.equal(patchedDraft.status, 200);
+  assert.equal(patchedDraft.json.draft.name, 'Sample Platform Flow v2 Console Edit');
+  assert.equal(patchedDraft.json.revision.source, 'console_edit');
+  assert.equal(patchedDraft.json.revision.changeSummary, 'Rename and pin entry node from control console');
+
+  const sseEvent = await readNextSseEvent(sse.reader);
+  assert.equal(sseEvent.type, 'control_console_event');
+  assert.equal(sseEvent.event.kind, 'draft.updated');
+  assert.equal(sseEvent.event.draftId, secondDraftId);
+
+  const stalePatch = await httpPatch(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${secondDraftId}/spec`, {
+    schemaVersion: 'v1',
+    sessionId,
+    userId,
+    baseRevisionId: staleRevisionId,
+    changeSummary: 'stale edit should fail',
+    patch: {
+      section: 'requirements',
+      value: {
+        requirements: ['stale write should conflict'],
+      },
+    },
+  });
+  assert.equal(stalePatch.status, 409);
+  assert.equal(stalePatch.json.code, 'DRAFT_REVISION_CONFLICT');
 
   const secondSynthesized = await httpPost(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${secondDraftId}/synthesize`, {
     schemaVersion: 'v1',
@@ -642,6 +979,32 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   assert.equal(runtimeRequests.at(-1).path, '/internal/runtime/start-run');
   assert.equal(runtimeRequests.at(-1).body.template.workflowKey, workflowKey);
 
+  const missingRun = await httpGet(`http://127.0.0.1:${ports.platform}/v1/runs/run-missing`);
+  assert.equal(missingRun.status, 404);
+  assert.equal(missingRun.json.code, 'RUNTIME_REQUEST_FAILED');
+
+  const missingApproval = await httpGet(`http://127.0.0.1:${ports.platform}/v1/approvals/approval-missing`);
+  assert.equal(missingApproval.status, 404);
+  assert.equal(missingApproval.json.code, 'RUNTIME_REQUEST_FAILED');
+
+  const runsList = await httpGet(`http://127.0.0.1:${ports.platform}/v1/runs?limit=10`);
+  assert.equal(runsList.status, 200);
+  assert.equal(runsList.json.runs.length, 1);
+  assert.equal(runsList.json.runs[0].status, 'waiting_approval');
+  assert.equal(runsList.json.runs[0].blocker, 'waiting_approval');
+
+  const approvalQueue = await httpGet(`http://127.0.0.1:${ports.platform}/v1/approvals/queue`);
+  assert.equal(approvalQueue.status, 200);
+  assert.equal(approvalQueue.json.approvals.length, 1);
+  assert.equal(approvalQueue.json.approvals[0].status, 'pending');
+  assert.deepEqual(approvalQueue.json.approvals[0].artifactTypes, ['AssessmentDraft', 'EvidencePack']);
+
+  const approvalDetail = await httpGet(`http://127.0.0.1:${ports.platform}/v1/approvals/approval-1`);
+  assert.equal(approvalDetail.status, 200);
+  assert.equal(approvalDetail.json.approval.approvalRequestId, 'approval-1');
+  assert.equal(approvalDetail.json.approverContext.displayName, 'Ms. Li');
+  assert.equal(approvalDetail.json.artifacts.length, 2);
+
   const runSnapshot = await httpGet(`http://127.0.0.1:${ports.platform}/v1/runs/run-platform-start`);
   assert.equal(runSnapshot.status, 200);
   assert.equal(runSnapshot.json.run.run.runId, 'run-platform-start');
@@ -671,6 +1034,31 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   const approvals = await httpGet(`http://127.0.0.1:${ports.platform}/v1/approvals`);
   assert.equal(approvals.status, 200);
   assert.equal(approvals.json.approvals.length, 1);
+
+  const decisionStarted = await httpPost(`http://127.0.0.1:${ports.platform}/v1/runs`, {
+    schemaVersion: 'v1',
+    traceId: 'trace-platform-decision-start',
+    sessionId: 's-platform-decision',
+    userId: 'u-platform-decision',
+    workflowKey,
+    inputText: 'start a second run to exercise decision endpoint',
+  });
+  assert.equal(decisionStarted.status, 201);
+
+  const decisionResponse = await httpPost(`http://127.0.0.1:${ports.platform}/v1/approvals/approval-1/decision`, {
+    schemaVersion: 'v1',
+    traceId: 'trace-platform-decision',
+    userId: 'u-platform-decision',
+    decision: 'approved',
+    comment: 'ship it',
+  });
+  assert.equal(decisionResponse.status, 200);
+  assert.equal(decisionResponse.json.approval.status, 'approved');
+  assert.equal(decisionResponse.json.decision.comment, 'ship it');
+  assert.equal(decisionResponse.json.run.run.status, 'completed');
+  assert.equal(decisionResponse.json.capturedRecipeDrafts.length, 1);
+  assert.equal(runtimeRequests.at(-1).path, '/internal/runtime/approvals/approval-1/decision');
+  assert.equal(runtimeRequests.at(-1).body.decision, 'approved');
 
   const artifact = await httpGet(`http://127.0.0.1:${ports.platform}/v1/artifacts/artifact-1`);
   assert.equal(artifact.status, 200);

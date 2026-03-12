@@ -1,4 +1,8 @@
 import type {
+  WorkflowApprovalDecisionRequest,
+  WorkflowApprovalDecisionResponse,
+  WorkflowApprovalDetailResponse,
+  WorkflowApprovalQueueResponse,
   DraftRevisionRecord,
   DraftSource,
   DraftValidationSummary,
@@ -17,12 +21,15 @@ import type {
   WorkflowDraftPublishResponse,
   WorkflowDraftRecord,
   WorkflowDraftSessionLinkRecord,
+  WorkflowDraftSpecPatchRequest,
+  WorkflowDraftSpecPatchResponse,
   WorkflowDraftSpec,
   WorkflowDraftStatus,
   WorkflowArtifactDetailResponse,
   WorkflowArtifactRecord,
   WorkflowCommandResponse,
   WorkflowResumeRequest,
+  WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRunSnapshot,
   WorkflowRuntimeResumeRunRequest,
@@ -83,6 +90,38 @@ function normalizeRequirements(spec: WorkflowDraftSpec): string[] {
 
 function cloneSpec(spec: WorkflowDraftSpec): WorkflowDraftSpec {
   return JSON.parse(JSON.stringify(spec)) as WorkflowDraftSpec;
+}
+
+function applyDraftSpecPatch(spec: WorkflowDraftSpec, patch: WorkflowDraftSpecPatchRequest['patch']): WorkflowDraftSpec {
+  const next = cloneSpec(spec);
+  if (patch.section === 'metadata') {
+    if ('workflowKey' in patch.value) {
+      next.workflowKey = sanitizeText(patch.value.workflowKey);
+    }
+    if ('name' in patch.value) {
+      next.name = sanitizeText(patch.value.name);
+    }
+    if ('compatProviderId' in patch.value) {
+      next.compatProviderId = sanitizeText(patch.value.compatProviderId);
+    }
+    if ('entryNode' in patch.value) {
+      next.entryNode = sanitizeText(patch.value.entryNode);
+    }
+    return next;
+  }
+
+  if (patch.section === 'requirements') {
+    next.requirements = patch.value.requirements.map((item) => String(item).trim()).filter(Boolean);
+    return next;
+  }
+
+  next.entryNode = sanitizeText(patch.value.entryNode) || next.entryNode;
+  next.nodes = patch.value.nodes.map((node) => ({
+    ...node,
+    config: node.config ? { ...node.config } : undefined,
+    transitions: node.transitions ? { ...node.transitions } : undefined,
+  }));
+  return next;
 }
 
 function buildInitialSpec(input: WorkflowDraftCreateRequest, draftId: string): WorkflowDraftSpec {
@@ -345,8 +384,31 @@ export class PlatformService {
     };
   }
 
+  async listRuns(limit = 25): Promise<WorkflowRunListResponse> {
+    return await this.runtimeClient.listRuns(limit);
+  }
+
   async listApprovals(): Promise<Record<string, unknown>> {
     return await this.runtimeClient.listApprovals();
+  }
+
+  async listApprovalQueue(): Promise<WorkflowApprovalQueueResponse> {
+    return await this.runtimeClient.listApprovalQueue();
+  }
+
+  async getApprovalDetail(approvalRequestId: string): Promise<WorkflowApprovalDetailResponse> {
+    return await this.runtimeClient.getApprovalDetail(approvalRequestId);
+  }
+
+  async decideApproval(
+    approvalRequestId: string,
+    input: WorkflowApprovalDecisionRequest,
+  ): Promise<WorkflowApprovalDecisionResponse> {
+    const response = await this.runtimeClient.decideApproval(approvalRequestId, input);
+    return {
+      ...response,
+      capturedRecipeDrafts: await this.captureRunDerivedRecipeDrafts(response.run),
+    };
   }
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactDetailResponse> {
@@ -431,7 +493,15 @@ export class PlatformService {
       }
       const link = await repository.getSessionLink(input.sessionId, draftId);
       if (!link) {
-        throw new PlatformError(404, 'DRAFT_NOT_IN_SESSION', 'draft is not linked to the session');
+        await repository.upsertSessionLink({
+          sessionId: input.sessionId,
+          draftId,
+          userId: input.userId,
+          isActive: false,
+          createdAt: draft.createdAt,
+          updatedAt: this.now(),
+          lastFocusedAt: undefined,
+        });
       }
       const sessionLinks = await repository.setActiveDraft(input.sessionId, draftId, input.userId, this.now());
       const sessionDrafts = await repository.listDraftsBySession(input.sessionId);
@@ -556,6 +626,57 @@ export class PlatformService {
         sessionId: input.sessionId,
         userId: input.userId,
       });
+    });
+  }
+
+  async patchDraftSpec(draftId: string, input: WorkflowDraftSpecPatchRequest): Promise<WorkflowDraftSpecPatchResponse> {
+    return await this.repository.runInTransaction(async (repository) => {
+      const draft = await this.requireEditableSessionDraftFrom(repository, draftId, input.sessionId);
+      const revisions = await repository.listDraftRevisions(draftId);
+      const latestRevision = revisions.at(-1);
+      if (!latestRevision) {
+        throw new PlatformError(409, 'DRAFT_REVISION_MISSING', 'draft revision history missing');
+      }
+      if (latestRevision.revisionId !== input.baseRevisionId) {
+        throw new PlatformError(409, 'DRAFT_REVISION_CONFLICT', 'draft revision is stale');
+      }
+
+      const timestamp = this.now();
+      const nextSpec = applyDraftSpecPatch(draft.currentSpec, input.patch);
+      const nextDraft: WorkflowDraftRecord = {
+        ...draft,
+        workflowKey: sanitizeText(nextSpec.workflowKey),
+        name: sanitizeText(nextSpec.name),
+        status: 'editable',
+        currentSpec: nextSpec,
+        latestValidationSummary: undefined,
+        publishable: false,
+        activeRevisionNumber: draft.activeRevisionNumber + 1,
+        updatedAt: timestamp,
+      };
+      const revision = createDraftRevision({
+        uuid: this.uuid,
+        timestamp,
+        draftId,
+        revisionNumber: nextDraft.activeRevisionNumber,
+        source: 'console_edit',
+        actorId: input.userId,
+        changeSummary: input.changeSummary,
+        specSnapshot: cloneSpec(nextSpec),
+      });
+      const mutation = await this.persistDraftMutation(repository, {
+        draft: nextDraft,
+        revision,
+        sessionId: input.sessionId,
+        userId: input.userId,
+      });
+      return {
+        schemaVersion: 'v1',
+        draft: mutation.draft,
+        revision: mutation.revision,
+        sessionDrafts: mutation.sessionDrafts,
+        sessionLinks: mutation.sessionLinks,
+      };
     });
   }
 
