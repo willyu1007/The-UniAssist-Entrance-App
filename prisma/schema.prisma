@@ -372,6 +372,90 @@ model TriggerBinding {
   @@map("trigger_bindings")
 }
 
+model ConnectorDefinition {
+  connectorDefinitionId String   @id @map("connector_definition_id")
+  workspaceId           String   @map("workspace_id")
+  connectorKey          String   @map("connector_key")
+  name                  String
+  description           String?
+  status                String
+  catalogJson           Json     @map("catalog_json")
+  createdBy             String   @map("created_by")
+  updatedBy             String   @map("updated_by")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
+
+  @@unique([workspaceId, connectorKey], map: "uq_connector_definitions_workspace_key")
+  @@index([workspaceId, status], map: "idx_connector_definitions_workspace_status")
+  @@map("connector_definitions")
+}
+
+model ConnectorBinding {
+  connectorBindingId   String   @id @map("connector_binding_id")
+  workspaceId          String   @map("workspace_id")
+  connectorDefinitionId String  @map("connector_definition_id")
+  name                 String
+  description          String?
+  status               String
+  secretRefId          String?  @map("secret_ref_id")
+  metadataJson         Json?    @map("metadata_json")
+  createdBy            String   @map("created_by")
+  updatedBy            String   @map("updated_by")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+
+  @@index([workspaceId, status], map: "idx_connector_bindings_workspace_status")
+  @@index([connectorDefinitionId], map: "idx_connector_bindings_definition_id")
+  @@index([secretRefId], map: "idx_connector_bindings_secret_ref_id")
+  @@map("connector_bindings")
+}
+
+model ActionBinding {
+  actionBindingId     String   @id @map("action_binding_id")
+  workspaceId         String   @map("workspace_id")
+  agentId             String   @map("agent_id")
+  actionRef           String   @map("action_ref")
+  connectorBindingId  String   @map("connector_binding_id")
+  capabilityId        String   @map("capability_id")
+  status              String
+  sideEffectClass     String   @map("side_effect_class")
+  executionMode       String   @map("execution_mode")
+  timeoutMs           Int?     @map("timeout_ms")
+  browserFallbackMode String   @map("browser_fallback_mode")
+  configJson          Json     @map("config_json")
+  createdBy           String   @map("created_by")
+  updatedBy           String   @map("updated_by")
+  createdAt           DateTime @default(now()) @map("created_at")
+  updatedAt           DateTime @updatedAt @map("updated_at")
+
+  @@unique([agentId, actionRef], map: "uq_action_bindings_agent_action_ref")
+  @@index([workspaceId, status], map: "idx_action_bindings_workspace_status")
+  @@index([connectorBindingId], map: "idx_action_bindings_binding_id")
+  @@map("action_bindings")
+}
+
+model EventSubscription {
+  eventSubscriptionId String    @id @map("event_subscription_id")
+  workspaceId         String    @map("workspace_id")
+  connectorBindingId  String    @map("connector_binding_id")
+  triggerBindingId    String    @map("trigger_binding_id")
+  eventType           String    @map("event_type")
+  status              String
+  publicSubscriptionKey String? @unique(map: "uq_event_subscriptions_public_subscription_key") @map("public_subscription_key")
+  configJson          Json      @map("config_json")
+  lastEventAt         DateTime? @map("last_event_at")
+  lastError           String?   @map("last_error")
+  createdBy           String    @map("created_by")
+  updatedBy           String    @map("updated_by")
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([workspaceId, status], map: "idx_event_subscriptions_workspace_status")
+  @@index([connectorBindingId], map: "idx_event_subscriptions_binding_id")
+  @@index([triggerBindingId], map: "idx_event_subscriptions_trigger_binding_id")
+  @@map("event_subscriptions")
+}
+
 model PolicyBinding {
   policyBindingId String   @id @map("policy_binding_id")
   workspaceId     String   @map("workspace_id")
@@ -509,6 +593,46 @@ model BridgeCallbackReceipt {
 
   @@index([bridgeSessionId, sequence], map: "idx_bridge_callback_receipts_session_sequence")
   @@map("bridge_callback_receipts")
+}
+
+model ConnectorActionSession {
+  connectorActionSessionId String    @id @map("connector_action_session_id")
+  runId                    String    @map("run_id")
+  nodeRunId                String    @map("node_run_id")
+  actionBindingId          String    @map("action_binding_id")
+  connectorBindingId       String    @map("connector_binding_id")
+  capabilityId             String    @map("capability_id")
+  externalSessionRef       String    @map("external_session_ref")
+  publicCallbackKey        String    @unique(map: "uq_connector_action_sessions_public_callback_key") @map("public_callback_key")
+  status                   String
+  lastSequence             Int       @default(0) @map("last_sequence")
+  cancelledAt              DateTime? @map("cancelled_at")
+  metadataJson             Json?     @map("metadata_json")
+  createdAt                DateTime  @default(now()) @map("created_at")
+  updatedAt                DateTime  @updatedAt @map("updated_at")
+
+  @@unique([actionBindingId, externalSessionRef], map: "uq_connector_action_sessions_binding_external_ref")
+  @@index([runId], map: "idx_connector_action_sessions_run_id")
+  @@index([nodeRunId], map: "idx_connector_action_sessions_node_run_id")
+  @@index([connectorBindingId, status], map: "idx_connector_action_sessions_binding_status")
+  @@map("connector_action_sessions")
+}
+
+model ConnectorEventReceipt {
+  connectorEventReceiptId String   @id @map("connector_event_receipt_id")
+  receiptKey              String   @unique(map: "uq_connector_event_receipts_receipt_key") @map("receipt_key")
+  sourceKind              String   @map("source_kind")
+  connectorActionSessionId String? @map("connector_action_session_id")
+  eventSubscriptionId     String?  @map("event_subscription_id")
+  sequence                Int?
+  eventType               String?  @map("event_type")
+  status                  String
+  errorMessage            String?  @map("error_message")
+  receivedAt              DateTime @default(now()) @map("received_at")
+
+  @@index([connectorActionSessionId, sequence], map: "idx_connector_event_receipts_action_session_sequence")
+  @@index([eventSubscriptionId, receivedAt], map: "idx_connector_event_receipts_subscription_received_at")
+  @@map("connector_event_receipts")
 }
 
 model ActorProfile {

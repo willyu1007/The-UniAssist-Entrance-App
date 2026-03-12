@@ -1,4 +1,5 @@
 import type { InteractionEvent } from '@baseinterface/contracts';
+import type { ConnectorActionExecutionSnapshot } from './connector-runtime';
 import type { ExternalRuntimeBridgeSnapshot } from './external-runtime-bridge';
 
 export type WorkflowSchemaVersion = 'v1';
@@ -881,9 +882,10 @@ export type WorkflowRuntimeStartRunRequest = {
   inputText?: string;
   inputPayload?: Record<string, unknown>;
   agentId?: string;
-  sourceType?: 'message' | 'manual' | 'schedule' | 'webhook' | 'event';
+  sourceType?: 'message' | 'manual' | 'schedule' | 'webhook' | 'event' | 'event_subscription';
   sourceRef?: string;
   runtimeMetadata?: Record<string, unknown>;
+  connectorActions?: Record<string, ConnectorActionExecutionSnapshot>;
   externalRuntime?: ExternalRuntimeBridgeSnapshot;
 };
 

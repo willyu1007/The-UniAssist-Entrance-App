@@ -35,7 +35,10 @@ export type GovernanceTargetType =
   | 'trigger_binding'
   | 'policy_binding'
   | 'secret_ref'
-  | 'scope_grant';
+  | 'scope_grant'
+  | 'connector_binding'
+  | 'action_binding'
+  | 'event_subscription';
 
 export type GovernanceRequestKind =
   | 'agent_activate'
@@ -172,7 +175,7 @@ export type TriggerDispatchRecord = {
   triggerDispatchId: string;
   triggerBindingId: string;
   dispatchKey: string;
-  sourceType: 'schedule' | 'webhook';
+  sourceType: 'schedule' | 'webhook' | 'event_subscription';
   status: 'pending' | 'dispatched' | 'failed';
   runId?: string;
   payloadJson?: Record<string, unknown>;
@@ -308,6 +311,9 @@ export type GovernanceChangeDecisionResponse = {
   triggerBinding?: TriggerBindingRecord;
   policyBinding?: PolicyBindingRecord;
   scopeGrant?: ScopeGrantRecord;
+  connectorBinding?: import('./connector-runtime').ConnectorBindingRecord;
+  actionBinding?: import('./connector-runtime').ActionBindingRecord;
+  eventSubscription?: import('./connector-runtime').EventSubscriptionRecord;
 };
 
 export type GovernanceChangeRequestCreateRequest = {
