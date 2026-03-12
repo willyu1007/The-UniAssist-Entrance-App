@@ -35,7 +35,8 @@ Project: `main`
 | T-021 ua-policy-secret-scope-governance-design | in-progress | dev-docs/active/ua-policy-secret-scope-governance-design |
 | T-022 ua-rnd-collab-validation-scenario-design | in-progress | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | dev-docs/archive/ua-platform-foundation-implementation |
-| T-024 ua-builder-draft-publish-implementation | in-progress | dev-docs/active/ua-builder-draft-publish-implementation |
-| T-025 ua-teaching-validation-implementation | in-progress | dev-docs/active/ua-teaching-validation-implementation |
+| T-024 ua-builder-draft-publish-implementation | done | dev-docs/active/ua-builder-draft-publish-implementation |
+| T-025 ua-teaching-validation-implementation | done | dev-docs/active/ua-teaching-validation-implementation |
 | T-026 ua-control-console-foundation-implementation | done | dev-docs/active/ua-control-console-foundation-implementation |
+| T-027 ua-agent-governance-implementation | done | dev-docs/active/ua-agent-governance-implementation |
 <!-- AUTO-GENERATED:END feature-map -->

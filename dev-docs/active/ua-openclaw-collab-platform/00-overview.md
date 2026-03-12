@@ -2,8 +2,8 @@
 
 ## Status
 - State: in-progress
-- Status note: `T-011` 已完成总包级同步审计；`T-025 / B3` 已达到 `ready-for-review`，`T-026 / B4` 已启动，当前主线进入 teaching validation 收口与 control-console foundation 并行实施。
-- Next step: 推进 `T-026 / B4` 的 API + console workspace 落地，并在 `B3/B4` 稳定后再继续 `B5` 后续主线。
+- Status note: `T-011` 已完成总包级同步审计；`T-025 / B3` 处于 `ready-for-review`，`T-026 / B4` 已完成，`T-027 / B5` 已启动并进入 agent governance implementation。
+- Next step: 推进 `T-027 / B5` 的 contracts/schema/platform/scheduler 落地，并保持 `B3/B4` 已交付链路稳定。
 
 ## Goal
 在保留当前 UniAssist `/v0` 统一入口兼容层的前提下，建立一个新的规划总包，用于分阶段升级为协作型 workflow 平台，并明确教学场景、探索型评估 agent 收敛、控制台形态和主数据面策略。

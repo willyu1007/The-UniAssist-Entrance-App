@@ -1,0 +1,59 @@
+# 03 Implementation Notes
+
+- 初始化 `B5 / ua-agent-governance-implementation` task bundle，并同步 `.ai/project/main/*`。
+- contracts / contracts package:
+  - 新增 `packages/workflow-contracts/src/agent-governance.ts`
+  - 增补 `AgentDefinition / TriggerBinding / PolicyBinding / SecretRef / ScopeGrant / GovernanceChangeRequest / GovernanceChangeDecision / TriggerDispatch`
+  - 新增 scheduler <-> platform internal DTO：`DueScheduleTrigger*`、`WebhookTriggerRuntimeConfig*`、`TriggerDispatch*`
+  - 扩展 runtime start-run contract，允许 platform 把 `agentId / sourceType / sourceRef / runtimeMetadata` 传给 runtime
+- policy helpers:
+  - 新增 `packages/policy-sdk`
+  - 首版 helper：`requiresGovernanceApproval`、`canApplyApprovedChange`、`isSecretUsable`、`isTriggerRunnable`
+- workflow-platform-api:
+  - 新增 `governance-repository.ts`，提供 memory/postgres 双实现
+  - `PlatformService` 新增 agent/governance/query/apply/dispatch 能力
+  - northbound API 新增 `/v1/agents`、`/v1/trigger-bindings/*`、`/v1/policy-bindings`、`/v1/secret-refs`、`/v1/scope-grants`、`/v1/governance-change-requests`
+  - internal API 新增 due schedule 查询、webhook runtime config 查询、schedule/webhook dispatch
+  - internal trigger API 增加 internal auth guard，仅接受 `trigger-scheduler` subject
+- trigger runtime:
+  - 新增独立 app `apps/trigger-scheduler`
+  - scheduler 只通过 platform internal API 工作，不直接碰 DB
+  - 启动后轮询 due schedule triggers，并使用稳定 `dispatchKey = schedule:<triggerBindingId>:<nextTriggerAt>` 保证幂等
+  - 暴露 `/hooks/agent-triggers/:publicTriggerKey`，完成 HMAC-SHA256 验签、replay window 校验与 dedupe
+- schedule semantics:
+  - `computeNextScheduleTriggerAt` 已从“仅支持 `intervalMs`”扩成“`intervalMs` 或标准 5-field `cron` 二选一”
+  - `cron` 要求显式 `timezone`
+  - 当前支持 `*`、step、range、list、month/day-of-week alias，并按标准 cron 处理 `dayOfMonth` 与 `dayOfWeek` 的匹配语义
+  - lookahead window 设为 5 年，避免闰年类表达式被误判为无解
+- secret ownership 语义修正:
+  - 没有把 webhook secret 明文存回 `SecretRef`
+  - `SecretRef.metadataJson.envKey` 仅保存环境变量引用
+  - scheduler 通过 `process.env[envKey]` 解析真实 secret material
+  - 这样保持了 `SecretRef = inventory/ref` 的语义，并为后续 vault/KMS 接入保留稳定边界
+- persistence:
+  - `prisma/schema.prisma` 已新增 B5 相关 control-plane models 与 `trigger_dispatches`
+  - 没有改写现有 runtime `approval_requests / approval_decisions` 语义
+- tests:
+  - 新增 `apps/workflow-platform-api/tests/agent-governance.test.mjs`
+  - 新增 `apps/trigger-scheduler/tests/trigger-scheduler.test.mjs`
+  - 保留并回归 existing `workflow-platform-api` B3/B4 integration test
+- project governance hygiene:
+  - 清理了 `ua-builder-draft-publish-implementation` 与 `ua-teaching-validation-implementation` 中不符合枚举约束的 `State` 值
+  - 对齐对应 `.ai-task.yaml` 为 `done`，并重新同步 project registry，消除 lint warning
+- review follow-up fixes:
+  - `createTriggerBinding` 现在强校验 `workspaceId === agent.workspaceId`，并以 agent workspace 作为 trigger authoritative workspace，避免跨 workspace 脏绑定
+  - `createGovernanceChangeRequestRecord` 新增前置校验：
+    - 校验 `requestKind -> targetType` 组合是否合法
+    - 校验 target object 存在
+    - 校验 request workspace 与 target/resource workspace 一致
+    - 对 `secret_grant_issue` 强制 `resourceType = secret_ref`
+    - 在 create 阶段拦截 `event_subscription` enable 和 terminal agent activate 这类注定不可应用的请求
+  - `suspendAgent` / `retireAgent` 改为事务内同时清空该 agent 下全部 enabled schedule trigger 的 `nextTriggerAt`
+  - `agent_activate` 在审批 apply 成功后会重算该 agent 下全部 enabled schedule trigger 的 `nextTriggerAt`，恢复长期调度但不要求重新 enable
+  - `trigger-scheduler` 的 `parseWebhookPayload` 现在把非法 JSON 明确映射为 `400 INVALID_WEBHOOK_PAYLOAD`，不再误报 `500 INTERNAL_ERROR`
+  - 回归测试新增了：
+    - trigger workspace mismatch negative case
+    - governance request target-type mismatch / missing target negative case
+    - suspend -> due queue drained -> reactivate -> schedule resumed
+    - retire -> schedule nextTriggerAt cleared
+    - invalid webhook JSON -> 400

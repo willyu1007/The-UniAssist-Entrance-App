@@ -8,13 +8,16 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 26 (planned: 0, in-progress: 20, blocked: 1, done: 4, archived: 1)
+- Tasks: 27 (planned: 0, in-progress: 18, blocked: 1, done: 7, archived: 1)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-024 ua-builder-draft-publish-implementation | done | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
+| T-025 ua-teaching-validation-implementation | done | F-000 | dev-docs/active/ua-teaching-validation-implementation |
 | T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
+| T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
 | T-011 ua-openclaw-collab-platform | in-progress | F-000 | dev-docs/active/ua-openclaw-collab-platform |
 | T-012 ua-workflow-core-skeleton-design | in-progress | F-000 | dev-docs/active/ua-workflow-core-skeleton-design |
 | T-013 ua-builder-draft-sot-design | in-progress | F-000 | dev-docs/active/ua-builder-draft-sot-design |
@@ -28,10 +31,7 @@ Project: `main`
 | T-021 ua-policy-secret-scope-governance-design | in-progress | F-000 | dev-docs/active/ua-policy-secret-scope-governance-design |
 | T-022 ua-rnd-collab-validation-scenario-design | in-progress | F-000 | dev-docs/active/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | F-000 | dev-docs/archive/ua-platform-foundation-implementation |
-| T-024 ua-builder-draft-publish-implementation | in-progress | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
-| T-025 ua-teaching-validation-implementation | in-progress | F-000 | dev-docs/active/ua-teaching-validation-implementation |
 | T-007 ua-second-provider-integration | blocked | F-000 | dev-docs/active/ua-second-provider-integration |
 | T-009 ua-multi-provider-task-orchestration | done | F-000 | dev-docs/active/ua-multi-provider-task-orchestration |
 | T-010 split-monolith-gateway-frontend | done | F-000 | dev-docs/active/split-monolith-gateway-frontend |
-| T-006 ua-v1-internal-security | in-progress | F-000 | dev-docs/active/ua-v1-internal-security |
 <!-- AUTO-GENERATED:END dashboard -->
