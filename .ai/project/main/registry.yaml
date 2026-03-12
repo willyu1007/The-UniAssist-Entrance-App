@@ -212,3 +212,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-agent-governance-implementation
     updated: 2026-03-12
+  - id: T-028
+    slug: ua-external-runtime-bridge-implementation
+    status: done
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-external-runtime-bridge-implementation
+    updated: 2026-03-12

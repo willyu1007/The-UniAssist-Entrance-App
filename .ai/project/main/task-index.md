@@ -37,4 +37,5 @@ Project: `main`
 | T-025 ua-teaching-validation-implementation | done | F-000 | dev-docs/active/ua-teaching-validation-implementation |
 | T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
+| T-028 ua-external-runtime-bridge-implementation | done | F-000 | dev-docs/active/ua-external-runtime-bridge-implementation |
 <!-- AUTO-GENERATED:END task-index -->

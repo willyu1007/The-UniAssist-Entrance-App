@@ -1,0 +1,32 @@
+# 03 Implementation Notes
+
+- `T-028 / ua-external-runtime-bridge-implementation` 已完成首版落地，设计基线固定为 `T-020`。
+- 合同层：
+  - `packages/workflow-contracts` 新增 `external-runtime-bridge.ts`，定义 bridge registration、invoke/resume/cancel command、normalized callback envelope、runtime callback receipt。
+  - `packages/workflow-contracts/src/types.ts` 扩展 `WorkflowRuntimeStartRunRequest.externalRuntime`、`WorkflowRuntimeCancelRunRequest` 与 formal `checkpoint` event。
+  - `packages/workflow-contracts/src/agent-governance.ts` 为 `AgentDefinition` 增加 `bridgeId`。
+- SDK 层：
+  - `packages/executor-sdk` 新增 `ExternalBridgeClient` 与 `createExternalBridgeClient()`，统一 bridge 的 `/manifest`、`/health`、`/invoke`、`/resume`、`/cancel` 调用。
+- 平台层：
+  - `apps/workflow-platform-api` 新增 bridge registration API、`POST /v1/agents/:agentId/runs`、`POST /v1/runs/:runId/cancel`。
+  - `PlatformService` 负责 external-runtime agent 的 bridge 校验、workspace 一致性约束、callback URL 注入，以及 run start/cancel runtime 下发。
+  - `GovernanceRepository` 已支持 `BridgeRegistration` 读写与 `AgentDefinition.bridgeId` 持久化。
+- Runtime 层：
+  - `apps/workflow-runtime` 新增 `BridgeInvokeSession` / `BridgeCallbackReceipt` ledger。
+  - `WorkflowRuntimeService` 为 external-runtime run 增加 bridge invoke、approval 后 resume、cancel、normalized callback ingress。
+  - callback 规则已按 B6 固定语义实现：`checkpoint` 不终态、`approval_requested` 建 authoritative approval、`result` 物化 artifacts/delivery 并推进状态机、`error` 终止 run。
+  - callback ledger 已实现 duplicate / out-of-order 保护；cancel 仅允许 external-runtime run。
+- Sample bridge：
+  - 新增 `apps/executor-bridge-sample`，提供 vendor-neutral `/manifest`、`/health`、`/invoke`、`/resume`、`/cancel`。
+  - sample flow 固定为 `checkpoint -> approval_requested -> checkpoint -> result`，支持 rejected approval 走 `error`，支持 cancelled session 停止后续 callback。
+- 数据模型：
+  - `prisma/schema.prisma` 已补齐 `BridgeRegistration`、`BridgeInvokeSession`、`BridgeCallbackReceipt` 与 `AgentDefinition.bridgeId`。
+  - runtime repository 修复了 run reload 时 `inputPayload` 回填覆盖 `run.metadata` 的问题，避免 external runtime snapshot 丢失。
+  - 本轮补了 `prisma/migrations/20260312173000_repo_prisma_baseline/migration.sql` 与 `prisma/migrations/migration_lock.toml`，把当前 Prisma SSOT 生成成 repo 内 baseline migration；未对任何真实数据库执行 apply。
+- Review remediation：
+  - `workflow-runtime` callback ingress 现在显式要求 `bridge:callback` scope，不再只靠 allowed subject 白名单。
+  - external-runtime run 在当前节点为平台原生 `approval_gate` 时也允许 cancel；仅当当前 executor 节点缺失活动 bridge session 才拒绝。
+  - callback receipt ledger 改成首写即不可变：duplicate replay 只返回 `duplicate=true`，不覆盖原始 `accepted/rejected` 审计结果；Postgres 持久化也改为 `ON CONFLICT DO NOTHING`。
+  - `workflow-contracts` / `executor-sdk` 为 bridge `/manifest` 与 `/health` 新增 runtime parser，`workflow-platform-api` 在 create / activate 两条路径都把无效 metadata 映射成 `502 BRIDGE_METADATA_INVALID`。
+- Tooling：
+  - 为避免 workspace link 延迟影响 typecheck，相关 app tsconfig 已显式补齐 workspace package path 映射。

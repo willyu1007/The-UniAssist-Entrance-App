@@ -1,0 +1,37 @@
+# 04 Verification
+
+- `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - result: passed
+- `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - result: passed
+- `pnpm --filter @baseinterface/workflow-contracts typecheck`
+  - result: passed
+- `pnpm --filter @baseinterface/executor-sdk typecheck`
+  - result: passed
+- `pnpm --filter @baseinterface/workflow-runtime typecheck`
+  - result: passed
+- `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+  - result: passed
+- `pnpm --filter @baseinterface/executor-bridge-sample typecheck`
+  - result: passed
+- `pnpm --filter @baseinterface/workflow-runtime test`
+  - result: passed
+  - coverage note: exercised external runtime bridge end-to-end (`invoke -> checkpoint -> approval_requested -> resume -> result`), duplicate/out-of-order callback guard, and run cancel.
+- `pnpm --filter @baseinterface/workflow-platform-api test`
+  - result: passed
+  - coverage note: exercised bridge registration lifecycle, agent bridge binding constraints, agent run start with external runtime snapshot injection, run cancel pass-through, and suspended bridge rejection.
+- `pnpm exec prisma format --schema prisma/schema.prisma`
+  - result: passed
+- `DATABASE_URL=postgresql://local:local@127.0.0.1:5432/local pnpm exec prisma validate --schema prisma/schema.prisma`
+  - result: passed
+  - note: 使用占位 `DATABASE_URL` 仅为通过 Prisma config gate；未连接或写入真实数据库。
+- `DATABASE_URL=postgresql://local:local@127.0.0.1:5432/local pnpm exec prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma --script > prisma/migrations/20260312173000_repo_prisma_baseline/migration.sql`
+  - result: passed
+  - note: 生成 repo baseline migration，仅产出 SQL 文件，不执行 DB apply。
+- `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+  - result: passed
+- `node .ai/tests/run.mjs --suite database`
+  - result: passed
+- Review-fix coverage note:
+  - `workflow-runtime` test 新增 `bridge:callback` scope negative、duplicate receipt 原始状态保留、以及 external-runtime run 在 native `approval_gate` 等待态的 cancel。
+  - `workflow-platform-api` test 新增 invalid bridge manifest / health 在 create 与 activate 路径上的拒绝。
