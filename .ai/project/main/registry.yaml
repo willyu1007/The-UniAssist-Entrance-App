@@ -233,3 +233,10 @@ tasks:
     feature_id: F-000
     dev_docs_path: dev-docs/archive/ua-rnd-collab-validation-implementation
     updated: 2026-03-13
+  - id: T-031
+    slug: ua-convex-projection-experiment
+    status: in-progress
+    milestone_id: M-000
+    feature_id: F-000
+    dev_docs_path: dev-docs/active/ua-convex-projection-experiment
+    updated: 2026-03-13

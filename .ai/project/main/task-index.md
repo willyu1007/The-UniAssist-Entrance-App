@@ -40,4 +40,5 @@ Project: `main`
 | T-028 ua-external-runtime-bridge-implementation | done | F-000 | dev-docs/active/ua-external-runtime-bridge-implementation |
 | T-029 ua-connector-runtime-and-first-capabilities-implementation | done | F-000 | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
 | T-030 ua-rnd-collab-validation-implementation | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-implementation |
+| T-031 ua-convex-projection-experiment | in-progress | F-000 | dev-docs/active/ua-convex-projection-experiment |
 <!-- AUTO-GENERATED:END task-index -->
