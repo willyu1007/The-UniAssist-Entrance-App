@@ -6,21 +6,21 @@
 
 ## Current state
 - `provider-plan -> provider-sample` 的硬切换已完成，入口脚本、service id、env key、ops 文件与测试基线已切到 `sample` / `provider-sample` / `compat-sample`。
-- `apps/provider-sample` 已改为 canonical sample executor，支持 `parse_materials -> generate_assessment -> fanout_delivery` 三段 mock completion metadata。
+- `apps/provider-sample` 已改为 canonical sample executor，同时兼容历史 `parse_materials -> generate_assessment -> fanout_delivery` 命名与中性的 sample-review node aliases。
 - `apps/workflow-runtime` 已接入 dual-layer state：运行态继续以内存推进，查询与冷启动回填可通过 Postgres repository 读取 `workflow_runs`、`workflow_node_runs`、`artifacts`、`approval_*`、`actor_*`、`audience_*`、`delivery_*`。
-- `packages/workflow-contracts` 已扩充 typed artifact payload、run query / artifact detail response、compat workflow envelope 与 canonical teaching helper。
+- `packages/workflow-contracts` 已扩充 typed artifact payload、run query / artifact detail response、compat workflow envelope 与 canonical sample review helper。
 - `apps/workflow-platform-api` 已在 `startRun` / `resumeRun` / `getRun` 后执行 run-derived recipe capture，幂等创建或更新 `RecipeDraft`，`source` 固定为 `run_derived_recipe`。
-- `docs/scenarios/teaching` 已补 canonical input / expected artifact fixtures。
+- `docs/scenarios/sample-review` 已补 canonical input / expected artifact fixtures。
 
 ## Initial decisions
 - 本包在实现阶段一次性完成 `provider-sample -> provider-sample` 的硬切换，不保留旧兼容别名。
-- teaching validation 只作为 canonical sample workflow，不引入独立 teaching app。
+- 历史任务名中的 teaching validation 只表示当时的样例命名，不引入独立 teaching app。
 - public endpoint 集合保持不变，只扩展现有 run / artifact 响应 shape。
 - runtime 不直接北向创建 `RecipeDraft`，仍由 `workflow-platform-api` 控制面捕获。
 
 ## Follow-up TODOs
 - 若需要真实 DB 验证 cold-reload persistence，补一轮带 Postgres 的集成验证
-- 评估是否需要把 canonical teaching helper 接入私有 seed script
+- 评估是否需要把 canonical sample review helper 接入私有 seed script
 
 ## 2026-03-12 Review fixes
 - 修复 `provider-sample` 与 `workflow-platform-api` 之间的 recipe/evidence 语义错位：sample provider 不再把 `observationRefs` 误写到 `AnalysisRecipeCandidate.evidenceRefs`，runtime 会基于同批次创建出的 `EvidencePack` artifactIds 回填 `evidenceRefs` 与 lineage。

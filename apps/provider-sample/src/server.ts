@@ -18,6 +18,11 @@ import {
   verifyInternalAuthRequest,
 } from '@baseinterface/shared';
 import type {
+  WorkflowCompatCompletionMetadata,
+  WorkflowCompatContextEnvelope,
+  ValidationReportPayload,
+} from '@baseinterface/workflow-contracts';
+import type {
   AnalysisRecipeCandidatePayload,
   AssessmentDraftPayload,
   ChangeIntentPayload,
@@ -26,10 +31,7 @@ import type {
   ExecutionPlanPayload,
   ObservationArtifactPayload,
   ReviewableDeliveryPayload,
-  ValidationReportPayload,
-  WorkflowCompatCompletionMetadata,
-  WorkflowCompatContextEnvelope,
-} from '@baseinterface/workflow-contracts';
+} from '@baseinterface/workflow-contracts/scenario-samples';
 
 const PORT = Number(process.env.PORT || 8890);
 const PROVIDER_ID = 'sample';
@@ -54,7 +56,7 @@ type InternalAuthOptions = {
 
 type SampleTaskMemory = {
   subject?: string;
-  materialsSummary?: string;
+  inputSummary?: string;
 };
 
 type SampleSubject = {
@@ -63,7 +65,7 @@ type SampleSubject = {
   displayName: string;
 };
 
-type SampleTeacherActor = {
+type SampleReviewerActor = {
   actorId: string;
   displayName: string;
 };
@@ -92,25 +94,25 @@ const sampleTaskMemory = new Map<string, SampleTaskMemory>();
 const SUBJECT_SCHEMA = {
   type: 'object',
   properties: {
-    text: { type: 'string', title: '评估对象' },
+    text: { type: 'string', title: '样例主题' },
   },
   required: ['text'],
 };
 
-const MATERIALS_SCHEMA = {
+const SUMMARY_SCHEMA = {
   type: 'object',
   properties: {
-    materialsSummary: { type: 'string', title: '材料摘要' },
+    inputSummary: { type: 'string', title: '输入摘要' },
   },
-  required: ['materialsSummary'],
+  required: ['inputSummary'],
 };
 
 const SUBJECT_UI_SCHEMA = {
   order: ['text'],
 };
 
-const MATERIALS_UI_SCHEMA = {
-  order: ['materialsSummary'],
+const SUMMARY_UI_SCHEMA = {
+  order: ['inputSummary'],
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -232,10 +234,16 @@ function extractSubjectText(payload: Record<string, unknown> | undefined): strin
   return undefined;
 }
 
-function extractMaterialsSummary(payload: Record<string, unknown> | undefined): string | undefined {
+function extractInputSummary(payload: Record<string, unknown> | undefined): string | undefined {
   if (!payload) return undefined;
+  if (typeof payload.inputSummary === 'string' && payload.inputSummary.trim()) {
+    return payload.inputSummary.trim();
+  }
   if (typeof payload.materialsSummary === 'string' && payload.materialsSummary.trim()) {
     return payload.materialsSummary.trim();
+  }
+  if (Array.isArray(payload.inputs) && payload.inputs.length > 0) {
+    return payload.inputs.map((item) => String(item)).join('；');
   }
   if (Array.isArray(payload.materials) && payload.materials.length > 0) {
     return payload.materials.map((item) => String(item)).join('；');
@@ -269,13 +277,13 @@ function normalizeSubject(runInput: Record<string, unknown> | undefined, runId: 
     ? subject.subjectRef
     : `subject:${runId}`;
   const subjectType = typeof subject?.subjectType === 'string' && subject.subjectType
-    ? subject.subjectType
-    : 'learner';
+      ? subject.subjectType
+      : 'learner';
   const displayName = typeof subject?.displayName === 'string' && subject.displayName
     ? subject.displayName
     : typeof runInput?.subject === 'string' && runInput.subject
       ? runInput.subject
-      : '示例评估对象';
+      : '示例主题';
   return {
     subjectRef,
     subjectType,
@@ -283,29 +291,34 @@ function normalizeSubject(runInput: Record<string, unknown> | undefined, runId: 
   };
 }
 
-function normalizeMaterials(runInput: Record<string, unknown> | undefined): string[] {
-  if (!Array.isArray(runInput?.materials) || runInput.materials.length === 0) {
-    return ['课堂观察记录', '作业反馈'];
+function normalizeInputs(runInput: Record<string, unknown> | undefined): string[] {
+  const rawItems = Array.isArray(runInput?.inputs) && runInput.inputs.length > 0
+    ? runInput.inputs
+    : Array.isArray(runInput?.materials) && runInput.materials.length > 0
+      ? runInput.materials
+      : undefined;
+  if (!rawItems) {
+    return ['需求摘要', '历史上下文'];
   }
-  return runInput.materials.map((item, index) => {
+  return rawItems.map((item, index) => {
     if (typeof item === 'string' && item.trim()) return item.trim();
     if (isRecord(item)) {
       if (typeof item.title === 'string' && item.title.trim()) return item.title.trim();
       if (typeof item.summary === 'string' && item.summary.trim()) return item.summary.trim();
     }
-    return `材料 ${index + 1}`;
+    return `输入 ${index + 1}`;
   });
 }
 
-function normalizeTeacherActor(runInput: Record<string, unknown> | undefined, runId: string): SampleTeacherActor {
-  const teacherActor = isRecord(runInput?.teacherActor) ? runInput.teacherActor : undefined;
+function normalizeReviewerActor(runInput: Record<string, unknown> | undefined, runId: string): SampleReviewerActor {
+  const reviewerActor = isRecord(runInput?.reviewerActor) ? runInput.reviewerActor : undefined;
   return {
-    actorId: typeof teacherActor?.actorId === 'string' && teacherActor.actorId
-      ? teacherActor.actorId
-      : `actor:${runId}:teacher`,
-    displayName: typeof teacherActor?.displayName === 'string' && teacherActor.displayName
-      ? teacherActor.displayName
-      : '示例教师',
+    actorId: typeof reviewerActor?.actorId === 'string' && reviewerActor.actorId
+      ? reviewerActor.actorId
+      : `actor:${runId}:reviewer`,
+    displayName: typeof reviewerActor?.displayName === 'string' && reviewerActor.displayName
+      ? reviewerActor.displayName
+      : 'Sample Reviewer',
   };
 }
 
@@ -313,15 +326,15 @@ function normalizeAudiences(runInput: Record<string, unknown> | undefined, runId
   if (!Array.isArray(runInput?.audiences) || runInput.audiences.length === 0) {
     return [
       {
-        audienceType: 'parent',
-        actorId: `actor:${runId}:parent`,
-        displayName: '家长样例收件人',
+        audienceType: 'stakeholder',
+        actorId: `actor:${runId}:stakeholder`,
+        displayName: 'Stakeholder Sample Target',
         actorType: 'external_contact',
       },
       {
-        audienceType: 'student',
-        actorId: `actor:${runId}:student`,
-        displayName: '学生样例收件人',
+        audienceType: 'requester',
+        actorId: `actor:${runId}:requester`,
+        displayName: 'Requester Sample Target',
         actorType: 'person',
       },
     ];
@@ -459,12 +472,12 @@ function buildParseMetadata(
   workflow: WorkflowCompatContextEnvelope,
 ): WorkflowCompatCompletionMetadata {
   const subject = normalizeSubject(workflow.runInput, runId);
-  const materials = normalizeMaterials(workflow.runInput);
+  const inputs = normalizeInputs(workflow.runInput);
   const payload: ObservationArtifactPayload = {
     subjectRef: subject.subjectRef,
     subjectType: subject.subjectType,
-    materialRefs: materials.map((_item, index) => `material:${runId}:${index + 1}`),
-    observations: materials.map((item, index) => `${item} -> 观察结论 ${index + 1}`),
+    materialRefs: inputs.map((_item, index) => `input:${runId}:${index + 1}`),
+    observations: inputs.map((item, index) => `${item} -> 归一化观察 ${index + 1}`),
     parserWarnings: [],
   };
 
@@ -477,7 +490,7 @@ function buildParseMetadata(
         metadata: {
           lineage: {
             nodeKey: workflow.nodeKey,
-            sourceMaterialCount: materials.length,
+            sourceMaterialCount: inputs.length,
           },
         },
       },
@@ -493,28 +506,28 @@ function buildAssessmentMetadata(
   const observationRefs = workflow.upstreamArtifactRefs
     .filter((item) => item.artifactType === 'ObservationArtifact')
     .map((item) => item.artifactId);
-  const materials = normalizeMaterials(workflow.runInput);
+  const inputs = normalizeInputs(workflow.runInput);
   const assessmentPayload: AssessmentDraftPayload = {
     subjectRef: subject.subjectRef,
     subjectType: subject.subjectType,
-    findings: [`${subject.displayName} 在示例材料中表现出稳定参与度。`],
-    strengths: ['能及时响应课堂引导', '能根据反馈完成迭代'],
-    concerns: ['需要在复杂任务中加强自我表达'],
-    recommendedActions: ['继续提供分层反馈', '在下一轮课堂中加入结构化复盘'],
+    findings: [`${subject.displayName} 在示例输入中呈现出稳定信号。`],
+    strengths: ['输入上下文已完成结构化收敛', 'review gate 前的正式对象已生成'],
+    concerns: ['仍需人工复核后再向外部分发'],
+    recommendedActions: ['补充 reviewer 结论', '在发布前确认交付受众'],
   };
   const evidencePayload: EvidencePackPayload = {
     subjectRef: subject.subjectRef,
     subjectType: subject.subjectType,
     sourceArtifactRefs: observationRefs,
     observationRefs,
-    supportingExcerpts: materials.map((item, index) => `${item} 片段 ${index + 1}`),
+    supportingExcerpts: inputs.map((item, index) => `${item} 片段 ${index + 1}`),
     confidenceNotes: ['mock parser 输出，适合验证 lineage 与 review gate'],
   };
   const recipePayload: AnalysisRecipeCandidatePayload = {
-    title: `${subject.displayName} 评估配方候选`,
-    normalizedSteps: ['收集材料', '提炼观察', '生成评估草稿', '输出交付视图'],
-    assumptions: ['材料覆盖最近一次课堂表现', '示例 workflow 使用 deterministic mock 逻辑'],
-    reviewerNotes: ['仅用于平台链路验证，不代表正式教学 rubric'],
+    title: `${subject.displayName} workflow 配方候选`,
+    normalizedSteps: ['收集输入', '提炼上下文', '生成评审草稿', '输出交付视图'],
+    assumptions: ['输入覆盖本次 review 关注点', '示例 workflow 使用 deterministic mock 逻辑'],
+    reviewerNotes: ['仅用于平台链路验证，不代表正式业务规则'],
     evidenceRefs: [],
   };
 
@@ -562,7 +575,7 @@ function buildDeliveryMetadata(
   workflow: WorkflowCompatContextEnvelope,
 ): WorkflowCompatCompletionMetadata {
   const subject = normalizeSubject(workflow.runInput, runId);
-  const teacher = normalizeTeacherActor(workflow.runInput, runId);
+  const reviewer = normalizeReviewerActor(workflow.runInput, runId);
   const audiences = normalizeAudiences(workflow.runInput, runId);
   const temporaryCollaborators = normalizeTemporaryCollaborators(workflow.runInput, runId);
   const assessmentRef = workflow.upstreamArtifactRefs.find((item) => item.artifactType === 'AssessmentDraft')?.artifactId;
@@ -591,12 +604,12 @@ function buildDeliveryMetadata(
     ],
     actorProfiles: [
       {
-        actorId: teacher.actorId,
+        actorId: reviewer.actorId,
         workspaceId: `workspace:${runId}`,
         status: 'active',
-        displayName: teacher.displayName,
+        displayName: reviewer.displayName,
         actorType: 'person',
-        payloadJson: { role: 'teacher_owner' },
+        payloadJson: { role: 'workflow_reviewer' },
       },
       {
         actorId: subject.subjectRef,
@@ -625,8 +638,8 @@ function buildDeliveryMetadata(
     ],
     actorMemberships: [
       {
-        actorMembershipId: `membership:${runId}:teacher-subject`,
-        fromActorId: teacher.actorId,
+        actorMembershipId: `membership:${runId}:reviewer-subject`,
+        fromActorId: reviewer.actorId,
         toActorId: subject.subjectRef,
         relationType: 'responsible_for',
         status: 'active',
@@ -839,15 +852,15 @@ function buildWorkflowImmediateEvents(
 ): InteractionEvent[] {
   let metadata: WorkflowCompatCompletionMetadata;
   let message = `sample executor completed ${workflow.nodeKey}`;
-  if (workflow.nodeKey === 'parse_materials') {
+  if (workflow.nodeKey === 'capture_inputs' || workflow.nodeKey === 'parse_materials') {
     metadata = buildParseMetadata(runId, workflow);
-    message = 'sample executor 已完成 parse 阶段。';
-  } else if (workflow.nodeKey === 'generate_assessment') {
+    message = 'sample executor 已完成输入归一化阶段。';
+  } else if (workflow.nodeKey === 'synthesize_review_draft' || workflow.nodeKey === 'generate_assessment') {
     metadata = buildAssessmentMetadata(runId, workflow);
-    message = 'sample executor 已生成 assessment / evidence / recipe candidate。';
-  } else if (workflow.nodeKey === 'fanout_delivery') {
+    message = 'sample executor 已生成 draft / evidence / recipe candidate。';
+  } else if (workflow.nodeKey === 'publish_delivery' || workflow.nodeKey === 'fanout_delivery') {
     metadata = buildDeliveryMetadata(runId, workflow);
-    message = 'sample executor 已完成 reviewable delivery fan-out。';
+    message = 'sample executor 已完成 delivery publish。';
   } else if (workflow.nodeKey === 'capture_change_intent') {
     metadata = buildChangeIntentMetadata(runId, workflow);
     message = 'sample executor 已生成研发协作变更意图。';
@@ -975,14 +988,14 @@ app.post('/v0/invoke', async (req: RawBodyRequest, res) => {
     providerId: PROVIDER_ID,
     ack: {
       type: 'ack',
-      message: 'sample 专项已接收请求，先确认评估对象。',
+      message: 'sample 专项已接收请求，先确认样例主题。',
     },
     immediateEvents: [
       buildTaskQuestion(
         body.run.runId,
         taskId,
         `${taskId}:subject`,
-        '请告诉我要生成哪种样例评估对象。',
+        '请告诉我要生成哪种样例 workflow 主题。',
         SUBJECT_SCHEMA,
         SUBJECT_UI_SCHEMA,
       ),
@@ -1037,23 +1050,23 @@ app.post('/v0/interact', async (req: RawBodyRequest, res) => {
 
   if (actionId.startsWith('answer_task_question') || actionId.startsWith('submit_data_collection')) {
     const subject = extractSubjectText(body.interaction.payload);
-    const materialsSummary = extractMaterialsSummary(body.interaction.payload);
+    const inputSummary = extractInputSummary(body.interaction.payload);
 
     if (subject && !task.subject) task.subject = subject;
-    if (materialsSummary && !task.materialsSummary) task.materialsSummary = materialsSummary;
+    if (inputSummary && !task.inputSummary) task.inputSummary = inputSummary;
 
     if (!task.subject) {
-      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:subject`, '我还缺少评估对象，请补充。', SUBJECT_SCHEMA, SUBJECT_UI_SCHEMA));
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:subject`, '我还缺少样例主题，请补充。', SUBJECT_SCHEMA, SUBJECT_UI_SCHEMA));
       sampleTaskMemory.set(taskId, task);
-    } else if (!task.materialsSummary) {
-      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:materials`, '请补充这次样例使用的材料摘要。', MATERIALS_SCHEMA, MATERIALS_UI_SCHEMA));
+    } else if (!task.inputSummary) {
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:summary`, '请补充这次样例使用的输入摘要。', SUMMARY_SCHEMA, SUMMARY_UI_SCHEMA));
       sampleTaskMemory.set(taskId, task);
     } else {
       sampleTaskMemory.set(taskId, task);
       events.push(
         buildTaskState(body.run.runId, taskId, 'ready', 'require_user_confirm', {
           subject: task.subject,
-          materialsSummary: task.materialsSummary,
+          inputSummary: task.inputSummary,
           missingFields: [],
         }),
       );
@@ -1063,12 +1076,12 @@ app.post('/v0/interact', async (req: RawBodyRequest, res) => {
       });
     }
   } else if (actionId.startsWith('execute_task')) {
-    if (!task.subject || !task.materialsSummary) {
-      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:subject`, '执行前仍需要先确认评估对象。', SUBJECT_SCHEMA, SUBJECT_UI_SCHEMA));
+    if (!task.subject || !task.inputSummary) {
+      events.push(buildTaskQuestion(body.run.runId, taskId, `${taskId}:subject`, '执行前仍需要先确认样例主题。', SUBJECT_SCHEMA, SUBJECT_UI_SCHEMA));
     } else {
       events.push(buildTaskState(body.run.runId, taskId, 'executing', 'require_user_confirm', {
         subject: task.subject,
-        materialsSummary: task.materialsSummary,
+        inputSummary: task.inputSummary,
       }));
       events.push({
         type: 'assistant_message',
@@ -1076,7 +1089,7 @@ app.post('/v0/interact', async (req: RawBodyRequest, res) => {
       });
       events.push(buildTaskState(body.run.runId, taskId, 'completed', 'require_user_confirm', {
         subject: task.subject,
-        materialsSummary: task.materialsSummary,
+        inputSummary: task.inputSummary,
       }));
       events.push({
         type: 'assistant_message',

@@ -1,7 +1,7 @@
-# Teaching Assessment Scenario Design — Roadmap
+# Teaching Assessment Scenario Design — Historical Roadmap
 
 ## Goal
-- 冻结教学首条 workflow 的流程、收敛合同、团队与受众规则，使其成为验证平台骨架、数据面、Builder 和控制台的首个真实场景。
+- 冻结历史 teaching sample 首条 workflow 的流程、收敛合同、团队与受众规则，使其成为追溯平台骨架、数据面、Builder 和控制台首个样例验证场景的历史记录。
 
 ## Planning-mode context and merge policy
 - Runtime mode signal: Default
@@ -13,7 +13,7 @@
   - `dev-docs/active/ua-builder-draft-sot-design/02-architecture.md`
 - Merge method: set-union
 - Conflict precedence: latest user-confirmed > parent task docs > model inference
-- Repository SSOT output: `dev-docs/active/ua-teaching-assessment-scenario-design/roadmap.md`
+- Repository SSOT output: `dev-docs/archive/ua-teaching-assessment-scenario-design/roadmap.md`
 - Mode fallback used: non-Plan default applied: yes
 
 ## Input sources and usage
@@ -105,7 +105,7 @@
 | 临时团队规则缺失，审批与交付对象不清 | medium | medium | 明确 confirmation 是 actor membership 的前置条件 | 文档默认所有临时成员立即生效 | 回退为 pending confirmation gating |
 
 ## To-dos
-- [ ] Freeze end-to-end teaching workflow
-- [ ] Freeze convergence contract
-- [ ] Freeze review / fan-out / team rules
-- [ ] Register the subtask in project governance
+- [x] Freeze end-to-end teaching workflow
+- [x] Freeze convergence contract
+- [x] Freeze review / fan-out / team rules
+- [x] Register the subtask in project governance

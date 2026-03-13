@@ -18,5 +18,5 @@
 - subscription bridge 的具体形态
 
 ## Follow-up TODOs
-- 在 `T-017` 稳定后再启动正式评估
+- 在 historical sample baseline（`T-017`）收口并归档后再启动正式评估
 - 用本子包结果决定是否创建后续实验/implementation task

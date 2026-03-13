@@ -1,4 +1,4 @@
-# Teaching Validation Scenario
+# Sample Review Validation Scenario
 
 This scenario documents the B3 canonical sample workflow used to validate:
 
@@ -9,11 +9,11 @@ This scenario documents the B3 canonical sample workflow used to validate:
 
 ## Canonical node chain
 
-`parse_materials -> generate_assessment -> teacher_review -> fanout_delivery -> finish`
+`capture_inputs -> synthesize_review_draft -> approval_review -> publish_delivery -> finish`
 
 ## Helper path
 
-- Code helper: `packages/workflow-contracts/src/teaching-scenario.ts`
+- Code helper: `packages/workflow-contracts/src/sample-review-scenario.ts`
 
 ## Input fixture
 
@@ -22,6 +22,6 @@ This scenario documents the B3 canonical sample workflow used to validate:
 ## Expected outputs
 
 - `expected-artifacts.json`
-- Approval remains pending after `generate_assessment`
+- Approval remains pending after `synthesize_review_draft`
 - Approve path publishes `AssessmentDraft`, creates `ReviewableDelivery`, and resolves delivery targets
 - Reject path fails the run and does not create delivery artifacts

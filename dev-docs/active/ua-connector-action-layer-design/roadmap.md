@@ -11,7 +11,7 @@
   - `dev-docs/active/ua-openclaw-collab-platform/roadmap.md`
   - `dev-docs/active/ua-workflow-core-skeleton-design/02-architecture.md`
   - `dev-docs/active/ua-workflow-data-plane-design/02-architecture.md`
-  - `dev-docs/active/ua-teaching-assessment-scenario-design/02-architecture.md`
+  - `dev-docs/archive/ua-teaching-assessment-scenario-design/02-architecture.md`
 - Merge method: set-union
 - Conflict precedence: latest user-confirmed > parent task docs > model inference
 - Repository SSOT output: `dev-docs/active/ua-connector-action-layer-design/roadmap.md`
@@ -24,7 +24,7 @@
 | Parent roadmap | `dev-docs/active/ua-openclaw-collab-platform/roadmap.md` | 阶段位置、非目标与扩展方向 | high | `T-011` 为母任务 |
 | Core skeleton design | `dev-docs/active/ua-workflow-core-skeleton-design/02-architecture.md` | runtime/worker/platform API 边界 | high | `T-012` 为直接前置 |
 | Data plane design | `dev-docs/active/ua-workflow-data-plane-design/02-architecture.md` | delivery/artifact/approval 事实对象边界 | high | 需要避免和 connector 混淆 |
-| Teaching scenario design | `dev-docs/active/ua-teaching-assessment-scenario-design/02-architecture.md` | 首个不依赖 connector 的验证样本 | high | 用于证明 connector 应后置 |
+| Historical sample scenario design | `dev-docs/archive/ua-teaching-assessment-scenario-design/02-architecture.md` | 首个不依赖 connector 的验证样本 | high | 用于证明 connector 应后置 |
 | Model inference | N/A | object naming 和 interaction compression | lowest | 不覆盖已确认边界 |
 
 ## Non-goals
@@ -64,7 +64,7 @@
 - Data/storage impact:
   - 需要 connector/action/binding/policy objects，但本子包只冻结设计
 - Backward compatibility:
-  - 不影响教学场景和 `P1/P2/P3` 主线
+- 不影响首个 historical sample validation 场景和 `P1/P2/P3` 主线
 
 ## Phases
 1. **Phase 1**: boundary freeze

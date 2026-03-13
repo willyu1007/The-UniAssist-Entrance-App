@@ -28,11 +28,11 @@
     }
   ],
   "deliveryRules": {
-    "approver": "teacherActor",
+    "approver": "reviewerActor",
     "targetsFromAudiences": [
-      "parent",
-      "student",
-      "group"
+      "stakeholder",
+      "requester",
+      "team"
     ],
     "excludedMembershipStatus": [
       "pending_confirmation"

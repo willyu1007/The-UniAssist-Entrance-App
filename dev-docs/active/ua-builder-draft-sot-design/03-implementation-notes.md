@@ -24,7 +24,7 @@
 - 细粒度 RBAC/approver 规则
 
 ## Follow-up TODOs
-- 用本子包结果支撑 `ua-teaching-assessment-scenario-design`
+- 用本子包结果支撑归档后的 `ua-teaching-assessment-scenario-design` 历史基线
 - 用本子包结果支撑 `ua-control-console-foundation-design`
-- 在后续评审中确认 teaching 场景如何触发 `RecipeDraft` capture 与 review
+- 在后续评审中确认 historical sample 场景如何触发 `RecipeDraft` capture 与 review
 - 在后续实现任务中落 schema 和 API DTO

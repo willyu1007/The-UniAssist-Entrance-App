@@ -17,7 +17,7 @@
 ## Context
 - `T-011` 已明确 connector/action layer 是后置能力，不应打断 `P1/P2/P3` 主线。
 - `T-012` 已冻结 platform API/runtime/worker 边界，因此 connector 不能再去拥有状态机或兼容投影。
-- 教学场景可以在不依赖 connector 的情况下先验证平台原语，这正是本子包后置的理由。
+- 历史上的首个 sample validation 场景可以在不依赖 connector 的情况下先验证平台原语，这正是本子包后置的理由。
 
 ## Acceptance criteria (high level)
 - [x] 文档明确给出 connector/action/event bridge/browser fallback 的定义

@@ -2,8 +2,8 @@
 
 ## Status
 - State: in-progress
-- Status note: `B9` 代码实现、治理同步与本地自动化验证已完成；当前产物是默认关闭、可透明回退的 `Runboard` 单切片 Convex projection experiment，等待基于证据做 go/no-go 结论。
-- Next step: 基于已落地的实验和验证记录，评估是否继续保留受控订阅桥并进入后续结论整理。
+- Status note: `B9` 代码实现、治理同步与本地自动化验证已完成；当前剩余工作仅是基于既有证据形成 go/no-go 结论，因此任务仍保持 `in-progress`。现有产物是默认关闭、可透明回退的 `Runboard` 单切片 Convex projection experiment。
+- Next step: 基于已落地的实验和验证记录，收口 go/no-go 结论，并明确是否继续保留受控订阅桥及是否进入归档流程。
 
 ## Goal
 实现 `T-011 / B9` 的 Convex projection experiment：在默认关闭、可透明回退的前提下，为 `Runboard` recent-first 列表引入真实 Convex-backed projection，并验证 `workflow-platform-api` 受控订阅桥的收益与维护成本。

@@ -152,7 +152,7 @@ export function buildCanonicalRndCollabRunInput(): Record<string, unknown> {
       displayName: 'Phoenix',
       team: 'platform',
     },
-    teacherActor: {
+    reviewerActor: {
       actorId: 'reviewer:risk',
       displayName: 'Risk Reviewer',
     },

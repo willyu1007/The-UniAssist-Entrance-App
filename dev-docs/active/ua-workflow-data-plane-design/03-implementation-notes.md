@@ -24,5 +24,5 @@
 
 ## Follow-up TODOs
 - 用本子包结果支撑 `ua-builder-draft-sot-design`
-- 用本子包结果支撑 `ua-teaching-assessment-scenario-design`
+- 用本子包结果支撑归档后的 `ua-teaching-assessment-scenario-design` 历史样例基线
 - 用本子包结果支撑 `ua-control-console-foundation-design`

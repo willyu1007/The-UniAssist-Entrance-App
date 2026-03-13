@@ -240,7 +240,7 @@ export function InteractionBody({
                 providerId: item.providerId || event.payload.providerId,
                 runId: item.runId,
                 data: {
-                  goal: '完成统一入口v0联调',
+                  goal: '完成 workflow 兼容链路联调',
                   dueDate: '2026-03-01',
                 },
               });

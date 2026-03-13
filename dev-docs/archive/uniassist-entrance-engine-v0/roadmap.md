@@ -1,7 +1,7 @@
-# UniAssist Entrance Engine Repositioning — Roadmap
+# UniAssist Entrance Engine Repositioning — Historical Roadmap
 
 ## Goal
-- 将当前项目升级为“统一入口引擎”，实现多维度专项系统的统一接入、分发编排、交互聚合、长周期事件承载与导航治理。
+- 记录仓库曾以“统一入口引擎”为主定位的规划基线；该规划已由后续 `T-011` workflow platform 总包接棒，本 bundle 仅保留为历史记录。
 
 ## Planning-mode context and merge policy
 - Runtime mode signal: Default
@@ -10,7 +10,7 @@
 - Requirements baseline: `/Users/yurui/Downloads/需求说明_v0.md`, `/Users/yurui/Downloads/规划方案_v0.md`, `/Users/yurui/Downloads/交互与接入规范_v0.md`
 - Merge method: set-union
 - Conflict precedence: latest user-confirmed > requirement.md > host plan artifact > model inference
-- Repository SSOT output: `dev-docs/active/uniassist-entrance-engine-v0/roadmap.md`
+- Repository SSOT output: `dev-docs/archive/uniassist-entrance-engine-v0/roadmap.md`
 - Mode fallback used: non-Plan default applied: yes
 
 ## Input sources and usage
@@ -20,7 +20,7 @@
 | Requirements doc | `/Users/yurui/Downloads/需求说明_v0.md` | 业务目标、范围边界、FR/NFR | high | 明确 Event Log、Outbox、多命中路由 |
 | Requirements doc | `/Users/yurui/Downloads/规划方案_v0.md` | 架构组件、里程碑、实施路径 | high | 提供 M1-M5 实施基线 |
 | Requirements doc | `/Users/yurui/Downloads/交互与接入规范_v0.md` | 协议模型、错误模型、幂等与安全要求 | high | 约束 API 与 Provider 接入模型 |
-| Existing roadmap | `dev-docs/active/uniassist-entrance-engine-v0/roadmap.md` | 更新基线 | medium | 仅作为草案输入，已按 plan-maker 模板重排 |
+| Existing roadmap | `dev-docs/archive/uniassist-entrance-engine-v0/roadmap.md` | 更新基线 | medium | 仅作为草案输入，已按 plan-maker 模板重排 |
 | Model inference | N/A | 仅用于补充阶段组织与讨论议程 | lowest | 不覆盖文档与用户明确约束 |
 
 ## Non-goals

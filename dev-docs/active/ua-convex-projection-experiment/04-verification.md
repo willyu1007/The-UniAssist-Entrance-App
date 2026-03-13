@@ -72,3 +72,13 @@
   - `pnpm --filter @baseinterface/workflow-platform-api test`
   - Result: PASS
   - Notes: 复跑全量平台测试，确认 B5/B6/B7/B8/B9 与新增 summary regression 用例均未回归。
+
+- 2026-03-13:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - Result: PASS
+  - Notes: 同步 `T-031`“实现/验证完成但结论待收口”的状态说明，不改变 effective status。
+
+- 2026-03-13:
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - Result: PASS
+  - Notes: `T-031` 自身、`T-011` 总包与治理索引对 `in-progress` 的语义保持一致。

@@ -17,7 +17,7 @@
     "displayName": "Phoenix",
     "team": "platform"
   },
-  "teacherActor": {
+  "reviewerActor": {
     "actorId": "reviewer:risk",
     "displayName": "Risk Reviewer"
   },

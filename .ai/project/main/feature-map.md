@@ -12,7 +12,7 @@ Project: `main`
 
 | Task | Status | Dev Docs |
 | --- | --- | --- |
-| T-001 uniassist-entrance-engine-v0 | in-progress | dev-docs/active/uniassist-entrance-engine-v0 |
+| T-001 uniassist-entrance-engine-v0 | archived | dev-docs/archive/uniassist-entrance-engine-v0 |
 | T-002 ua-staging-release-baseline | in-progress | dev-docs/active/ua-staging-release-baseline |
 | T-003 ua-observability-alerting | in-progress | dev-docs/active/ua-observability-alerting |
 | T-004 ua-worker-reliability-hardening | in-progress | dev-docs/active/ua-worker-reliability-hardening |
@@ -28,7 +28,7 @@ Project: `main`
 | T-014 ua-connector-action-layer-design | in-progress | dev-docs/active/ua-connector-action-layer-design |
 | T-015 ua-control-console-foundation-design | in-progress | dev-docs/active/ua-control-console-foundation-design |
 | T-016 ua-convex-projection-evaluation | in-progress | dev-docs/active/ua-convex-projection-evaluation |
-| T-017 ua-teaching-assessment-scenario-design | in-progress | dev-docs/active/ua-teaching-assessment-scenario-design |
+| T-017 ua-teaching-assessment-scenario-design | archived | dev-docs/archive/ua-teaching-assessment-scenario-design |
 | T-018 ua-workflow-data-plane-design | in-progress | dev-docs/active/ua-workflow-data-plane-design |
 | T-019 ua-agent-lifecycle-and-trigger-design | in-progress | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
 | T-020 ua-external-runtime-bridge-design | in-progress | dev-docs/active/ua-external-runtime-bridge-design |
@@ -36,7 +36,7 @@ Project: `main`
 | T-022 ua-rnd-collab-validation-scenario-design | archived | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | dev-docs/archive/ua-platform-foundation-implementation |
 | T-024 ua-builder-draft-publish-implementation | done | dev-docs/active/ua-builder-draft-publish-implementation |
-| T-025 ua-teaching-validation-implementation | done | dev-docs/active/ua-teaching-validation-implementation |
+| T-025 ua-teaching-validation-implementation | archived | dev-docs/archive/ua-teaching-validation-implementation |
 | T-026 ua-control-console-foundation-implementation | done | dev-docs/active/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | dev-docs/active/ua-agent-governance-implementation |
 | T-028 ua-external-runtime-bridge-implementation | done | dev-docs/active/ua-external-runtime-bridge-implementation |

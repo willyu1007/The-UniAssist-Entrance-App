@@ -11,3 +11,4 @@
 - 2026-03-13: 修正 projection summary builder 的 `requestedActorIds` 语义，改为与 authoritative runtime 一致的 `Set` 去重，避免 projection path 返回重复 actorId 并引发无意义的 `run.updated` 抖动。
 - 2026-03-13: `createRunboardProjectionAdapter()` 对非法 `UNIASSIST_CONVEX_URL` 改为构造期捕获并降级到 `noop` adapter，确保实验开关打开但 URL 语法错误时平台仍能启动并回退到 authoritative path。
 - 2026-03-13: `RunboardProjectionController` 在 subscription 观测到 recent-window shrink 时会主动失效 projection 状态并触发 recovery bootstrap；恢复触发不再依赖瞬时 `subscriptionHealthy`，避免 backend reset/数据清空后长期停留在“只 fallback、不回填 projection”的半失效状态。
+- 2026-03-13: 收敛任务语义：`T-031` 当前定义为“实现与本地验证已完成，但 go/no-go 结论尚未收口”，因此保持 `in-progress`；同步修正 `T-011` 总包与根 `README` 的相关表述。

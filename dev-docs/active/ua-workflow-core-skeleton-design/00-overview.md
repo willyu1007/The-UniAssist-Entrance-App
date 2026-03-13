@@ -10,14 +10,14 @@
 
 ## Non-goals
 - 不编写任何 `workflow-platform-api`、`workflow-runtime`、`packages/workflow-contracts` 实现代码
-- 不定义教学场景流程细节
+- 不定义 historical sample validation 场景流程细节
 - 不定义 Builder draft 模型或 `control-console` 页面 IA
 - 不定义 connector/action layer 与 `AgentDefinition` 的完整设计
 
 ## Context
 - `T-011` 已锁定全局方向：`React + Vite`、`Hybrid目标 + P1先HTTP`、`Builder 双入口 + Control Plane Draft SoT`、`Convex P4可选评估`。
 - 当前 repo 仍以 `gateway + provider-sample + worker + contracts + prisma` 为统一入口基座，正式中心尚未切换到 workflow/run/artifact。
-- 若平台骨架边界不先冻结，后续 `data-plane`、`builder-draft`、`teaching-scenario`、`control-console` 子包都会重复发散。
+- 若平台骨架边界不先冻结，后续 `data-plane`、`builder-draft`、historical sample scenario、`control-console` 子包都会重复发散。
 
 ## Acceptance criteria (high level)
 - [x] 文档明确给出四个核心服务的职责划分

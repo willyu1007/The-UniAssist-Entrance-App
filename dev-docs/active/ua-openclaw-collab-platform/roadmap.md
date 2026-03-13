@@ -16,7 +16,7 @@
 ## Input sources and usage
 | Source | Path/reference | Used for | Trust level | Notes |
 |---|---|---|---|---|
-| User-confirmed instructions | Current chat request | 升级目标、节奏诉求、教学场景优先级、控制台方向、Convex 取舍 | highest | 明确要求先开任务总包并确定升级节奏 |
+| User-confirmed instructions | Current chat request | 升级目标、节奏诉求、首个样例验证包优先级、控制台方向、Convex 取舍 | highest | 明确要求先开任务总包并确定升级节奏 |
 | Requirements doc | `/Users/phoenix/Downloads/team-openclaw-collab-workflow-design-record-v0.2.md` | 目标对象模型、分层、目录树、迁移阶段、场景验证基线 | high | 作为本轮规划的上位设计记录 |
 | Repository state | `README.md`, `apps/gateway/src/server.ts`, `apps/gateway/src/persistence.ts`, `packages/contracts/src/types.ts`, `prisma/schema.prisma` | 当前系统中心、兼容边界、数据层现状 | high | 说明当前仍是 ingress-centric system |
 | Existing roadmap | (none) | (none) | medium | 本任务是新规划任务，不复用现有 roadmap |
@@ -31,7 +31,7 @@
 
 ## Resolved planning decisions
 - `apps/control-console` 首期技术栈固定为 `React + Vite + TypeScript`。
-- 首个验证样本采用教学场景，但它只用于验证平台原语，不反向定义平台默认基线。
+- 首个验证样本沿用历史任务 slug `ua-teaching-validation-implementation` 启动，但当前仓库已将其实装收口为中性的 sample-review validation bundle；它只用于验证平台原语，不反向定义平台默认基线。
 - `workflow-platform-api -> workflow-runtime` 的长期边界采用 `Hybrid` 目标，首期先走 internal HTTP command path。
 - Postgres + Prisma 继续作为 authoritative store；Convex 仅保留为后置 projection/read-model 候选。
 - connector/action layer 为后置能力，不允许打断 `I1-I3` 主线。
@@ -41,7 +41,7 @@
 | ID | Topic | Conflicting inputs | Chosen decision | Precedence reason | Follow-up |
 |---|---|---|---|---|---|
 | C1 | “升级成全面 monorepo”的含义 | 用户表述偏仓库形态 vs repo 已经是 monorepo | 将核心目标收敛为“系统中心迁移 + 平台分层补齐” | 以 repo 现状与用户确认后的目标为准 | 在 Phase 1 固化目录和命名策略 |
-| C2 | 首个验证场景 | 教学场景 vs 研发/connector 场景 | 先教学场景，再外部 connector 场景 | 用户明确要求教学场景先行 | 在 Phase 2/3 设计首条 workflow |
+| C2 | 首个验证场景 | 首个样例验证包 vs 研发/connector 场景 | 先首个样例验证包，再外部 connector 场景 | 用户明确要求先用受控样例验证平台主线 | 在 Phase 2/3 设计首条 workflow |
 | C3 | 探索型 agent 的定位 | 纯 deterministic workflow vs 放开 agent 自治 | 采用“确定性 workflow 外层 + 受控 agentic node 内层” | 设计记录与用户新约束一致 | 在 Phase 1 定义收敛合同 |
 | C4 | 控制台形态 | 继续复用 Expo/RN vs 独立 Web 控制台 | 首期按独立 Web 控制台规划 | 用户明确认为控制台操作复杂 | 技术栈在 Phase 0 冻结 |
 | C5 | Convex 的角色 | 作为主数据库 vs 可选投影层 | 暂不作为主数据面，仅保留候选投影层位置 | 当前 repo 已有 Prisma/Postgres SSOT，且用户同意先定节奏 | 后续单独评估是否纳入 Phase 4 以后 |
@@ -74,7 +74,7 @@
 - [x] Milestones/phases ordering is aligned
 - [x] Acceptance criteria are aligned
 - Intentional divergences:
-  - 将“探索型 agent 的收敛链路”明确提升为教学场景的首期验收目标
+  - 将“探索型 agent 的收敛链路”明确提升为首个样例验证包的首期验收目标
   - 将 Convex 明确限制为“非主数据面”的后续候选项
 
 ## Project structure change preview (may be empty)
@@ -115,17 +115,17 @@ This section is a **non-binding, early hypothesis** to help humans confirm expec
   - `/v1/approvals`
 - New file(s) (optional):
   - `prisma/schema.prisma` new models
-  - `docs/scenarios/teaching/*.md`
+  - `docs/scenarios/sample-review/*.md`
 
 ## Phases
 1. **Phase 1**: P0 规划与边界冻结
-   - Deliverable: 升级节奏、命名、控制台形态、数据面策略、教学场景验证路径全部冻结
+   - Deliverable: 升级节奏、命名、控制台形态、数据面策略、首个样例验证路径全部冻结
    - Acceptance criteria: 总包文档可作为后续多轮讨论与 implementation tranche 编排的唯一规划基线
 2. **Phase 2**: P1 平台骨架与正式对象落地
    - Deliverable: `workflow-platform-api + workflow-runtime + workflow-contracts + executor-sdk` 最小骨架与首批 DB 对象
    - Acceptance criteria: 不改 `/v0` 入口即可创建和追踪 workflow run
-3. **Phase 3**: P2 教学场景验证与探索型 agent 收敛
-   - Deliverable: 教学首条 workflow 跑通，并验证 `agentic_node -> assessment draft -> review -> delivery`
+3. **Phase 3**: P2 首个样例验证与探索型 agent 收敛
+   - Deliverable: 首条 sample-review workflow 跑通，并验证 `agentic_node -> assessment draft -> review -> delivery`
    - Acceptance criteria: 探索型 agent 输出不依赖聊天文本，可被结构化审核与复用
 4. **Phase 4**: P3 控制台与治理视图
    - Deliverable: `control-console` 可查看 workflow、run、approval、artifact，并支持基础治理动作
@@ -161,10 +161,10 @@ This section is a **non-binding, early hypothesis** to help humans confirm expec
    - Maps to: `T-013`
    - Scope: `WorkflowDraft`, `DraftRevision`, `RecipeDraft`, publish path, chat intake -> control-plane draft SoT
    - Repo landing: `apps/workflow-platform-api`, `packages/workflow-contracts`, `apps/gateway`, `apps/frontend`
-3. **B3 / Teaching Validation Implementation**
+3. **B3 / Sample Validation Implementation (historical task slug: `ua-teaching-validation-implementation`)**
    - Maps to: `T-017`
    - Scope: 首条验证 workflow、`AssessmentDraft`、`EvidencePack`、`ReviewableDelivery`、recipe candidate capture
-   - Repo landing: `apps/workflow-runtime`, `apps/provider-sample`, `packages/workflow-contracts`, `docs/scenarios/teaching`
+   - Repo landing: `apps/workflow-runtime`, `apps/provider-sample`, `packages/workflow-contracts`, `docs/scenarios/sample-review`
 4. **B4 / Control Console Foundation Implementation**
    - Maps to: `T-015`
    - Scope: `Runboard`, `Approval Inbox`, `Draft Inspector`, `Workflow Studio`
@@ -210,7 +210,7 @@ These four tasks are now part of the frozen planning baseline. They do not block
 - Deliverables:
   - 本任务总包与 roadmap
   - 升级阶段切分草案
-  - 教学场景首条 workflow 候选路径
+  - 首个样例验证 workflow 候选路径
 - Verification:
   - 文档能够回答“为什么做、先做什么、后做什么、什么暂时不做”
 - Rollback:
@@ -222,7 +222,7 @@ These four tasks are now part of the frozen planning baseline. They do not block
   - 命名与目录演进策略
   - `control-console` 技术栈结论
   - `Convex` 角色结论
-  - 教学场景的收敛合同草案
+  - 首个样例验证 bundle 的收敛合同草案
 - Verification:
   - 用户确认关键边界
   - 文档中不再存在互相冲突的阶段目标
@@ -244,8 +244,8 @@ These four tasks are now part of the frozen planning baseline. They do not block
 - Rollback:
   - 入口继续走现有 provider path，runtime skeleton 暂不接管线上主链路
 
-### Phase 3 — P2 教学场景验证与探索型 agent 收敛
-- Objective: 用教学场景验证平台横向能力和 agent 收敛机制。
+### Phase 3 — P2 首个样例验证与探索型 agent 收敛
+- Objective: 用首个样例验证 bundle 验证平台横向能力和 agent 收敛机制。
 - Deliverables:
   - 材料 ingestion/parse 流程
   - 个性化评估 agentic node
@@ -296,16 +296,16 @@ These four tasks are now part of the frozen planning baseline. They do not block
   - 规划能明确回答“节奏、边界、首个验证场景、控制台方向、数据面方向”
   - 后续讨论可直接引用该总包继续推进
 - Acceptance criteria:
-  - 形成一个独立的新任务，而不是继续混入 `uniassist-entrance-engine-v0`
+  - 形成一个独立的新任务，而不是继续混入历史 `/v0` 总包
   - 形成可执行的阶段顺序，而不是只给出抽象架构图
-  - 明确教学场景与探索型 agent 的首期位置
+  - 明确首个样例验证 bundle 与探索型 agent 的首期位置
   - 明确控制台与 Convex 的边界
 
 ## Risks and mitigations
 | Risk | Likelihood | Impact | Mitigation | Detection | Rollback |
 |---|---:|---:|---|---|---|
 | 任务总包过于抽象，无法指导后续实现 | medium | high | 以阶段、对象、验证和回退策略组织文档 | 后续讨论仍频繁回到“先做什么” | 继续细化 `01-plan.md` 和 `02-architecture.md` |
-| 将探索型 agent 与 workflow/runtime 混为一谈 | medium | high | 在教学场景中强制定义收敛合同与审核边界 | 输出仍停留在聊天文本 | 退回 deterministic pipeline 并补 artifact schema |
+| 将探索型 agent 与 workflow/runtime 混为一谈 | medium | high | 在首个样例验证 bundle 中强制定义收敛合同与审核边界 | 输出仍停留在聊天文本 | 退回 deterministic pipeline 并补 artifact schema |
 | 在 platform foundation 未稳定前启动控制台或 connector implementation | high | high | 固定 `I1 -> I2 -> I3 -> I4` tranche 顺序，并对每个 tranche 设 admission criteria | 控制台/connector 实现开始反向定义对象与 API | 停止后置 tranche，回退到上一个已稳定 tranche |
 | Convex 讨论打断主线 | medium | medium | 明确只保留“投影层候选”定位，并把实验放到 `I4` | 实施计划开始围绕 Convex 重写主数据面 | 暂时移出本任务范围 |
 
@@ -334,7 +334,7 @@ Suggested mapping:
 
 ## To-dos
 - [x] Confirm `control-console` technical stack
-- [x] Confirm teaching scenario first workflow wording
+- [x] Confirm first sample validation workflow wording
 - [x] Confirm Phase 1 internal API boundary between platform API and runtime
 - [x] Confirm whether Convex remains a documented candidate after Phase 0
 - [x] Confirm the Phase 1 definition of done

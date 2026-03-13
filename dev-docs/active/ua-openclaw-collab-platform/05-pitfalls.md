@@ -6,7 +6,7 @@ This file exists to prevent repeating mistakes within this task.
 - 不要把“升级成全面 monorepo”误解成“先做目录改名”；真正的主线是系统中心和平台层级迁移。
 - 不要让探索型 agent 直接输出聊天文本作为正式结果；必须收敛成 artifact + reviewable delivery。
 - 不要在对象模型未冻结前把 Convex 当成主数据面改造方向。
-- 不要把首个教学验证样本误写成平台默认基线。
+- 不要把首个历史样例验证包误写成平台默认基线。
 
 ## Pitfall log (append-only)
 

@@ -3,14 +3,14 @@
 ## Phases
 1. P0 规划与边界冻结
 2. P1 平台骨架与正式对象落地
-3. P2 教学场景验证与探索型 agent 收敛
+3. P2 首个样例验证与探索型 agent 收敛
 4. P3 控制台与治理视图
 5. P4 外部 runtime / connector 前置能力
 
 ## Detailed steps
 - 创建任务总包并沉淀 `roadmap.md`、`00-05` 结构：
   - 记录升级目标、非目标、阶段顺序、关键约束
-  - 将教学场景和 agent 收敛纳入首批验收
+  - 将首个样例验证 bundle 和 agent 收敛纳入首批验收
 - 在 P0 冻结关键边界：
   - `control-console` 独立 Web 应用
   - Postgres + Prisma 继续作为主数据面
@@ -21,7 +21,7 @@
   - 新增 `workflow-runtime`
   - 新增 `workflow-contracts` 与 `executor-sdk`
   - 增补 Prisma 中的 workflow/data plane 正式对象
-- 在 P2 聚焦教学场景：
+- 在 P2 聚焦首个样例验证 bundle：
   - 定义首条 workflow
   - 定义探索型评估 agent 的收敛合同
   - 定义 `AssessmentDraft`, `EvidencePack`, `ReviewableDelivery`
@@ -37,7 +37,7 @@
   - `T-012 / ua-workflow-core-skeleton-design`
   - `T-018 / ua-workflow-data-plane-design`
   - `T-013 / ua-builder-draft-sot-design`
-  - `T-017 / ua-teaching-assessment-scenario-design`
+  - `T-017 / ua-teaching-assessment-scenario-design`（历史样例设计基线，归档后继续作为输入）
   - `T-015 / ua-control-console-foundation-design`
   - `T-014 / ua-connector-action-layer-design`
   - `T-016 / ua-convex-projection-evaluation`
@@ -139,7 +139,7 @@
 
 ### I3. Validation Flow and Control Surface
 - Scope:
-  - `T-017 / ua-teaching-assessment-scenario-design`
+  - `T-017 / ua-teaching-assessment-scenario-design`（历史样例设计基线，归档后继续作为输入）
   - `T-015 / ua-control-console-foundation-design`
 - Execution rule:
   - `I3A` 教学验证链路与 `I3B` 控制台基础可以并行
@@ -228,7 +228,7 @@
   - `apps/workflow-runtime`
   - `apps/provider-sample`（兼容 executor 样例演进）
   - `packages/workflow-contracts`
-  - `docs/scenarios/teaching`
+  - `docs/scenarios/sample-review`
 
 ### B4. `ua-control-console-foundation-implementation`
 - Tranche:
@@ -354,7 +354,7 @@
   - Mitigation:
     - 强制每个阶段都写明 deliverable、verification、rollback
 - Risk:
-  - 教学场景只验证 deterministic workflow，没有验证探索型 agent 收敛
+  - 首个历史样例只验证 deterministic workflow，没有验证探索型 agent 收敛
   - Mitigation:
     - 将 agent 收敛合同写入 Phase 2 definition of done
 - Risk:

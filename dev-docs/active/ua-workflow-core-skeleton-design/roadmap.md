@@ -1,7 +1,7 @@
 # Workflow Core Skeleton Design — Roadmap
 
 ## Goal
-- 冻结 UniAssist 平台骨架的服务边界、命令路径、事件路径和 `P1` 最小正式对象集，使后续数据面、Builder、教学场景和控制台设计都建立在同一套骨架前提上。
+- 冻结 UniAssist 平台骨架的服务边界、命令路径、事件路径和 `P1` 最小正式对象集，使后续数据面、Builder、historical sample 场景和控制台设计都建立在同一套骨架前提上。
 
 ## Planning-mode context and merge policy
 - Runtime mode signal: Default
@@ -23,7 +23,7 @@
 
 ## Non-goals
 - 不实施 `apps/workflow-platform-api`、`apps/workflow-runtime` 或任何运行时代码
-- 不定义教学场景细节、Builder draft 模型或控制台页面 IA
+- 不定义 historical sample 场景细节、Builder draft 模型或控制台页面 IA
 - 不冻结 connector/action layer、`AgentDefinition`、trigger/scheduler 的实现方案
 - 不改变现有 `/v0` 对外接口或前端 transport 行为
 

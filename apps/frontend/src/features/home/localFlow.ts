@@ -22,7 +22,7 @@ export function simulateLocalFlow(
   appendTextItem: AppendTextItem,
   appendInteractionItem: AppendInteractionItem,
 ): void {
-  const isSample = /示例|样例|教学|评估|材料|课堂/.test(text);
+  const isSample = /示例|样例|流程|草稿|审批|验证/.test(text);
   const isWork = /工作|任务|项目|会议|汇报|交付/.test(text);
 
   if (!isSample && !isWork) {
@@ -43,11 +43,11 @@ export function simulateLocalFlow(
         taskId,
         questionId: `${taskId}:subject`,
         replyToken: makeId('reply'),
-        prompt: '请告诉我要生成哪种样例评估对象。',
+        prompt: '请告诉我要生成哪种样例 workflow。',
         answerSchema: {
           type: 'object',
           properties: {
-            text: { type: 'string', title: '评估对象' },
+            text: { type: 'string', title: '样例主题' },
           },
           required: ['text'],
         },

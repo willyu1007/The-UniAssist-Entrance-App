@@ -1,6 +1,10 @@
 # 04 Verification
 
 ## Automated checks
+- Executed (2026-03-13):
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main` -> PASS
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main` -> PASS
+    - note: `T-001` 已按历史前身任务处理，准备归档，不再与 `T-011` 当前主定位冲突
 - Executed (2026-02-23):
   - `pnpm typecheck:workspaces` -> PASS
   - `pnpm --filter @baseinterface/contracts typecheck` -> PASS

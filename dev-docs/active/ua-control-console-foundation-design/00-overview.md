@@ -17,7 +17,7 @@
 ## Context
 - `T-011` 已锁定 `control-console` 为独立 Web 应用，并把 `React + Vite` 作为全局约束。
 - `T-012` 已锁定控制台只通过 `workflow-platform-api` 查询。
-- `T-013` 提供 `WorkflowDraft` / `RecipeDraft`，`T-017` 提供首个验证场景，控制台需要围绕这些正式对象做运行治理视图。
+- `T-013` 提供 `WorkflowDraft` / `RecipeDraft`，归档后的 `T-017` 提供首个 historical sample validation 场景，控制台需要围绕这些正式对象做运行治理视图。
 
 ## Acceptance criteria (high level)
 - [x] 文档明确给出技术栈与数据层边界

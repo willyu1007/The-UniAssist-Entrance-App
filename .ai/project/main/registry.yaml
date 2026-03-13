@@ -25,11 +25,11 @@ requirements: []
 tasks:
   - id: T-001
     slug: uniassist-entrance-engine-v0
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/uniassist-entrance-engine-v0
-    updated: 2026-02-23
+    dev_docs_path: dev-docs/archive/uniassist-entrance-engine-v0
+    updated: 2026-03-13
   - id: T-002
     slug: ua-staging-release-baseline
     status: in-progress
@@ -137,11 +137,11 @@ tasks:
     updated: 2026-03-11
   - id: T-017
     slug: ua-teaching-assessment-scenario-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-teaching-assessment-scenario-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-teaching-assessment-scenario-design
+    updated: 2026-03-13
   - id: T-018
     slug: ua-workflow-data-plane-design
     status: in-progress
@@ -193,11 +193,11 @@ tasks:
     updated: 2026-03-12
   - id: T-025
     slug: ua-teaching-validation-implementation
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-teaching-validation-implementation
-    updated: 2026-03-12
+    dev_docs_path: dev-docs/archive/ua-teaching-validation-implementation
+    updated: 2026-03-13
   - id: T-026
     slug: ua-control-console-foundation-implementation
     status: done

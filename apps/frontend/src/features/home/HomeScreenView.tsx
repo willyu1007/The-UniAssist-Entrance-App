@@ -183,7 +183,7 @@ export function HomeScreenView({ controller }: { controller: HomeController }) {
           ListEmptyComponent={
             <View style={styles.emptyConversation}>
               <Text variant="body" tone="muted">
-                发送消息开始对话（统一入口引擎模式）
+                发送消息开始对话（workflow platform 兼容模式）
               </Text>
               <Text variant="caption" tone="muted" style={{ marginTop: t.space[2] }}>
                 也可以点上方按钮，或使用 `@builder ` 前缀进入 Workflow Builder。

@@ -18,7 +18,7 @@
 - `T-011` 已冻结 `B4` 属于 `I3 / Validation Flow and Control Surface`，并要求 `control-console` 作为独立 Web 应用落地。
 - `T-015` 已冻结技术栈与 IA：`React + Vite + TypeScript`、`TanStack Router`、`TanStack Query`、`Runboard / Approval Inbox / Draft Inspector / Workflow Studio`。
 - `T-013` 已冻结 `WorkflowDraft / DraftRevision / RecipeDraft` 的 dual-entry 和 publish lineage；当前缺少 console-side structured edit mutation。
-- `T-017` 与 `T-025` 已提供 teaching validation run/artifact/approval/delivery 正式对象；当前缺少控制台友好的 run summary / approval queue / approval decision 查询面。
+- 归档后的 `T-017` 与 `T-025` 已提供 historical sample validation run/artifact/approval/delivery 正式对象；当前缺少控制台友好的 run summary / approval queue / approval decision 查询面。
 - repo 现状仍无 `apps/control-console` workspace，也无现成 Vite / Vitest / Web UI test 基建。
 
 ## Acceptance criteria (high level)

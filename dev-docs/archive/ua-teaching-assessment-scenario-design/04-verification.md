@@ -22,6 +22,15 @@
   - team confirmation 和 audience/fan-out 如何工作
 
 ## Results
+- 2026-03-13:
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-017` 已改标为历史 sample 设计基线，准备归档
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - `T-017` 的历史化处理未引入治理漂移
 - 2026-03-10:
   - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
     - Result: pass
@@ -46,6 +55,6 @@
 ## Rollout / Backout (if applicable)
 - Rollout:
   - Register the design subtask
-  - Use it as the acceptance baseline for future teaching implementation
+  - Use it as the historical baseline for tracing the first sample validation design
 - Backout:
   - If the scenario proves too broad, preserve the convergence contract and split delivery-specific details into a later scenario extension

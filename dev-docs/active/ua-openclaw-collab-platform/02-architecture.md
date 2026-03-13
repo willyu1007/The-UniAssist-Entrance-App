@@ -1,7 +1,7 @@
 # 02 Architecture
 
 ## Context & current state
-- 当前仓库已经具备统一入口最小闭环：
+- 当前仓库已经保留 `/v0` 入口兼容最小闭环：
   - `apps/gateway` 承接 `/v0/ingest`, `/v0/interact`, `/v0/events`, `/v0/stream`, `/v0/timeline`
   - `apps/provider-sample` 仍是固定场景 provider 示例
   - `apps/frontend` 是 chat/timeline 体验
@@ -40,7 +40,7 @@
   - `WorkflowNodeRun`
   - `Artifact`
   - `ApprovalRequest`
-  - 教学场景中的 `AssessmentDraft`, `EvidencePack`, `ReviewableDelivery`
+  - sample-only `AssessmentDraft`, `EvidencePack`, `ReviewableDelivery`
 - Events / jobs (if any):
   - timeline projection events
   - runtime continuation jobs
@@ -62,7 +62,7 @@
   - 双入口数据对称、能力与权限不对称
   - draft line publish 后冻结，后续从已发布版本新开 line
 - `T-017` 已冻结：
-  - 教学仅为首个验证样本，不作为平台基线
+  - 已归档的历史 teaching sample 仅为首个验证样本，不作为平台基线
   - `AssessmentDraft` 使用 `subject_ref / subject_type`
   - `ReviewableDelivery` 使用 `presentation_ref`
 - `T-015` 已冻结：
@@ -164,9 +164,9 @@
     - `apps/workflow-runtime`
     - `apps/provider-sample`
     - `packages/workflow-contracts`
-    - `docs/scenarios/teaching`
+    - `docs/scenarios/sample-review`
   - Reason:
-    - 教学验证包是 runtime/executor 验证包，不应反向主导平台对象边界。
+    - 历史命名保留；其实质是 runtime/executor sample validation bundle，不应反向主导平台对象边界。
 - `B4 / ua-control-console-foundation-implementation`
   - Primary landing:
     - `apps/control-console`
@@ -224,7 +224,7 @@
 - Rollout plan:
   - 先建立新平台对象与 runtime skeleton
   - 再让 ingress 逐步把复杂编排转发给 runtime
-  - 最后再补教学场景与控制台
+  - 最后再补 sample validation 场景与控制台
 
 ## Non-functional considerations
 - Security/auth/permissions:

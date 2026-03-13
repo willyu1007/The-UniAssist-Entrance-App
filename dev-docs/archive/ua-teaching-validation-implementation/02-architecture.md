@@ -9,6 +9,7 @@
 - `workflow-platform-api` 继续作为统一 command/query owner。
 - `workflow-runtime` 继续拥有执行状态机、approval gate 和 artifact lifecycle 推进。
 - `provider-sample` 只作为 compat executor 样例，不拥有平台正式对象或 recipe control-plane SoT。
+- 本子包的 teaching 命名只保留为历史样例标识，不应被解读为平台基础设施或产品方向。
 
 ## Canonical B3 flow
 1. `parse_materials`

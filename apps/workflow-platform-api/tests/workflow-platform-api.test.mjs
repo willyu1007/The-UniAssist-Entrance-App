@@ -253,7 +253,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
           artifactType: 'AnalysisRecipeCandidate',
           state: 'validated',
           payloadJson: {
-            title: 'Alex 评估配方候选',
+            title: 'Alex workflow 配方候选',
             normalizedSteps: ['收集材料', '提炼观察', '生成评估草稿', '输出交付视图'],
             assumptions: ['材料覆盖最近一次课堂表现'],
             reviewerNotes: ['captured from sample provider'],
@@ -1022,7 +1022,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   assert.equal(resumed.status, 200);
   assert.equal(resumed.json.run.run.status, 'completed');
   assert.equal(resumed.json.capturedRecipeDrafts.length, 1);
-  assert.equal(resumed.json.capturedRecipeDrafts[0].title, 'Alex 评估配方候选');
+  assert.equal(resumed.json.capturedRecipeDrafts[0].title, 'Alex workflow 配方候选');
   assert.equal(runtimeRequests.at(-1).path, '/internal/runtime/resume-run');
   assert.equal(runtimeRequests.at(-1).body.runId, 'run-platform-start');
 

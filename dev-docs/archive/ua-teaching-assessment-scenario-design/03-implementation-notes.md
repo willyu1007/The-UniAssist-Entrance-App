@@ -3,6 +3,7 @@
 ## Current state
 - This subtask is design-only.
 - No teaching workflow template, parser, agent executor, or delivery integration has been started in this task.
+- 2026-03-13 起，本 bundle 仅保留为历史 sample 设计基线，不再承载当前实现方向。
 
 ## Initial decisions
 - 本子包直接依赖 `T-018` 的 artifact/actor/delivery 边界与 `T-013` 的 recipe draft 模型。
@@ -19,7 +20,7 @@
 - parser quality scoring 的字段级 schema
 
 ## Follow-up TODOs
-- 用本子包结果支撑后续 teaching implementation task
+- 用本子包结果支撑后续历史 sample validation implementation 追溯
 - 用本子包结果支撑 `ua-control-console-foundation-design` 中的 run/approval/delivery views
-- 在 teaching implementation 中补 `subject_type` 与 `presentation_ref` 的场景推荐值命名
+- 在历史 sample validation implementation 中补 `subject_type` 与 `presentation_ref` 的场景推荐值命名
 - 在 Builder 侧补 recipe draft capture 的 UX 入口

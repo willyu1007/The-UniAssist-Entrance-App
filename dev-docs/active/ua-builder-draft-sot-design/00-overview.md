@@ -2,8 +2,8 @@
 
 ## Status
 - State: in-progress
-- Status note: `T-013` 高影响设计边界已冻结，可作为 Builder、teaching 和 control-console 的引用基线；本子包仍不承接 UI 或 API 实施。
-- Next step: 将 `T-013` 作为前置输入，进入 `T-017 / ua-teaching-assessment-scenario-design` 的进一步对齐。
+- Status note: `T-013` 高影响设计边界已冻结，可作为 Builder、historical sample 和 control-console 的引用基线；本子包仍不承接 UI 或 API 实施。
+- Next step: 将 `T-013` 作为前置输入，继续与归档后的历史 sample baseline 和 control-console 设计对齐。
 
 ## Goal
 建立一份 handoff-ready 的 Builder 设计基线，明确聊天面和控制台如何共享同一个 draft SoT，以及 workflow/recipe draft 的生命周期、发布治理和晋升路径。
@@ -24,4 +24,4 @@
 - [x] 文档明确给出 chat surface 与 control console 的双入口模型
 - [x] 文档明确给出 publish / activate / bind / schedule / external write 的风险分层
 - [x] 文档明确给出 recipe draft 的生成、审核、晋升路径
-- [x] 文档可以被 teaching 和 control-console 子包直接引用
+- [x] 文档可以被 historical sample 和 control-console 子包直接引用

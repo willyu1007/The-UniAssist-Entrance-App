@@ -1246,7 +1246,7 @@ export class WorkflowRuntimeService {
           ? [approval.artifactId]
           : [];
       for (const artifact of state.artifacts) {
-        if (reviewArtifactIds.includes(artifact.artifactId) && artifact.artifactType === 'AssessmentDraft' && artifact.state === 'review_required') {
+        if (reviewArtifactIds.includes(artifact.artifactId) && artifact.state === 'review_required') {
           artifact.state = 'published';
           artifact.updatedAt = this.now();
         }
@@ -2223,11 +2223,13 @@ export class WorkflowRuntimeService {
   ): WorkflowApprovalRequestRecord {
     const reviewArtifactTypes = Array.isArray(node.config?.reviewArtifactTypes)
       ? node.config?.reviewArtifactTypes.map((item) => String(item))
-      : ['AssessmentDraft', 'EvidencePack'];
-    const reviewArtifacts = state.artifacts.filter((artifact) => reviewArtifactTypes.includes(artifact.artifactType));
+      : [];
+    const reviewArtifacts = reviewArtifactTypes.length > 0
+      ? state.artifacts.filter((artifact) => reviewArtifactTypes.includes(artifact.artifactType))
+      : state.artifacts.filter((artifact) => artifact.state === 'review_required');
     const runInput = this.getRunInputPayload(state);
-    const teacherActor = isRecord(runInput?.teacherActor) && typeof runInput?.teacherActor.actorId === 'string'
-      ? runInput.teacherActor.actorId
+    const requestedActorId = isRecord(runInput?.reviewerActor) && typeof runInput?.reviewerActor.actorId === 'string'
+      ? runInput.reviewerActor.actorId
       : state.run.userId;
     const approval: WorkflowApprovalRequestRecord = {
       approvalRequestId: this.uuid(),
@@ -2235,7 +2237,7 @@ export class WorkflowRuntimeService {
       nodeRunId: nodeRun.nodeRunId,
       artifactId: reviewArtifacts[0]?.artifactId,
       status: 'pending',
-      requestedActorId: teacherActor,
+      requestedActorId,
       payloadJson: reviewArtifacts.length > 0
         ? {
             artifactIds: reviewArtifacts.map((artifact) => artifact.artifactId),

@@ -4,45 +4,45 @@ import type {
   WorkflowTemplateVersionRecord,
 } from './types';
 
-export const CANONICAL_TEACHING_WORKFLOW_KEY = 'sample-b3-teaching';
-export const CANONICAL_TEACHING_COMPAT_PROVIDER_ID = 'sample';
+export const CANONICAL_SAMPLE_REVIEW_WORKFLOW_KEY = 'sample-review-validation';
+export const CANONICAL_SAMPLE_REVIEW_COMPAT_PROVIDER_ID = 'sample';
 
-export function buildCanonicalTeachingWorkflowSpec(): WorkflowTemplateSpec {
+export function buildCanonicalSampleReviewWorkflowSpec(): WorkflowTemplateSpec {
   return {
     schemaVersion: 'v1',
-    workflowKey: CANONICAL_TEACHING_WORKFLOW_KEY,
-    name: 'Teaching Validation Sample',
-    compatProviderId: CANONICAL_TEACHING_COMPAT_PROVIDER_ID,
-    entryNode: 'parse_materials',
+    workflowKey: CANONICAL_SAMPLE_REVIEW_WORKFLOW_KEY,
+    name: 'Sample Review Validation',
+    compatProviderId: CANONICAL_SAMPLE_REVIEW_COMPAT_PROVIDER_ID,
+    entryNode: 'capture_inputs',
     nodes: [
       {
-        nodeKey: 'parse_materials',
+        nodeKey: 'capture_inputs',
         nodeType: 'executor',
         executorId: 'compat-sample',
         transitions: {
-          success: 'generate_assessment',
+          success: 'synthesize_review_draft',
         },
       },
       {
-        nodeKey: 'generate_assessment',
+        nodeKey: 'synthesize_review_draft',
         nodeType: 'executor',
         executorId: 'compat-sample',
         transitions: {
-          success: 'teacher_review',
+          success: 'approval_review',
         },
       },
       {
-        nodeKey: 'teacher_review',
+        nodeKey: 'approval_review',
         nodeType: 'approval_gate',
         config: {
           reviewArtifactTypes: ['AssessmentDraft', 'EvidencePack'],
         },
         transitions: {
-          approved: 'fanout_delivery',
+          approved: 'publish_delivery',
         },
       },
       {
-        nodeKey: 'fanout_delivery',
+        nodeKey: 'publish_delivery',
         nodeType: 'executor',
         executorId: 'compat-sample',
         transitions: {
@@ -55,42 +55,42 @@ export function buildCanonicalTeachingWorkflowSpec(): WorkflowTemplateSpec {
       },
     ],
     metadata: {
-      scenario: 'teaching_validation',
+      scenario: 'sample_review_validation',
       source: 'canonical_sample_helper',
     },
   };
 }
 
-export function buildCanonicalTeachingRunInput(): Record<string, unknown> {
+export function buildCanonicalSampleReviewRunInput(): Record<string, unknown> {
   return {
     subject: {
-      subjectRef: 'student:case-1',
-      subjectType: 'student',
-      displayName: 'Alex',
+      subjectRef: 'case:sample-1',
+      subjectType: 'case',
+      displayName: 'Case 1',
     },
-    materials: [
-      '课堂观察记录',
-      '作业提交摘要',
+    inputs: [
+      '需求摘要',
+      '历史上下文',
     ],
-    teacherActor: {
-      actorId: 'teacher:primary',
-      displayName: 'Ms. Li',
+    reviewerActor: {
+      actorId: 'reviewer:primary',
+      displayName: 'Primary Reviewer',
     },
     audiences: [
       {
-        audienceType: 'parent',
-        actorId: 'parent:case-1',
-        displayName: 'Parent Case 1',
+        audienceType: 'stakeholder',
+        actorId: 'stakeholder:case-1',
+        displayName: 'Stakeholder Case 1',
       },
       {
-        audienceType: 'student',
-        actorId: 'student:case-1',
-        displayName: 'Alex',
+        audienceType: 'requester',
+        actorId: 'requester:case-1',
+        displayName: 'Requester Case 1',
       },
       {
-        audienceType: 'group',
-        actorId: 'group:class-a',
-        displayName: 'Class A',
+        audienceType: 'team',
+        actorId: 'team:platform',
+        displayName: 'Platform Team',
         actorType: 'cohort',
       },
     ],
@@ -103,7 +103,7 @@ export function buildCanonicalTeachingRunInput(): Record<string, unknown> {
   };
 }
 
-export function buildCanonicalTeachingTemplate(params: {
+export function buildCanonicalSampleReviewTemplate(params: {
   workflowId: string;
   templateVersionId: string;
   version?: number;
@@ -113,7 +113,7 @@ export function buildCanonicalTeachingTemplate(params: {
   version: WorkflowTemplateVersionRecord;
 } {
   const timestampMs = params.timestampMs ?? Date.now();
-  const spec = buildCanonicalTeachingWorkflowSpec();
+  const spec = buildCanonicalSampleReviewWorkflowSpec();
   return {
     template: {
       workflowId: params.workflowId,

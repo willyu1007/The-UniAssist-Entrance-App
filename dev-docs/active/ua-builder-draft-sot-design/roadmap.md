@@ -48,7 +48,7 @@
 | C1 | Builder 入口 | chat-only vs control-console-only vs dual-entry | 双入口，但同一个 draft SoT | 用户已确认 | 在本子包冻结 draft lifecycle |
 | C2 | 草稿事实源 | 前端本地状态 vs control-plane object | `Control Plane Draft` 是唯一事实源 | 用户已确认 | 明确 command ownership |
 | C3 | 发布语义 | publish=everything vs publish/activate/bind 拆分 | 拆分为风险分层动作 | 用户已确认“高风险能力另审” | 在本子包冻结 gating matrix |
-| C4 | recipe draft 位置 | 聊天输出 vs run projection vs control-plane object | 作为 control-plane draft lineage 对象 | 教学场景需要收敛与晋升路径 | 在本子包冻结生成/审核/晋升流程 |
+| C4 | recipe draft 位置 | 聊天输出 vs run projection vs control-plane object | 作为 control-plane draft lineage 对象 | 首个 historical sample validation 场景需要收敛与晋升路径 | 在本子包冻结生成/审核/晋升流程 |
 
 ## Scope and impact
 - Affected areas/modules:

@@ -46,7 +46,7 @@ export function parseProviderRegistryFromEnv(): ProviderRegistryEntry[] {
       providerId: 'sample',
       serviceId: 'provider-sample',
       baseUrl: (process.env.UNIASSIST_SAMPLE_PROVIDER_BASE_URL || '').replace(/\/$/, '') || undefined,
-      keywords: ['示例', '样例', '教学', '评估', '材料', '课堂'],
+      keywords: ['示例', '样例', '流程', '草稿', '审批', '验证'],
       enabled: true,
     },
     {

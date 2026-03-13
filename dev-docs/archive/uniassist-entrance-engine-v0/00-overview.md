@@ -1,12 +1,12 @@
 # 00 Overview
 
 ## Status
-- State: in-progress
-- Status note: v0 主链路与投递闭环已完成，进入 v1 hardening。
-- Next step: 进入 v1 级别优化（生产部署、监控告警、内部签名/JWT、对象存储与回放管线强化）。
+- State: done
+- Status note: v0 统一入口主链路与投递闭环已完成；仓库主定位后续已由 `T-011` 切换到 workflow platform，本任务包仅保留为历史基线。
+- Next step: 归档该 bundle，作为 `/v0` 兼容层前身的历史记录引用。
 
 ## Goal
-将当前仓库升级为 UniAssist 统一入口引擎 v0：支持统一输入、路由分发、兜底聊天、结构化交互扩展、长周期事件投递与微信文本接入闭环。
+记录将仓库升级为 UniAssist 统一入口引擎 v0 的历史基线：支持统一输入、路由分发、兜底聊天、结构化交互扩展、长周期事件投递与微信文本接入闭环。
 
 ## Non-goals
 - 在本仓库实现任一专项业务的完整领域逻辑与数据模型
@@ -16,7 +16,7 @@
 ## Context
 - 当前：`contracts + gateway + adapter-wechat + provider-sample + worker + frontend` 均已落地。
 - 已有：统一输入/路由分发/兜底/结构化扩展交互/外部接入/投递链路的 v0 可运行实现。
-- 目标：在现有 v0 基础上推进生产级治理与规模化能力。
+- 后续主线：在现有 `/v0` 兼容层之上，`T-011` 已接管 workflow platform 主定位；本包不再代表当前主方向。
 
 ## Acceptance criteria (high level)
 - [x] `packages/contracts` 提供 v0 类型与 JSON schema（含 `profileRef` 与 `provider_extension`）

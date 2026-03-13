@@ -1,0 +1,39 @@
+{
+  "subject": {
+    "subjectRef": "case:sample-1",
+    "subjectType": "case",
+    "displayName": "Case 1"
+  },
+  "inputs": [
+    "需求摘要",
+    "历史上下文"
+  ],
+  "reviewerActor": {
+    "actorId": "reviewer:primary",
+    "displayName": "Primary Reviewer"
+  },
+  "audiences": [
+    {
+      "audienceType": "stakeholder",
+      "actorId": "stakeholder:case-1",
+      "displayName": "Stakeholder Case 1"
+    },
+    {
+      "audienceType": "requester",
+      "actorId": "requester:case-1",
+      "displayName": "Requester Case 1"
+    },
+    {
+      "audienceType": "team",
+      "actorId": "team:platform",
+      "displayName": "Platform Team",
+      "actorType": "cohort"
+    }
+  ],
+  "temporaryCollaborators": [
+    {
+      "actorId": "assistant:temp-1",
+      "displayName": "Assistant Temp 1"
+    }
+  ]
+}

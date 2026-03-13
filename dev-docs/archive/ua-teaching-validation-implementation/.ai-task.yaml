@@ -2,5 +2,5 @@ version: 1
 task_id: T-025
 project: main
 slug: ua-teaching-validation-implementation
-status: done
-updated: "2026-03-12"
+status: archived
+updated: "2026-03-13"

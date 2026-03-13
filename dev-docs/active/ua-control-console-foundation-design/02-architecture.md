@@ -3,7 +3,7 @@
 ## Context & current state
 - 当前 repo 的前端是 Expo/RN chat surface，不适合承接高密度治理台。
 - `T-012` 规定控制台所有查询必须走 `workflow-platform-api`。
-- `T-013` 和 `T-017` 已经给出 Draft、Approval、Run、Delivery 的正式对象和首个验证场景，控制台首期应围绕这些对象提供治理能力。
+- `T-013` 和归档后的 `T-017` 已经给出 Draft、Approval、Run、Delivery 的正式对象和首个 historical sample validation 场景，控制台首期应围绕这些对象提供治理能力。
 
 ## Proposed design
 

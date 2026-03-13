@@ -266,9 +266,9 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
         '课堂观察记录',
         '作业提交摘要',
       ],
-      teacherActor: {
-        actorId: 'teacher:primary',
-        displayName: 'Ms. Li',
+      reviewerActor: {
+        actorId: 'reviewer:primary',
+        displayName: 'Primary Reviewer',
       },
       audiences: [
         { audienceType: 'parent', actorId: 'parent:case-1', displayName: 'Parent Case 1' },
@@ -303,7 +303,7 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
   );
   assert.equal(recipeArtifactResponse.status, 200);
   assert.equal(recipeArtifactResponse.json.artifact.artifactType, 'AnalysisRecipeCandidate');
-  assert.equal(recipeArtifactResponse.json.typedPayload.title, 'Alex 评估配方候选');
+  assert.equal(recipeArtifactResponse.json.typedPayload.title, 'Alex workflow 配方候选');
   assert.equal(recipeArtifactResponse.json.lineage.nodeKey, 'generate_assessment');
 
   const approvalRequestId = approvalRequested.payload.approvalRequestId;

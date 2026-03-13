@@ -11,7 +11,7 @@
   - `dev-docs/active/ua-openclaw-collab-platform/roadmap.md`
   - `dev-docs/active/ua-workflow-core-skeleton-design/02-architecture.md`
   - `dev-docs/active/ua-builder-draft-sot-design/02-architecture.md`
-  - `dev-docs/active/ua-teaching-assessment-scenario-design/02-architecture.md`
+  - `dev-docs/archive/ua-teaching-assessment-scenario-design/02-architecture.md`
 - Merge method: set-union
 - Conflict precedence: latest user-confirmed > parent task docs > model inference
 - Repository SSOT output: `dev-docs/active/ua-control-console-foundation-design/roadmap.md`
@@ -24,7 +24,7 @@
 | Parent roadmap | `dev-docs/active/ua-openclaw-collab-platform/roadmap.md` | `React + Vite`、控制台首期作用域 | high | `T-011` 为母任务 |
 | Core skeleton design | `dev-docs/active/ua-workflow-core-skeleton-design/02-architecture.md` | 控制台查询只能走 `workflow-platform-api` | high | `T-012` 为服务边界基础 |
 | Builder draft design | `dev-docs/active/ua-builder-draft-sot-design/02-architecture.md` | Studio/Draft Inspector 的对象模型 | high | `T-013` 为直接依赖 |
-| Teaching scenario design | `dev-docs/active/ua-teaching-assessment-scenario-design/02-architecture.md` | Runboard/Approval/Delivery 的首个验证场景输入 | high | `T-017` 为真实场景输入 |
+| Historical sample scenario design | `dev-docs/archive/ua-teaching-assessment-scenario-design/02-architecture.md` | Runboard/Approval/Delivery 的首个验证场景输入 | high | `T-017` 为历史样例输入 |
 | Model inference | N/A | route grouping 与 view model 压缩 | lowest | 不覆盖已锁定决策 |
 
 ## Non-goals

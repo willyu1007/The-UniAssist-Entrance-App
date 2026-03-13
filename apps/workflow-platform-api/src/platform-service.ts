@@ -1896,7 +1896,7 @@ export class PlatformService {
     const captured: RecipeDraftRecord[] = [];
 
     for (const candidate of derivedCandidates) {
-      const next = this.buildRunDerivedRecipeDraft(run, candidate.candidateArtifact, candidate.evidenceArtifacts);
+      const next = this.buildRunDerivedRecipeDraft(run, candidate.candidateArtifact, candidate.supportingArtifacts);
       captured.push(await this.repository.upsertRunDerivedRecipeDraft(next));
     }
 
@@ -1905,51 +1905,61 @@ export class PlatformService {
 
   private extractRunDerivedRecipeCandidates(run: WorkflowRunSnapshot): Array<{
     candidateArtifact: WorkflowArtifactRecord;
-    evidenceArtifacts: WorkflowArtifactRecord[];
+    supportingArtifacts: WorkflowArtifactRecord[];
   }> {
     if (this.hasApprovedRecipeCapture(run) === false) {
-      return [];
-    }
-
-    const evidenceArtifacts = run.artifacts.filter((artifact) => artifact.artifactType === 'EvidencePack');
-    if (evidenceArtifacts.length === 0) {
       return [];
     }
 
     return run.artifacts
       .filter((artifact) => artifact.artifactType === 'AnalysisRecipeCandidate')
       .map((candidateArtifact) => {
-        const payload = isRecord(candidateArtifact.payloadJson) ? candidateArtifact.payloadJson : {};
-        const evidenceRefs = Array.isArray(payload.evidenceRefs)
-          ? payload.evidenceRefs.map((item) => String(item))
-          : [];
-        const matchedEvidence = evidenceRefs.length > 0
-          ? evidenceArtifacts.filter((artifact) => evidenceRefs.includes(artifact.artifactId))
-          : evidenceArtifacts;
-        if (matchedEvidence.length === 0) {
+        const supportingArtifacts = this.resolveRunDerivedRecipeSupportingArtifacts(run, candidateArtifact);
+        if (supportingArtifacts.length === 0) {
           return undefined;
         }
         return {
           candidateArtifact,
-          evidenceArtifacts: matchedEvidence,
+          supportingArtifacts,
         };
       })
       .filter((item): item is {
         candidateArtifact: WorkflowArtifactRecord;
-        evidenceArtifacts: WorkflowArtifactRecord[];
+        supportingArtifacts: WorkflowArtifactRecord[];
       } => Boolean(item));
   }
 
   private hasApprovedRecipeCapture(run: WorkflowRunSnapshot): boolean {
     return run.approvalDecisions.some((decision) => decision.decision === 'approved')
-      || run.artifacts.some((artifact) => artifact.artifactType === 'AssessmentDraft' && artifact.state === 'published')
-      || run.artifacts.some((artifact) => artifact.artifactType === 'ReviewableDelivery' && artifact.state === 'published');
+      || run.artifacts.some((artifact) => artifact.artifactType !== 'AnalysisRecipeCandidate' && artifact.state === 'published');
+  }
+
+  private resolveRunDerivedRecipeSupportingArtifacts(
+    run: WorkflowRunSnapshot,
+    candidateArtifact: WorkflowArtifactRecord,
+  ): WorkflowArtifactRecord[] {
+    const payload = isRecord(candidateArtifact.payloadJson) ? candidateArtifact.payloadJson : {};
+    const lineage = isRecord(candidateArtifact.metadataJson?.lineage) ? candidateArtifact.metadataJson.lineage : {};
+    const explicitRefs = new Set([
+      ...this.normalizeStringArray(payload.evidenceRefs),
+      ...this.normalizeStringArray(lineage.evidenceRefs),
+      ...this.normalizeStringArray(lineage.supportingArtifactRefs),
+    ]);
+    const matched = explicitRefs.size > 0
+      ? run.artifacts.filter((artifact) => explicitRefs.has(artifact.artifactId))
+      : run.artifacts.filter((artifact) => (
+          artifact.artifactId !== candidateArtifact.artifactId
+          && artifact.artifactType !== 'AnalysisRecipeCandidate'
+          && artifact.nodeRunId === candidateArtifact.nodeRunId
+          && artifact.state !== 'archived'
+        ));
+    return [...new Map(matched.map((artifact) => [artifact.artifactId, artifact])).values()];
   }
 
   private buildRunDerivedRecipeDraft(
     run: WorkflowRunSnapshot,
     candidateArtifact: WorkflowArtifactRecord,
-    evidenceArtifacts: WorkflowArtifactRecord[],
+    supportingArtifacts: WorkflowArtifactRecord[],
   ): RecipeDraftRecord {
     const timestamp = this.now();
     const payload = isRecord(candidateArtifact.payloadJson) ? candidateArtifact.payloadJson : {};
@@ -1976,7 +1986,7 @@ export class PlatformService {
           artifactType: candidateArtifact.artifactType,
           artifactId: candidateArtifact.artifactId,
         },
-        ...evidenceArtifacts.map((artifact) => ({
+        ...supportingArtifacts.map((artifact) => ({
           type: 'evidence_artifact',
           artifactType: artifact.artifactType,
           artifactId: artifact.artifactId,

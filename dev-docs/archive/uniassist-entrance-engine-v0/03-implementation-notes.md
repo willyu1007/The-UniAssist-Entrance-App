@@ -1,7 +1,7 @@
 # 03 Implementation Notes
 
 ## Status
-- Current status: `in-progress (v0 delivery-closed-loop complete, v1 hardening pending)`
+- Current status: `done (historical predecessor bundle retained for archive)`
 - Last updated: 2026-02-23
 
 ## What changed
@@ -82,6 +82,7 @@
 - 文档更新：
   - 根 `README.md` 与 `AGENTS.md` 更新为统一入口定位
   - 本任务 `00/03/04` 文档同步到最新实现状态
+  - 2026-03-13 起，本 bundle 降级为 `/v0` 兼容层历史记录，不再代表 repo 当前主定位
 
 ## Files/modules touched (high level)
 - `packages/contracts/*`
@@ -101,7 +102,7 @@
 - `apps/frontend/tsconfig.json`
 - `README.md`
 - `AGENTS.md`
-- `dev-docs/active/uniassist-entrance-engine-v0/*`
+- `dev-docs/archive/uniassist-entrance-engine-v0/*`
 
 ## Decisions & tradeoffs
 - Decision:
