@@ -1,18 +1,9 @@
 # Ops
 
-This folder holds DevOps-oriented configuration and handbook docs.
+This directory holds operational conventions, runbooks, and execution assets that are owned by humans and supported by small scripts.
 
-High-level split (created only when enabled):
-- ops/packaging/  Build artifacts (often container images for services)
-- ops/deploy/     Run artifacts in environments (deploy/rollback/runbooks)
-- ops/observability/ Metrics, alert rules, and incident runbooks
+## Documentation Policy
 
-Current enabled modules:
-- `ops/packaging/`
-- `ops/deploy/`
-- `ops/observability/`
-
-Guidelines:
-- Keep definitions small and structured.
-- Prefer a small number of scripts as execution entry points.
-- Record decisions and history under ops/*/handbook/.
+- Use the nearest local `README.md` or `AGENTS.md` under `ops/` for packaging, deployment, and observability rules.
+- Keep docs focused on non-obvious policy, rollout expectations, and safety boundaries.
+- Do not mirror directory inventories or generated file lists that can be recovered from the tree.

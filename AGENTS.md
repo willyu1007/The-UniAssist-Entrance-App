@@ -1,105 +1,47 @@
 # AI Assistant Instructions
 
-**The-UA-Entrance-APP** - UniAssist unified entrance engine (v0).
+Use this file for repository-level collaboration rules only. Do not treat it as a directory inventory; scan the repository for current module lists and generated outputs.
 
-## Project Type
+## Repository Semantics
 
-Unified AI entrance/orchestration app (input ingress, routing, fallback, interaction aggregation, channel adapters).
+- The repository's current center is the workflow platform, with `/v0` retained as a compatibility ingress.
+- Historical sample scenarios and `/v0` surfaces must not be described as the current product direction.
+- `apps/frontend` is the `/v0` runtime UI; `apps/control-console` is the `/v1` control UI.
+- Postgres/Prisma is the database SSOT. Convex remains a projection experiment and must not become an authoritative store by documentation drift.
 
-## Tech Stack
+## Navigation Order
 
-| Category | Value |
-|----------|-------|
-| Language | typescript |
-| Package manager | pnpm |
-| Repo layout | monorepo |
-| Frontend | react-native-expo |
-| Backend | node-express (gateway + adapters) |
-| Database | postgres |
-| API style | restful + event timeline (sse/polling) |
+- Start with `README.md` for human-facing orientation.
+- Use `dev-docs/AGENTS.md` for the complex-task decision gate and task-bundle lifecycle.
+- Use `.ai/project/AGENTS.md` when task creation, status changes, or archive actions affect governance state.
+- Use `docs/context/INDEX.md` when an LLM-readable contract already exists.
+- Prefer the nearest local `AGENTS.md` or `README.md` before reading broad repo docs.
 
-## Repository Status
+## Working Rules
 
-- Project initialization is complete.
-- This repository does not use an `init/` directory anymore.
-- v0 engine modules exist:
-  - `packages/contracts`
-  - `apps/gateway`
-  - `apps/adapter-wechat`
-  - `apps/provider-plan`
-  - `apps/worker`
-  - `apps/frontend` runtime integration
-- gateway supports optional persistence:
-  - `DATABASE_URL` -> Postgres tables auto-init
-  - `REDIS_URL` -> outbox events ready for worker dispatch
-  - `UNIASSIST_OUTBOX_INLINE_DISPATCH=true` -> optional inline dispatch (default off)
+- Follow progressive disclosure: read only the files you need.
+- On context reset for ongoing work, read `dev-docs/active/<task-name>/00-overview.md` first.
+- Use `pnpm` only for dependency install and workspace script execution.
+- Before modifying code or config for a non-trivial task, apply the Decision Gate in `dev-docs/AGENTS.md`.
+- Use repo scanning for inferable facts such as directory structure, workspace inventories, and generated outputs instead of copying them into docs.
 
-## Key Directories
+## Workspace Safety
 
-| Directory | Purpose | Entry Point |
-|-----------|---------|-------------|
-| `apps/` | Applications | - |
-| `packages/` | Shared packages | - |
-| `.ai/` | Skills, scripts, LLM governance | `.ai/AGENTS.md` |
-| `dev-docs/` | Complex task documentation | `dev-docs/AGENTS.md` |
-| `docs/context/` | LLM-readable contracts (API/DB/process/UI) | `docs/context/INDEX.md` |
-| `ui/` | UI contract/tokens/patterns | `ui/codegen/AGENTS.md` |
-| `ops/` | Packaging/deployment conventions | `ops/packaging/AGENTS.md` |
-| `.codex/` | Codex skill stubs (generated) | - |
-| `.claude/` | Claude skill stubs (generated) | - |
-
-## Routing
-
-| Task Type | Entry Point |
-|-----------|-------------|
-| **Repo orientation / local setup** | `README.md` |
-| **Contracts update** | `packages/contracts/` |
-| **Gateway/API behavior** | `apps/gateway/src/server.ts` |
-| **Delivery worker behavior** | `apps/worker/src/worker.ts` |
-| **WeChat ingress adapter** | `apps/adapter-wechat/src/server.ts` |
-| **Plan provider behavior** | `apps/provider-plan/src/server.ts` |
-| **Frontend timeline/rendering** | `apps/frontend/app/index.tsx` |
-| **Skill authoring / maintenance** | `.ai/AGENTS.md` |
-| **LLM engineering** | `.ai/llm-config/AGENTS.md` |
-| **Project progress governance** | `.ai/project/AGENTS.md` |
-| **Complex task documentation** | `dev-docs/AGENTS.md` |
-| **Context contract usage/update** | `docs/context/INDEX.md` |
-
-## Global Rules
-
-- Follow progressive disclosure: read only the file you are routed to
-- On context reset for ongoing work, read `dev-docs/active/<task-name>/00-overview.md` first
-- Use `pnpm` only for dependency install and workspace script execution; do not use `npm`, `yarn`, or `bun`.
-
-## Coding Standards (RECOMMEND)
-
-- **ESM (.mjs)**: All scripts in the repository use ES Modules with `.mjs` extension. Use `import`/`export` syntax, not `require()`.
-
-## Coding Workflow (MUST)
-
-- Before modifying code/config for a non-trivial task, apply the Decision Gate in `dev-docs/AGENTS.md` and create/update the dev-docs task bundle as required.
-- If the user asks for planning artifacts (plan/roadmap/milestones/implementation plan) before coding:
-  - If the task meets the Decision Gate, use `plan-maker` first, then ask for confirmation to proceed with implementation.
-  - If the task is trivial (<30 min), provide an in-chat plan (do NOT write under `dev-docs/`).
-  - If the task needs context preservation (multi-session, handoff) or qualifies as complex, follow `dev-docs/AGENTS.md` and use dev-docs workflows.
-
-## Workspace Safety (MUST)
-
-- NEVER create/copy/clone this repository into any subdirectory of itself (no nested repo copies).
-- Create throwaway test repos **outside** the repo root (OS temp or a sibling directory) and delete them after verification.
-- Keep temporary workspaces shallow: if a path is getting deeply nested or has exceeded **12 path segments** total;, stop and clean up instead of continuing.
+- NEVER create, copy, or clone this repository into a subdirectory of itself.
+- Create throwaway test repos outside the repo root and delete them after verification.
+- Keep temporary workspaces shallow; if a path grows deeply nested, stop and clean it up.
 
 <!-- DB-SSOT:START -->
-## Database SSOT and schema synchronization
+## Database SSOT and Schema Synchronization
 
-**Mode: repo-prisma** (SSOT = `prisma/schema.prisma`)
+**Mode: repo-prisma** (`prisma/schema.prisma`)
 
 - SSOT selection file: `docs/project/db-ssot.json`
-- DB context contract (LLM-first): `docs/context/db/schema.json`
-- If you need to change persisted fields / tables: use skill `sync-db-schema-from-code`.
-- If you need to mirror an external DB: do NOT; this mode assumes migrations originate in the repo.
+- DB context contract: `docs/context/db/schema.json`
+- If persisted fields or tables change, use skill `sync-db-schema-from-code`.
+- Do not mirror an external DB into the repo; migrations originate here.
 
 Rules:
-- Business layer MUST NOT import Prisma (repositories return domain entities).
-- If `features.contextAwareness=true`: refresh context via `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`.
+- Business-layer code MUST NOT import Prisma directly.
+- If `features.contextAwareness=true`, refresh context with `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`.
 <!-- DB-SSOT:END -->

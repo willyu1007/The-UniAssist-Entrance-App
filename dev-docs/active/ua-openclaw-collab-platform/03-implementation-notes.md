@@ -8,15 +8,15 @@
 ## Initial decisions
 - 新任务 slug 固定为 `ua-openclaw-collab-platform`。
 - 项目治理已为该任务分配 `T-011`。
-- 本任务是项目级升级总包，不复用 `uniassist-entrance-engine-v0`。
-- 教学场景作为首个验证场景，且必须覆盖探索型个性化评估 agent 的收敛过程。
+- 本任务是项目级升级总包，不复用已归档的 `T-001` 历史 `/v0` 总包作为当前目标定位。
+- `B3` 历史上以 `ua-teaching-validation-implementation` 命名交付首个样例验证包，但该样例只用于验证平台原语与 agent 收敛边界，不代表项目产品定位。
 - `control-console` 按独立 Web 应用方向规划。
 - Postgres + Prisma 继续作为主数据面；Convex 如后续采用，仅作为可选投影层。
 - 已启动首个设计子包：`T-012 / ua-workflow-core-skeleton-design`。
 - 已创建后续设计子包：
   - `T-018 / ua-workflow-data-plane-design`
   - `T-013 / ua-builder-draft-sot-design`
-  - `T-017 / ua-teaching-assessment-scenario-design`
+  - `T-017 / ua-teaching-assessment-scenario-design`（历史样例设计基线）
   - `T-015 / ua-control-console-foundation-design`
   - `T-014 / ua-connector-action-layer-design`
   - `T-016 / ua-convex-projection-evaluation`
@@ -30,12 +30,12 @@
 - 任务 ID 由治理按字母顺序分配，不代表执行顺序。
 - implementation tranche 顺序已冻结为：`I1 Platform Foundation -> I2 Draft and Publish Path -> I3 Validation Flow and Control Surface -> I4 External Integration and Projection Experiments`。
 - implementation bundle 结构已冻结为：`8` 个主实施包 + `1` 个条件实验包。
-- bundle 顺序已冻结为：`B1 Platform Foundation -> B2 Builder Draft Publish -> B3 Teaching Validation -> B4 Control Console Foundation -> B5 Agent Governance -> B6 External Runtime Bridge -> B7 Connector Runtime and First Capabilities -> B8 R&D Collaboration Validation -> B9 Convex Projection Experiment`。
+- bundle 顺序已冻结为：`B1 Platform Foundation -> B2 Builder Draft Publish -> B3 Sample Validation (historical task slug: ua-teaching-validation-implementation) -> B4 Control Console Foundation -> B5 Agent Governance -> B6 External Runtime Bridge -> B7 Connector Runtime and First Capabilities -> B8 R&D Collaboration Validation -> B9 Convex Projection Experiment`。
 
 ## Planned decision log
 - Resolved through child tasks:
   - `control-console = React + Vite`，并固定 Web-first 管理台边界（`T-015`）
-  - 教学首条 workflow 仅作为首个验证样本，不反向定义平台基线（`T-017`）
+  - 历史 teaching sample 仅作为首个验证样本，不反向定义平台基线（`T-017`）
   - `workflow-platform-api -> workflow-runtime` 的首期命令边界与 `/v0` 兼容接线（`T-012`）
   - Postgres/Prisma 作为 authoritative store；Convex 仅保留为后续 projection 评估方向（`T-018` + `T-016`）
   - connector/action layer 不与 executor/workflow/catalog 混义（`T-014`）
@@ -58,19 +58,23 @@
   - `T-012 / T-018` 的状态漂移已修正，不再与总包“已冻结基线”的表述冲突
   - 当前未发现阻止 implementation tranche 启动的高影响逻辑冲突；剩余问题主要是字段级 DTO、schema 和 owner 分配
   - implementation 编排层已从 `I1-I4` tranche 进一步收敛为 `8+1` bundle 结构，并补齐 repo landing map
+- 2026-03-13 仓库级入口文档审计确认：
+  - 已逐一检查仓库内全部 `AGENTS.md` 与 `README.md`
+  - 根入口文档、`ops/*`、`packages/*`、`apps/frontend`、`ui/*`、`ci/`、`convex/` 相关 README/AGENTS 已移除过时脚手架文案、重复目录清单和可由仓库扫描直接恢复的模块库存
+  - 文档当前优先保留语义边界、操作约束、SSOT、治理流程和非显然风险说明，不再把目录结构或生成文件清单写成长期维护文本
 
 ## Deviation tracking
-- 当前无偏离 roadmap 的事项；截至 `T-030` 归档，`B1-B8` 的落地状态已与冻结 bundle 顺序保持一致。
+- 当前无偏离 roadmap 的事项；截至 `T-030` 归档，`B1-B8` 的落地状态已与冻结 bundle 顺序保持一致。`T-031 / B9` 当前口径明确为“实现与本地验证已完成、go/no-go 结论待收口”，因此保持 `in-progress`，不再使用易被误读为“任务已完成”的表述。
 
 ## Follow-up TODOs
 - `B1 / ua-platform-foundation-implementation` 已由 `T-023` 完成并通过本地 admission checks
 - 保持 `T-011` 与 `T-012 / T-018 / T-013 / T-017 / T-015 / T-014 / T-016` 的冻结结论一致
 - 保持 `T-019 / T-021 / T-020 / T-022` 的冻结结论与 `B5-B8` 映射保持一致
 - `B2 / ua-builder-draft-publish-implementation` 已由 `T-024` 完成
-- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 完成
+- `B3 / ua-teaching-validation-implementation` 已由 `T-025` 完成；历史命名保留，但其仓库落地内容仅作为 sample validation bundle
 - `B4 / ua-control-console-foundation-implementation` 已由 `T-026` 完成
 - `B5 / ua-agent-governance-implementation` 已由 `T-027` 完成
 - `B6 / ua-external-runtime-bridge-implementation` 已由 `T-028` 完成
 - `B7 / ua-connector-runtime-and-first-capabilities-implementation` 已由 `T-029` 完成；是否归档另行决策
 - `B8 / ua-rnd-collab-validation-implementation` 已由 `T-030` 完成并归档
-- 将 `B9 / ua-convex-projection-experiment` 明确维持为条件实验包，不作为主线 implementation 的阻塞项
+- `B9 / ua-convex-projection-experiment` 已由 `T-031` 完成实现与本地验证；待 go/no-go 结论收口后再决定是否归档

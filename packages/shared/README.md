@@ -1,8 +1,8 @@
-# Shared package
+# Shared Package
 
-Common runtime utilities shared by backend services.
+This package is for cross-service primitives that remain domain-neutral.
 
-Current exports:
-- `createLogger()` - JSON structured logger
-- `serializeError()` - safe error field serializer
-- `buildInternalAuthHeaders()` / `verifyInternalAuthRequest()` - internal JWT+HMAC auth helpers
+## Rules
+
+- Keep helpers here generic; if code becomes workflow-specific, connector-specific, or UI-specific, move it to a narrower package.
+- Do not mirror the export list in this README; `src/index.ts` is the authoritative inventory.

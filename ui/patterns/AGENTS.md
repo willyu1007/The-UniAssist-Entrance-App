@@ -9,12 +9,6 @@ These patterns are **usage-level contracts** for LLM-driven UI construction unde
 - Visual changes belong to `ui/tokens/` and `ui/contract/`.
 - If a pattern needs new variants or states, propose a contract expansion via RFC.
 
-## Included patterns
-- `list-with-filters.md`
-- `detail.md`
-- `form.md`
-- `wizard.md` (optional)
-
 ## Vocabulary (roles/slots)
 
 Use these roles/slots:

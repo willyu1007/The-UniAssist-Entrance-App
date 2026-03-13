@@ -72,6 +72,81 @@
     - Result: pass
     - Notes:
       - `I1-I4` tranche 与 `B1-B9` bundle 结构之间无治理层冲突
+- 2026-03-13:
+  - `rg -n "teacherActor|teaching-scenario\\.ts|CANONICAL_TEACHING|Teaching Validation Sample|teaching_validation|docs/scenarios/teaching|评估对象|材料摘要|示例评估对象|课堂观察记录" apps packages docs dev-docs README.md --glob '!**/tests/**' --glob '!**/04-verification.md'`
+    - Result: pass
+    - Notes:
+      - 非测试基础设施中的 teaching/sample 旧语义已从 runtime/provider/contracts 清理
+      - 剩余 teaching 语义只保留在历史样例设计包与测试断言边界
+  - `pnpm --filter @baseinterface/workflow-contracts typecheck`
+    - Result: pass
+    - Notes:
+      - sample contracts 已切换到 `sample-review-scenario`
+  - `pnpm --filter @baseinterface/provider-sample typecheck`
+    - Result: pass
+    - Notes:
+      - sample provider 已改为中性 workflow 样例交互文案与 `reviewerActor` 输入
+  - `pnpm --filter @baseinterface/workflow-runtime typecheck`
+    - Result: pass
+    - Notes:
+      - approval owner 解析已切到中性 `reviewerActor`
+  - `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+    - Result: pass
+  - `pnpm --filter @baseinterface/gateway typecheck`
+    - Result: pass
+  - `pnpm --filter @baseinterface/frontend typecheck`
+    - Result: pass
+  - `pnpm --filter @baseinterface/workflow-runtime test`
+    - Result: pass
+    - Notes:
+      - B3/B6/B7/B8 runtime 回归通过，未出现语义收口导致的行为回退
+  - `pnpm --filter @baseinterface/workflow-platform-api test`
+    - Result: pass
+    - Notes:
+      - B5-B9 API 回归通过，run-derived recipe capture 与 projection fallback 维持原有行为
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - 同步 `T-011`、`T-031` 与 `B3` 相关文档的语义修正，不改变任务状态
+      - 总包摘要已明确区分“实现/验证完成”与“任务已完成”
+      - 历史 teaching sample 命名已在总包文档中降级为实现说明，不再作为平台定位描述
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - Result: pass
+    - Notes:
+      - `T-001`、`T-017`、`T-025` 已从 `dev-docs/active/` 迁入 `dev-docs/archive/`
+      - 历史 bundle 与当前 active bundle 的目录边界已收口
+      - `docs/scenarios/teaching` 已迁移为 `docs/scenarios/sample-review`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 治理索引已回写归档路径，active/archive 状态与目录一致
+  - `node .ai/scripts/ctl-project-governance.mjs query --project main --id T-001 && node .ai/scripts/ctl-project-governance.mjs query --project main --id T-017 && node .ai/scripts/ctl-project-governance.mjs query --project main --id T-025`
+    - Result: pass
+    - Notes:
+      - `T-001`、`T-017`、`T-025` 当前状态均为 `archived`
+      - 三个历史 bundle 的 `dev_docs_path` 均已指向 `dev-docs/archive/*`
+  - `rg --files -g 'AGENTS.md' -g 'README.md'`
+    - Result: pass
+    - Notes:
+      - 仓库内当前共识别出 24 个 `AGENTS.md` / `README.md` 文件，并已全部纳入本轮审计范围
+  - `rg -n "scaffold placeholder|Welcome to your Convex functions directory|Directory Structure|Workspace Structure|Key Directories|Repository layout|Current enabled modules|Current exports|## Commands|Build Commands|What’s inside|## Structure|## Layout|Local bring-up|Local teardown|Staging overlay validate|provider-plan" $(rg --files -g 'AGENTS.md' -g 'README.md')`
+    - Result: pass
+    - Notes:
+      - 已清除默认脚手架 README、目录清单型标题、旧模块名与低价值命令目录化文案
+  - `rg -n "do not mirror|intentionally avoids mirroring|canonical entrypoint|compatibility ingress|projection experiment|validation fixtures" $(rg --files -g 'AGENTS.md' -g 'README.md')`
+    - Result: pass
+    - Notes:
+      - 根入口文档与子目录文档已统一转向“保留不可推断规则、移除可扫描库存”的写法
+  - `rg -n "教学场景|Teaching Validation|teaching validation|teaching implementation|teaching-specific|docs/scenarios/teaching|uniassist-entrance-engine-v0|统一入口引擎" README.md AGENTS.md dev-docs/active docs packages apps --glob '!**/tests/**' --glob '!**/04-verification.md'`
+    - Result: pass
+    - Notes:
+      - 当前入口文档、active 任务包、实现目录与场景目录已统一收口到“`/v0` 兼容层 + workflow platform + historical sample/archive”口径
+      - 语义扫描显式排除了 verification 日志，避免历史搜索命令文本自匹配
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - Result: pass
+    - Notes:
+      - 总包、实验包与治理索引对 `T-031 = in-progress` 的口径重新一致
+      - 总包/B3 文档回写后未产生新的治理漂移
 
 ## Manual smoke checks
 - Confirm the task bundle exists with:
@@ -87,7 +162,7 @@
   - 先做什么
   - implementation tranche 为什么是 `I1 -> I2 -> I3 -> I4`
   - 为什么 implementation 需要 `8+1` bundles，而不是直接按 tranche 或设计子包数量开包
-  - 为什么教学场景优先
+  - 为什么 sample validation workflow 不代表平台定位
   - 探索型 agent 如何被收敛
   - 控制台为什么独立成 Web
   - Convex 为什么不作为主数据面

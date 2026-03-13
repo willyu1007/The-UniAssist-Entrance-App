@@ -1,18 +1,9 @@
 # CI Configuration (LLM-first)
 
-## Commands
+Use `.ai/skills/features/ci/scripts/ctl-ci.mjs` as the canonical entrypoint for CI setup, delivery wiring, verification, and status.
 
-```bash
-node .ai/skills/features/ci/scripts/ctl-ci.mjs init
-node .ai/skills/features/ci/scripts/ctl-ci.mjs init --provider github
-node .ai/skills/features/ci/scripts/ctl-ci.mjs init --provider gitlab
-node .ai/skills/features/ci/scripts/ctl-ci.mjs add-delivery --provider github
-node .ai/skills/features/ci/scripts/ctl-ci.mjs add-delivery --provider gitlab
-node .ai/skills/features/ci/scripts/ctl-ci.mjs verify
-node .ai/skills/features/ci/scripts/ctl-ci.mjs status
-```
-
-## Guidelines
+## Rules
 
 - Track CI metadata in `ci/config.json`.
-- Edit provider files directly (e.g., `.github/workflows/`, `.gitlab-ci.yml`).
+- Provider workflow files remain source-controlled outputs; edit them directly only when provider-specific behavior is intentional.
+- Do not turn this file into a command catalog; the executable entrypoint is the script above.

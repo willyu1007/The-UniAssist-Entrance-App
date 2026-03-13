@@ -1,7 +1,3 @@
-# Packaging handbook
+# Packaging Handbook
 
-Use this folder for:
-- Packaging plans (inputs, outputs, artifact naming)
-- Build checklists
-- Build logs (what was built, when, from which revision, by whom)
-
+Store packaging decisions and build records here. Use `AGENTS.md` for authoring rules; do not duplicate target inventories in this README.

@@ -1,15 +1,10 @@
 # Codegen Outputs (`ui-specctl`)
 
-## Purpose
-This directory is generated from the UI contract by `ui-specctl`. Treat it as build output.
+This directory is generated output from the UI contract system.
 
-## Key files
-- `contract-types.ts`: type unions for `data-ui` roles and role attribute values
-- `tokens.d.ts` (optional): token key unions for UI tokens
+## Rules
 
-## Rules (MUST)
-- DO NOT hand-edit generated files.
-- If the contract or tokens change, re-run codegen (source of truth: `ui/contract/`, `ui/tokens/`).
-
-## Verification
-- Re-run `ui-specctl` and confirm generated files match the current contract.
+- Do not hand-edit files here.
+- When `ui/contract/` or `ui/tokens/` changes, rerun `ui-specctl`.
+- The generated file set may change with contract shape; do not document it as a fixed inventory here.
+- Verification is simple: rerun codegen and confirm the outputs match the current contract.

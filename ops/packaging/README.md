@@ -1,16 +1,9 @@
 # Packaging
 
-Goal: turn code into runnable artifacts.
+This directory holds packaging definitions plus the minimal documentation needed to govern them.
 
-Repository layout:
-- ops/packaging/services/   Packaging definitions per HTTP service
-- ops/packaging/jobs/       Packaging definitions per workload/job
-- ops/packaging/apps/       Packaging definitions per client/distribution app
-- ops/packaging/scripts/    Shared build scripts (preferred entry points)
-- ops/packaging/handbook/   Plans, checklists, and build records
+## Non-obvious Rules
 
-Guidelines:
-- Keep definitions small and structured.
-- For services, container images are a common packaging target.
+- Prefer executable entrypoints under `ops/packaging/scripts/` or `ctl-packaging.mjs` over prose-only instructions.
 - Treat artifact naming, versioning, and provenance as first-class.
-
+- Keep build rationale in `handbook/`; keep secrets out of the repository.

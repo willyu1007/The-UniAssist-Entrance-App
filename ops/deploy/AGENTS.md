@@ -3,10 +3,7 @@
 ## Conclusions (read first)
 
 - `ops/deploy/` contains environment runbooks and release verification scripts.
-- Staging release gate must include:
-  - `pnpm test:conformance`
-  - `pnpm smoke:redis:e2e`
-- Post-deploy checks should validate health endpoints and at least one ingest->timeline path.
+- Staging gate and post-deploy expectations are defined in `ops/deploy/README.md` and the staging runbook; keep AI edits aligned with those human-facing policies.
 
 ## AI Workflow
 

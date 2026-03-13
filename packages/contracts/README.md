@@ -1,12 +1,9 @@
 # Contracts Package
 
-Shared v0 types and JSON schemas for UniAssist Entrance Engine.
+`@baseinterface/contracts` is the `/v0` compatibility contract package.
 
-## Schemas
+## Rules
 
-- `schemas/v0/unified_user_input.schema.json`
-- `schemas/v0/interaction_event.schema.json`
-- `schemas/v0/timeline_event.schema.json`
-- `schemas/v0/provider_manifest.schema.json`
-- `schemas/v0/domain_event.schema.json`
-- `schemas/v0/context_package.schema.json`
+- Keep TypeScript types and JSON schemas aligned.
+- Treat changes as compatibility-sensitive because gateway, frontend, and sample provider flows still consume this surface.
+- Do not use this package as the home for `/v1` workflow-platform contracts; those belong in `packages/workflow-contracts`.
