@@ -292,7 +292,7 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
     startResponse.json.run.artifacts.find((artifact) => artifact.artifactType === 'AssessmentDraft')?.state,
     'review_required',
   );
-  const approvalRequested = startResponse.json.events.find((event) => event.kind === 'approval_requested');
+  const approvalRequested = startResponse.json.events.find((event) => event.kind === 'approval.requested');
   assert.ok(approvalRequested);
 
   const recipeArtifact = startResponse.json.run.artifacts.find((artifact) => artifact.artifactType === 'AnalysisRecipeCandidate');
@@ -333,19 +333,16 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
   assert.equal(approvalDetailBeforeDecision.json.artifacts.length, 2);
   assert.equal(approvalDetailBeforeDecision.json.decisions.length, 0);
 
-  const approvalResume = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
+  const approvalResume = await postInternal(runtimeBaseUrl, `/internal/runtime/approvals/${approvalRequestId}/decision`, {
     schemaVersion: 'v1',
     traceId: randomUUID(),
-    sessionId: 's-runtime-teaching',
     userId: 'u-runtime',
-    runId: startResponse.json.run.run.runId,
-    compatProviderId: 'sample',
-    actionId: `approve_request:${approvalRequested.payload.approvalRequestId}`,
+    decision: 'approved',
   });
 
   assert.equal(approvalResume.status, 200);
   assert.equal(approvalResume.json.run.run.status, 'completed');
-  assert.ok(approvalResume.json.events.some((event) => event.kind === 'approval_decided'));
+  assert.ok(approvalResume.json.events.some((event) => event.kind === 'approval.decided'));
   assert.equal(
     approvalResume.json.run.artifacts.find((artifact) => artifact.artifactType === 'AssessmentDraft')?.state,
     'published',
@@ -373,7 +370,7 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
     sessionId: 's-runtime-teaching-decision',
   });
   assert.equal(decisionStart.status, 200);
-  const decisionApproval = decisionStart.json.events.find((event) => event.kind === 'approval_requested');
+  const decisionApproval = decisionStart.json.events.find((event) => event.kind === 'approval.requested');
   assert.ok(decisionApproval);
 
   const approvalDecisionResponse = await postInternal(
@@ -411,18 +408,20 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
     sessionId: 's-runtime-teaching-reject',
   });
   assert.equal(rejectStart.status, 200);
-  const rejectApproval = rejectStart.json.events.find((event) => event.kind === 'approval_requested');
+  const rejectApproval = rejectStart.json.events.find((event) => event.kind === 'approval.requested');
   assert.ok(rejectApproval);
 
-  const rejectResume = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 's-runtime-teaching-reject',
-    userId: 'u-runtime',
-    runId: rejectStart.json.run.run.runId,
-    compatProviderId: 'sample',
-    actionId: `reject_request:${rejectApproval.payload.approvalRequestId}`,
-  });
+  const rejectResume = await postInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/approvals/${rejectApproval.payload.approvalRequestId}/decision`,
+    {
+      schemaVersion: 'v1',
+      traceId: randomUUID(),
+      userId: 'u-runtime',
+      decision: 'rejected',
+      comment: 'needs changes',
+    },
+  );
   assert.equal(rejectResume.status, 200);
   assert.equal(rejectResume.json.run.run.status, 'failed');
   assert.equal(
@@ -430,4 +429,88 @@ test('workflow runtime runs the B3 teaching validation workflow end-to-end', asy
     false,
   );
   assert.equal(rejectResume.json.run.deliveryTargets.length, 0);
+
+  const interactionSpec = {
+    schemaVersion: 'v1',
+    compatProviderId: 'sample',
+    workflowKey: 'sample-b3-interaction-recovery',
+    name: 'Interaction Recovery Fixture',
+    entryNode: 'collect_subject',
+    nodes: [
+      {
+        nodeKey: 'collect_subject',
+        nodeType: 'executor',
+        executorId: 'compat-sample',
+        config: {
+          compatFixture: 'interaction_recovery',
+        },
+        transitions: {
+          success: 'finish',
+        },
+      },
+      {
+        nodeKey: 'finish',
+        nodeType: 'end',
+      },
+    ],
+  };
+
+  const interactionTemplate = buildTemplate('ver-interaction-recovery', interactionSpec);
+  const interactionStart = await postInternal(runtimeBaseUrl, '/internal/runtime/start-run', {
+    schemaVersion: 'v1',
+    traceId: randomUUID(),
+    sessionId: 's-runtime-interaction',
+    userId: 'u-runtime',
+    ...interactionTemplate,
+    inputPayload: {},
+  });
+  assert.equal(interactionStart.status, 200);
+  assert.equal(interactionStart.json.run.run.status, 'waiting_interaction');
+  assert.ok(interactionStart.json.events.some((event) => event.kind === 'interaction.requested'));
+
+  const firstInteractionRequest = interactionStart.json.run.interactionRequests.at(-1);
+  assert.ok(firstInteractionRequest);
+  assert.equal(firstInteractionRequest.status, 'pending');
+
+  const firstInteractionResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
+    schemaVersion: 'v1',
+    traceId: randomUUID(),
+    sessionId: 's-runtime-interaction',
+    userId: 'u-runtime',
+    runId: interactionStart.json.run.run.runId,
+    interactionRequestId: firstInteractionRequest.interactionRequestId,
+    payload: {
+      subject: 'Fixture Topic',
+    },
+  });
+  assert.equal(firstInteractionResponse.status, 200);
+  assert.equal(firstInteractionResponse.json.run.run.status, 'waiting_interaction');
+  assert.ok(firstInteractionResponse.json.events.some((event) => event.kind === 'interaction.responded'));
+  const answeredInteraction = firstInteractionResponse.json.run.interactionRequests.find(
+    (item) => item.interactionRequestId === firstInteractionRequest.interactionRequestId,
+  );
+  assert.equal(answeredInteraction?.status, 'answered');
+  const confirmationInteraction = firstInteractionResponse.json.run.interactionRequests.find(
+    (item) => item.status === 'pending',
+  );
+  assert.ok(confirmationInteraction);
+
+  const confirmationResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
+    schemaVersion: 'v1',
+    traceId: randomUUID(),
+    sessionId: 's-runtime-interaction',
+    userId: 'u-runtime',
+    runId: interactionStart.json.run.run.runId,
+    interactionRequestId: confirmationInteraction.interactionRequestId,
+    payload: {
+      confirmed: true,
+      comment: 'proceed',
+    },
+  });
+  assert.equal(confirmationResponse.status, 200);
+  assert.equal(confirmationResponse.json.run.run.status, 'completed');
+  assert.ok(confirmationResponse.json.events.some((event) => event.kind === 'interaction.responded'));
+  assert.ok(
+    confirmationResponse.json.run.artifacts.some((artifact) => artifact.artifactType === 'InteractionFixtureArtifact'),
+  );
 });

@@ -188,7 +188,7 @@ export function RunNodeProgressList(props: { nodeRuns: WorkflowNodeRunRecord[] }
               </div>
             </div>
             <span data-ui="text" data-variant="caption" data-tone="secondary">
-              {nodeRun.nodeType} · task {nodeRun.taskId || nodeRun.questionId || 'n/a'}
+              {nodeRun.nodeType} · interaction {nodeRun.interactionRequestId || nodeRun.waitKey || 'n/a'}
             </span>
           </div>
         </div>
@@ -418,8 +418,8 @@ export function describeRunBlockers(run: WorkflowRunSnapshot): string {
   if (run.run.status === 'waiting_approval') {
     return `${run.approvals.filter((item) => item.status === 'pending').length} approval gates pending`;
   }
-  if (run.run.status === 'waiting_input') {
-    return 'waiting for external reply token';
+  if (run.run.status === 'waiting_interaction') {
+    return 'waiting for interaction response';
   }
   if (run.run.status === 'failed') {
     return 'run failed before reaching terminal delivery';

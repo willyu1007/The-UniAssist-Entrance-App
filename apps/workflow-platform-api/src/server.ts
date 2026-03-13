@@ -170,6 +170,8 @@ app.post('/v1/runs', controller.startRun);
 app.get('/v1/runs', controller.listRuns);
 app.get('/v1/runs/:runId', controller.getRun);
 app.post('/v1/runs/:runId/resume', controller.resumeRun);
+app.post('/v1/interactions/:interactionRequestId/responses', controller.respondInteraction);
+app.post('/v1/runs/:runId/interactions/:interactionRequestId/responses', controller.respondInteraction);
 app.get('/v1/approvals', controller.listApprovals);
 app.get('/v1/approvals/queue', controller.listApprovalQueue);
 app.get('/v1/approvals/:approvalRequestId', controller.getApprovalDetail);

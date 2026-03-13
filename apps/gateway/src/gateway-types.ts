@@ -1,6 +1,7 @@
 import type { Request } from 'express';
 
 import type { ProviderManifest, TaskExecutionPolicy, TaskLifecycleState } from '@baseinterface/contracts';
+import type { WorkflowFormalEvent } from '@baseinterface/workflow-contracts';
 import type { StoredSession } from './persistence';
 
 export type RawBodyRequest = Request & { rawBody?: string };
@@ -14,6 +15,25 @@ export type ProviderRegistryEntry = {
   keywords: string[];
   enabled: boolean;
   manifest?: ProviderManifest;
+};
+
+export type WorkflowEntryRegistryEntry = {
+  compatProviderId: string;
+  workflowKey: string;
+  matchKeywords: string[];
+  enabled: boolean;
+  defaultExecutorId: string;
+  defaultTemplateVersionRef?: string;
+};
+
+export type WorkflowEventProjectionRequest = {
+  schemaVersion: 'v1';
+  traceId: string;
+  sessionId: string;
+  userId: string;
+  compatProviderId: string;
+  runId: string;
+  events: WorkflowFormalEvent[];
 };
 
 export type TaskThreadState = {

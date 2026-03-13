@@ -179,7 +179,7 @@ function scheduleInitialCallbacks(session: BridgeSession): void {
     if (session.status === 'cancelled') return;
     session.status = 'waiting_approval';
     session.resumeToken = crypto.randomUUID();
-    await postCallback(session, 'approval_requested', {
+    await postCallback(session, 'approval.requested', {
       prompt: 'Approve sample bridge execution to continue.',
       requestedActorId: session.userId,
       resumeToken: session.resumeToken,

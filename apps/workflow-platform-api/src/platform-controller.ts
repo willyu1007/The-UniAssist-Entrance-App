@@ -32,9 +32,9 @@ import type {
   WorkflowDraftIntakeRequest,
   WorkflowDraftPublishRequest,
   WorkflowDraftSpecPatchRequest,
+  WorkflowInteractionResponseRequest,
   WorkflowRunCancelRequest,
-  WorkflowResumeRequest,
-  WorkflowStartRequest,
+  WorkflowVersionRunStartRequest,
 } from '@baseinterface/workflow-contracts';
 import { isPlatformError, PlatformError } from './platform-errors';
 import type { PlatformService } from './platform-service';
@@ -194,15 +194,11 @@ function requireDraftSpecPatch(value: unknown): WorkflowDraftSpecPatch {
     const entryNode = 'entryNode' in patchValue ? patchValue.entryNode : undefined;
     const workflowKey = 'workflowKey' in patchValue ? patchValue.workflowKey : undefined;
     const name = 'name' in patchValue ? patchValue.name : undefined;
-    const compatProviderId = 'compatProviderId' in patchValue ? patchValue.compatProviderId : undefined;
     if (workflowKey !== undefined && typeof workflowKey !== 'string') {
       throw new PlatformError(400, 'INVALID_REQUEST', 'patch.value.workflowKey must be a string');
     }
     if (name !== undefined && typeof name !== 'string') {
       throw new PlatformError(400, 'INVALID_REQUEST', 'patch.value.name must be a string');
-    }
-    if (compatProviderId !== undefined && typeof compatProviderId !== 'string') {
-      throw new PlatformError(400, 'INVALID_REQUEST', 'patch.value.compatProviderId must be a string');
     }
     if (entryNode !== undefined && typeof entryNode !== 'string') {
       throw new PlatformError(400, 'INVALID_REQUEST', 'patch.value.entryNode must be a string');
@@ -213,9 +209,6 @@ function requireDraftSpecPatch(value: unknown): WorkflowDraftSpecPatch {
     }
     if ('name' in patchValue) {
       metadataValue.name = name as string | undefined;
-    }
-    if ('compatProviderId' in patchValue) {
-      metadataValue.compatProviderId = compatProviderId as string | undefined;
     }
     if ('entryNode' in patchValue) {
       metadataValue.entryNode = entryNode as string | undefined;
@@ -372,15 +365,14 @@ export function createPlatformController(
 
     startRun: async (req: Request, res: Response) => {
       try {
-        const body = req.body as WorkflowStartRequest;
+        const body = req.body as WorkflowVersionRunStartRequest;
         ensureSchemaVersion(body?.schemaVersion);
         const response = await service.startRun({
           schemaVersion: 'v1',
           traceId: requireString(body.traceId, 'traceId'),
           sessionId: requireString(body.sessionId, 'sessionId'),
           userId: requireString(body.userId, 'userId'),
-          workflowKey: requireString(body.workflowKey, 'workflowKey'),
-          templateVersionId: optionalString(body.templateVersionId),
+          workflowTemplateVersionId: requireString(body.workflowTemplateVersionId, 'workflowTemplateVersionId'),
           inputText: optionalString(body.inputText),
           inputPayload: body.inputPayload,
         });
@@ -413,20 +405,26 @@ export function createPlatformController(
     },
 
     resumeRun: async (req: Request, res: Response) => {
+      res.status(410).json({
+        error: 'generic run resume has been removed; use /v1/interactions/:interactionRequestId/responses',
+        code: 'WORKFLOW_RUN_RESUME_REMOVED',
+      });
+    },
+
+    respondInteraction: async (req: Request, res: Response) => {
       try {
-        const body = req.body as Omit<WorkflowResumeRequest, 'runId'>;
+        const body = req.body as WorkflowInteractionResponseRequest;
         ensureSchemaVersion(body?.schemaVersion);
-        const response = await service.resumeRun({
-          schemaVersion: 'v1',
-          traceId: requireString(body.traceId, 'traceId'),
-          sessionId: requireString(body.sessionId, 'sessionId'),
-          userId: requireString(body.userId, 'userId'),
-          runId: requireString(req.params.runId, 'runId'),
-          actionId: requireString(body.actionId, 'actionId'),
-          replyToken: optionalString(body.replyToken),
-          taskId: optionalString(body.taskId),
-          payload: body.payload,
-        });
+        const response = await service.respondInteraction(
+          requireString(req.params.interactionRequestId, 'interactionRequestId'),
+          {
+            schemaVersion: 'v1',
+            traceId: requireString(body.traceId, 'traceId'),
+            userId: requireString(body.userId, 'userId'),
+            payload: body.payload,
+          },
+          typeof req.params.runId === 'string' && req.params.runId.trim() ? req.params.runId : undefined,
+        );
         await publishRunSnapshotEvents(runboardProjection, controlConsoleBroker, response.run);
         res.json(response);
       } catch (error) {

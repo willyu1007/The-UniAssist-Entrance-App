@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Status note: `T-033` 已建立为 pure-`v1` rewrite 的 contract baseline task；当前仅完成任务包建档，尚未进入实现。
-- Next step: 从 `T-032` 接手 pure-`v1` object model、DTO、event model、OpenAPI 和 schema planning 的冻结工作。
+- State: in_progress
+- Status note: `T-033` 已完成 contract baseline 主体落地：main contract package、OpenAPI baseline、Prisma SSOT、DB context 与主要 consumer 编译面已经切到 pure-`v1`。
+- Next step: 将 runtime 内部 compat executor/bridge adapter 的残余 provider/task 语义继续压缩，并在 `T-034` / `T-036` 中完成行为层纯化。
 
 ## Goal
 重建 pure-`v1` 的 authoritative contract baseline，使后续所有实现任务都不再依赖 `/v0`、compat projection 或 provider-centric 语义。
@@ -20,8 +20,8 @@
 - `T-019`、`T-021` 提供 agent/governance 设计输入，但它们不能替代主线 contract reset。
 
 ## Acceptance criteria (high level)
-- [ ] pure-`v1` authoritative objects、DTO、formal events、resume model 已冻结
-- [ ] `compatProviderId`、`replyToken`、`taskId`、`WorkflowEntryRegistryEntry` 等概念已从主线合同和 API 基线中剔除
-- [ ] `agent-first` run entry 与 `interaction/approval` resume contract 已定义为唯一主线语义
-- [ ] `docs/context/api/openapi.yaml` 的 pure-`v1` contract scope 已定义
-- [ ] `prisma/schema.prisma` 和 `docs/context/db/schema.json` 的调整边界已形成 handoff-ready 计划
+- [x] pure-`v1` authoritative objects、DTO、formal events、resume model 已冻结
+- [x] `compatProviderId`、`WorkflowEntryRegistryEntry` 等概念已从主线合同、Prisma SSOT、OpenAPI 基线和主 UI/API surface 中剔除
+- [x] `agent-first` run entry 与 `interaction/approval` split resume contract 已定义为唯一主线语义
+- [x] `docs/context/api/openapi.yaml` 的 pure-`v1` contract scope 已定义
+- [x] `prisma/schema.prisma` 与 `docs/context/db/schema.json` 已同步刷新

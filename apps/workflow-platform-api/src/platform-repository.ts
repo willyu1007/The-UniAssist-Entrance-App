@@ -44,7 +44,6 @@ function toWorkflowTemplateRecord(row: Record<string, unknown>): WorkflowTemplat
     workflowId: String(row.workflow_id),
     workflowKey: String(row.workflow_key),
     name: String(row.name),
-    compatProviderId: String(row.compat_provider_id),
     status: row.status === 'archived' ? 'archived' : 'active',
     createdAt: toMs(row.created_at),
     updatedAt: toMs(row.updated_at),
@@ -445,7 +444,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async listWorkflows(): Promise<WorkflowTemplateRecord[]> {
     const result = await this.queryable.query(`
-      SELECT workflow_id, workflow_key, name, compat_provider_id, status, created_at, updated_at
+      SELECT workflow_id, workflow_key, name, status, created_at, updated_at
       FROM workflow_templates
       ORDER BY workflow_key ASC
     `);
@@ -454,7 +453,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async getWorkflow(workflowId: string): Promise<WorkflowDetail | undefined> {
     const workflowResult = await this.queryable.query(`
-      SELECT workflow_id, workflow_key, name, compat_provider_id, status, created_at, updated_at
+      SELECT workflow_id, workflow_key, name, status, created_at, updated_at
       FROM workflow_templates
       WHERE workflow_id = $1
     `, [workflowId]);
@@ -477,7 +476,7 @@ export class PostgresPlatformRepository implements PlatformRepository {
 
   async getWorkflowByKey(workflowKey: string): Promise<WorkflowTemplateRecord | undefined> {
     const result = await this.queryable.query(`
-      SELECT workflow_id, workflow_key, name, compat_provider_id, status, created_at, updated_at
+      SELECT workflow_id, workflow_key, name, status, created_at, updated_at
       FROM workflow_templates
       WHERE workflow_key = $1
     `, [workflowKey]);
@@ -512,17 +511,15 @@ export class PostgresPlatformRepository implements PlatformRepository {
         workflow_id,
         workflow_key,
         name,
-        compat_provider_id,
         status,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, to_timestamp($6 / 1000.0), to_timestamp($7 / 1000.0))
-      RETURNING workflow_id, workflow_key, name, compat_provider_id, status, created_at, updated_at
+      ) VALUES ($1, $2, $3, $4, to_timestamp($5 / 1000.0), to_timestamp($6 / 1000.0))
+      RETURNING workflow_id, workflow_key, name, status, created_at, updated_at
     `, [
       record.workflowId,
       record.workflowKey,
       record.name,
-      record.compatProviderId,
       record.status,
       record.createdAt,
       record.updatedAt,
@@ -535,16 +532,14 @@ export class PostgresPlatformRepository implements PlatformRepository {
       UPDATE workflow_templates
       SET workflow_key = $2,
           name = $3,
-          compat_provider_id = $4,
-          status = $5,
-          updated_at = to_timestamp($6 / 1000.0)
+          status = $4,
+          updated_at = to_timestamp($5 / 1000.0)
       WHERE workflow_id = $1
-      RETURNING workflow_id, workflow_key, name, compat_provider_id, status, created_at, updated_at
+      RETURNING workflow_id, workflow_key, name, status, created_at, updated_at
     `, [
       record.workflowId,
       record.workflowKey,
       record.name,
-      record.compatProviderId,
       record.status,
       record.updatedAt,
     ]);

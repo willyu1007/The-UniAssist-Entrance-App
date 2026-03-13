@@ -10,6 +10,7 @@ import type {
   WorkflowApprovalDetailResponse,
   WorkflowApprovalQueueResponse,
   WorkflowArtifactDetailResponse,
+  WorkflowInteractionRequestRecord,
   WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRuntimeBridgeCallbackRequest,
@@ -80,6 +81,18 @@ const runtimeService = createWorkflowRuntimeService({
   uuid,
 });
 
+function handleRuntimeError(res: Response, error: unknown): void {
+  if (error && typeof error === 'object' && 'status' in error) {
+    const runtimeError = error as { status: number; code?: unknown };
+    res.status(Number(runtimeError.status) || 400).json({
+      error: error instanceof Error ? error.message : String(error),
+      code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+    });
+    return;
+  }
+  res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+}
+
 async function guardInternalAuth(
   req: RawBodyRequest,
   res: Response,
@@ -133,7 +146,7 @@ app.post('/internal/runtime/resume-run', async (req: RawBodyRequest, res) => {
     const response = await runtimeService.resumeRun(payload);
     res.json(response);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+    handleRuntimeError(res, error);
   }
 });
 
@@ -261,6 +274,21 @@ app.get('/internal/runtime/runs/:runId', async (req: RawBodyRequest, res) => {
   res.json(response);
 });
 
+app.get('/internal/runtime/interactions/:interactionRequestId', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  const interactionRequest = await runtimeService.getInteractionRequest(req.params.interactionRequestId);
+  if (!interactionRequest) {
+    res.status(404).json({ error: 'interaction request not found' });
+    return;
+  }
+  res.json({
+    schemaVersion: 'v1',
+    runId: interactionRequest.runId,
+    interactionRequest: interactionRequest as WorkflowInteractionRequestRecord,
+  });
+});
+
 app.get('/internal/runtime/approvals', async (req: RawBodyRequest, res) => {
   const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
   if (!authorized) return;
@@ -308,7 +336,7 @@ app.post('/internal/runtime/approvals/:approvalRequestId/decision', async (req: 
     );
     res.json(response);
   } catch (error) {
-    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+    handleRuntimeError(res, error);
   }
 });
 

@@ -6,20 +6,18 @@ import type {
 
 export const CANONICAL_RND_COLLAB_WORKFLOW_KEY = 'sample-b8-rnd-collab';
 export const CANONICAL_RND_COLLAB_EVENT_WORKFLOW_KEY = 'sample-b8-rnd-collab-event';
-export const CANONICAL_RND_COLLAB_COMPAT_PROVIDER_ID = 'sample';
 
 export function buildCanonicalRndCollabWorkflowSpec(): WorkflowTemplateSpec {
   return {
     schemaVersion: 'v1',
     workflowKey: CANONICAL_RND_COLLAB_WORKFLOW_KEY,
     name: 'R&D Collaboration Validation Sample',
-    compatProviderId: CANONICAL_RND_COLLAB_COMPAT_PROVIDER_ID,
     entryNode: 'capture_change_intent',
     nodes: [
       {
         nodeKey: 'capture_change_intent',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'collab-capture-intent',
         transitions: {
           success: 'synthesize_execution_plan',
         },
@@ -27,7 +25,7 @@ export function buildCanonicalRndCollabWorkflowSpec(): WorkflowTemplateSpec {
       {
         nodeKey: 'synthesize_execution_plan',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'collab-synthesize-plan',
         transitions: {
           success: 'risk_review',
         },
@@ -78,7 +76,7 @@ export function buildCanonicalRndCollabWorkflowSpec(): WorkflowTemplateSpec {
       {
         nodeKey: 'summarize_delivery',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'collab-summarize-delivery',
         transitions: {
           success: 'finish',
         },
@@ -101,13 +99,12 @@ export function buildCanonicalRndCollabEventWorkflowSpec(): WorkflowTemplateSpec
     schemaVersion: 'v1',
     workflowKey: CANONICAL_RND_COLLAB_EVENT_WORKFLOW_KEY,
     name: 'R&D Collaboration Validation Event Sample',
-    compatProviderId: CANONICAL_RND_COLLAB_COMPAT_PROVIDER_ID,
     entryNode: 'capture_validation_signal',
     nodes: [
       {
         nodeKey: 'capture_validation_signal',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'collab-capture-signal',
         transitions: {
           success: 'issue_upsert',
         },
@@ -187,7 +184,6 @@ function buildTemplateRecord(
     workflowId,
     workflowKey: spec.workflowKey,
     name: spec.name,
-    compatProviderId: spec.compatProviderId,
     status: 'active',
     createdAt: timestampMs,
     updatedAt: timestampMs,

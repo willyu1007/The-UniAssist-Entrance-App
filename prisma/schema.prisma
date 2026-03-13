@@ -121,13 +121,12 @@ model TaskThread {
 }
 
 model WorkflowTemplate {
-  workflowId       String   @id @map("workflow_id")
-  workflowKey      String   @unique @map("workflow_key")
-  name             String
-  compatProviderId String   @map("compat_provider_id")
-  status           String
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  workflowId  String   @id @map("workflow_id")
+  workflowKey String   @unique @map("workflow_key")
+  name        String
+  status      String
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
 
   @@index([status], map: "idx_workflow_templates_status")
   @@map("workflow_templates")
@@ -216,10 +215,11 @@ model WorkflowRun {
   runId             String    @id @map("run_id")
   templateId        String    @map("template_id")
   templateVersionId String    @map("template_version_id")
+  agentId           String?   @map("agent_id")
+  startMode         String    @default("debug_version") @map("start_mode")
   status            String
   sessionId         String    @map("session_id")
   userId            String    @map("user_id")
-  compatProviderId  String    @map("compat_provider_id")
   currentNodeRunId  String?   @map("current_node_run_id")
   metadataJson      Json?     @map("metadata_json")
   createdAt         DateTime  @default(now()) @map("created_at")
@@ -228,31 +228,30 @@ model WorkflowRun {
 
   @@index([sessionId], map: "idx_workflow_runs_session_id")
   @@index([templateId, status], map: "idx_workflow_runs_template_status")
+  @@index([agentId], map: "idx_workflow_runs_agent_id")
   @@map("workflow_runs")
 }
 
 model WorkflowNodeRun {
-  nodeRunId        String   @id @map("node_run_id")
-  runId            String   @map("run_id")
-  nodeKey          String   @map("node_key")
-  nodeType         String   @map("node_type")
-  status           String
-  executorId       String?  @map("executor_id")
-  attempt          Int      @default(1)
-  inputJson        Json?    @map("input_json")
-  outputArtifactId String?  @map("output_artifact_id")
-  waitKey          String?  @map("wait_key")
-  taskId           String?  @map("task_id")
-  questionId       String?  @map("question_id")
-  replyToken       String?  @map("reply_token")
-  compatTaskState  String?  @map("compat_task_state")
-  executionPolicy  String?  @map("execution_policy")
-  metadataJson     Json?    @map("metadata_json")
-  createdAt        DateTime @default(now()) @map("created_at")
-  updatedAt        DateTime @updatedAt @map("updated_at")
+  nodeRunId             String   @id @map("node_run_id")
+  runId                 String   @map("run_id")
+  nodeKey               String   @map("node_key")
+  nodeType              String   @map("node_type")
+  status                String
+  executorId            String?  @map("executor_id")
+  attempt               Int      @default(1)
+  inputJson             Json?    @map("input_json")
+  outputArtifactId      String?  @map("output_artifact_id")
+  waitKey               String?  @map("wait_key")
+  interactionRequestId  String?  @map("interaction_request_id")
+  executionPolicy       String?  @map("execution_policy")
+  metadataJson          Json?    @map("metadata_json")
+  createdAt             DateTime @default(now()) @map("created_at")
+  updatedAt             DateTime @updatedAt @map("updated_at")
 
   @@index([runId], map: "idx_workflow_node_runs_run_id")
   @@index([runId, status], map: "idx_workflow_node_runs_run_status")
+  @@index([interactionRequestId], map: "idx_workflow_node_runs_interaction_request_id")
   @@map("workflow_node_runs")
 }
 
@@ -301,6 +300,28 @@ model ApprovalDecision {
 
   @@index([approvalRequestId], map: "idx_approval_decisions_request_id")
   @@map("approval_decisions")
+}
+
+model InteractionRequest {
+  interactionRequestId String    @id @map("interaction_request_id")
+  runId                String    @map("run_id")
+  nodeRunId            String?   @map("node_run_id")
+  status               String
+  prompt               String
+  answerSchemaJson     Json      @map("answer_schema_json")
+  uiSchemaJson         Json      @map("ui_schema_json")
+  payloadJson          Json?     @map("payload_json")
+  responsePayloadJson  Json?     @map("response_payload_json")
+  expiresAt            DateTime? @map("expires_at")
+  respondedAt          DateTime? @map("responded_at")
+  metadataJson         Json?     @map("metadata_json")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  @@index([runId], map: "idx_interaction_requests_run_id")
+  @@index([status], map: "idx_interaction_requests_status")
+  @@index([nodeRunId], map: "idx_interaction_requests_node_run_id")
+  @@map("interaction_requests")
 }
 
 model AgentDefinition {

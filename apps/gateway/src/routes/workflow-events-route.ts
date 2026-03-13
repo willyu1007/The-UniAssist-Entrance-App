@@ -1,10 +1,9 @@
 import type { Express } from 'express';
 
 import type { UnifiedUserInput } from '@baseinterface/contracts';
-import type { WorkflowEventProjectionRequest } from '@baseinterface/workflow-contracts';
 import type { EmitProviderEvents, GatewayServiceBundle } from '../gateway-services';
 import { translateWorkflowFormalEvents } from '../gateway-workflow-events';
-import type { RawBodyRequest } from '../gateway-types';
+import type { RawBodyRequest, WorkflowEventProjectionRequest } from '../gateway-types';
 
 export function registerWorkflowEventsRoute(
   app: Express,

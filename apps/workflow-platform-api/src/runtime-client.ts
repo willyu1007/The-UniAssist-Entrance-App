@@ -7,12 +7,19 @@ import type {
   WorkflowApprovalQueueResponse,
   WorkflowArtifactDetailResponse,
   WorkflowCommandResponse,
+  WorkflowInteractionRequestRecord,
   WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
 import { PlatformError } from './platform-errors';
+
+type RuntimeInteractionLookupResponse = {
+  schemaVersion: 'v1';
+  runId: string;
+  interactionRequest: WorkflowInteractionRequestRecord;
+};
 
 type RuntimeClientDeps = {
   baseUrl: string;
@@ -51,6 +58,10 @@ export class RuntimeClient {
 
   async getRun(runId: string): Promise<WorkflowRunQueryResponse> {
     return this.get(`/internal/runtime/runs/${encodeURIComponent(runId)}`, this.runtimeServiceId);
+  }
+
+  async getInteractionRequest(interactionRequestId: string): Promise<RuntimeInteractionLookupResponse> {
+    return this.get(`/internal/runtime/interactions/${encodeURIComponent(interactionRequestId)}`, this.runtimeServiceId);
   }
 
   async listRuns(limit = 25): Promise<WorkflowRunListResponse> {

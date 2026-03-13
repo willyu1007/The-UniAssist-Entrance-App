@@ -1,11 +1,2030 @@
 openapi: 3.1.0
 info:
-  title: Project API
-  version: 0.1.0
+  title: UA Workflow Platform API
+  version: 1.0.0-t033
   description: |
-    This is the canonical API contract for this repository.
-    Update this file via `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs` (registry + verification).
+    Pure-v1 authoritative API baseline frozen by T-033.
+
+    Contract rules:
+    - `POST /v1/agents/{agentId}/runs` is the only production ingress.
+    - `POST /v1/runs` is studio/debug-only direct version start.
+    - Approval and interaction resumes are split by authoritative identities.
+    - Governance-change request endpoints remain auxiliary proposal storage and are not authoritative runtime approval state.
 servers: []
-paths: {}
+tags:
+  - name: Workflow Templates
+  - name: Workflow Drafts
+  - name: Runs
+  - name: Approvals
+  - name: Interactions
+  - name: Artifacts
+  - name: Agents
+  - name: Trigger Bindings
+  - name: Connectors
+  - name: Bridge Registrations
+  - name: Policy
+  - name: Governance Change Proposals
+paths:
+  /v1/workflows:
+    get:
+      tags: [Workflow Templates]
+      summary: List published workflow templates.
+      responses:
+        "200":
+          description: Workflow template list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowTemplateListResponse"
+  /v1/workflows/{workflowId}:
+    get:
+      tags: [Workflow Templates]
+      summary: Get a workflow template and its published versions.
+      parameters:
+        - $ref: "#/components/parameters/workflowId"
+      responses:
+        "200":
+          description: Workflow detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDetailResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /v1/workflow-drafts:
+    get:
+      tags: [Workflow Drafts]
+      summary: List workflow drafts visible to the current control-plane session.
+      responses:
+        "200":
+          description: Draft list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftListResponse"
+    post:
+      tags: [Workflow Drafts]
+      summary: Create a workflow draft.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftCreateRequest"
+      responses:
+        "200":
+          description: Draft created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftMutateResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+  /v1/workflow-drafts/{draftId}:
+    get:
+      tags: [Workflow Drafts]
+      summary: Get a workflow draft.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      responses:
+        "200":
+          description: Draft detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftDetailResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/workflow-drafts/{draftId}/revisions:
+    get:
+      tags: [Workflow Drafts]
+      summary: List revisions for a workflow draft.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      responses:
+        "200":
+          description: Draft revisions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DraftRevisionListResponse"
+  /v1/workflow-drafts/{draftId}/focus:
+    post:
+      tags: [Workflow Drafts]
+      summary: Focus a draft in the current authoring session.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftFocusRequest"
+      responses:
+        "200":
+          description: Draft focused.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftFocusResponse"
+  /v1/workflow-drafts/{draftId}/intake:
+    post:
+      tags: [Workflow Drafts]
+      summary: Append authoring intake to a draft.
+      description: Authoring helper only. Not production ingress.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftIntakeRequest"
+      responses:
+        "200":
+          description: Draft updated from intake.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftMutateResponse"
+  /v1/workflow-drafts/{draftId}/synthesize:
+    post:
+      tags: [Workflow Drafts]
+      summary: Synthesize a draft into a publish-ready spec candidate.
+      description: Authoring helper only. Not production ingress.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftFocusRequest"
+      responses:
+        "200":
+          description: Draft synthesized.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftMutateResponse"
+  /v1/workflow-drafts/{draftId}/validate:
+    post:
+      tags: [Workflow Drafts]
+      summary: Validate a draft against pure-v1 publishing rules.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftFocusRequest"
+      responses:
+        "200":
+          description: Draft validated.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftMutateResponse"
+  /v1/workflow-drafts/{draftId}/publish:
+    post:
+      tags: [Workflow Drafts]
+      summary: Publish a draft into an authoritative workflow template version.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftPublishRequest"
+      responses:
+        "200":
+          description: Draft published.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftPublishResponse"
+  /v1/workflow-drafts/{draftId}/spec:
+    patch:
+      tags: [Workflow Drafts]
+      summary: Patch the current authoring spec for a draft.
+      parameters:
+        - $ref: "#/components/parameters/draftId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowDraftSpecPatchRequest"
+      responses:
+        "200":
+          description: Draft spec patched.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowDraftSpecPatchResponse"
+
+  /v1/agents:
+    get:
+      tags: [Agents]
+      summary: List agent definitions.
+      responses:
+        "200":
+          description: Agent list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDefinitionListResponse"
+    post:
+      tags: [Agents]
+      summary: Create an agent definition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentDefinitionCreateRequest"
+      responses:
+        "200":
+          description: Agent created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDefinitionResponse"
+  /v1/agents/{agentId}:
+    get:
+      tags: [Agents]
+      summary: Get an agent definition.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      responses:
+        "200":
+          description: Agent detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDefinitionResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/agents/{agentId}/runs:
+    post:
+      tags: [Runs, Agents]
+      summary: Start a production run from an authoritative agent.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AgentRunStartRequest"
+      responses:
+        "200":
+          description: Run started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowCommandResponse"
+        "400":
+          $ref: "#/components/responses/Error"
+  /v1/agents/{agentId}/trigger-bindings:
+    get:
+      tags: [Trigger Bindings, Agents]
+      summary: List trigger bindings owned by an agent.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      responses:
+        "200":
+          description: Trigger binding list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerBindingListResponse"
+    post:
+      tags: [Trigger Bindings, Agents]
+      summary: Create a trigger binding for an agent.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerBindingCreateRequest"
+      responses:
+        "200":
+          description: Trigger binding created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerBindingResponse"
+  /v1/trigger-bindings/{triggerBindingId}/enable:
+    post:
+      tags: [Trigger Bindings]
+      summary: Enable a trigger binding.
+      parameters:
+        - $ref: "#/components/parameters/triggerBindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerBindingLifecycleRequest"
+      responses:
+        "200":
+          description: Trigger binding enabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerBindingResponse"
+  /v1/trigger-bindings/{triggerBindingId}/disable:
+    post:
+      tags: [Trigger Bindings]
+      summary: Disable a trigger binding.
+      parameters:
+        - $ref: "#/components/parameters/triggerBindingId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TriggerBindingLifecycleRequest"
+      responses:
+        "200":
+          description: Trigger binding disabled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TriggerBindingResponse"
+
+  /v1/runs:
+    get:
+      tags: [Runs]
+      summary: List recent workflow runs.
+      responses:
+        "200":
+          description: Run list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRunListResponse"
+    post:
+      tags: [Runs]
+      summary: Start a direct studio/debug run from a published workflow version.
+      description: Non-production entry path. Use only for studio/debug flows.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowVersionRunStartRequest"
+      responses:
+        "200":
+          description: Run started.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowCommandResponse"
+  /v1/runs/{runId}:
+    get:
+      tags: [Runs]
+      summary: Get a workflow run snapshot.
+      parameters:
+        - $ref: "#/components/parameters/runId"
+      responses:
+        "200":
+          description: Run detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowRunQueryResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/runs/{runId}/cancel:
+    post:
+      tags: [Runs]
+      summary: Cancel an in-flight workflow run.
+      parameters:
+        - $ref: "#/components/parameters/runId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowRunCancelRequest"
+      responses:
+        "200":
+          description: Run cancelled.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowCommandResponse"
+  /v1/approvals:
+    get:
+      tags: [Approvals]
+      summary: List approval requests.
+      responses:
+        "200":
+          description: Approval request list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowApprovalListResponse"
+  /v1/approvals/queue:
+    get:
+      tags: [Approvals]
+      summary: List approval queue items for operator review.
+      responses:
+        "200":
+          description: Approval queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowApprovalQueueResponse"
+  /v1/approvals/{approvalRequestId}:
+    get:
+      tags: [Approvals]
+      summary: Get approval detail.
+      parameters:
+        - $ref: "#/components/parameters/approvalRequestId"
+      responses:
+        "200":
+          description: Approval detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowApprovalDetailResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/approvals/{approvalRequestId}/decision:
+    post:
+      tags: [Approvals]
+      summary: Decide an approval request.
+      parameters:
+        - $ref: "#/components/parameters/approvalRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowApprovalDecisionRequest"
+      responses:
+        "200":
+          description: Approval decision applied.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowApprovalDecisionResponse"
+  /v1/interactions/{interactionRequestId}/responses:
+    post:
+      tags: [Interactions]
+      summary: Submit an interaction response.
+      description: The authoritative interaction resume path. Generic run resume is removed from the mainline API.
+      parameters:
+        - $ref: "#/components/parameters/interactionRequestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/WorkflowInteractionResponseRequest"
+      responses:
+        "200":
+          description: Interaction response accepted.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowInteractionResponseResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+  /v1/artifacts/{artifactId}:
+    get:
+      tags: [Artifacts]
+      summary: Get artifact detail.
+      parameters:
+        - $ref: "#/components/parameters/artifactId"
+      responses:
+        "200":
+          description: Artifact detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WorkflowArtifactDetailResponse"
+        "404":
+          $ref: "#/components/responses/Error"
+
+  /v1/bridge-registrations:
+    get:
+      tags: [Bridge Registrations]
+      summary: List external runtime bridge registrations.
+      responses:
+        "200":
+          description: Bridge list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BridgeRegistrationListResponse"
+    post:
+      tags: [Bridge Registrations]
+      summary: Create an external runtime bridge registration.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BridgeRegistrationCreateRequest"
+      responses:
+        "200":
+          description: Bridge created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BridgeRegistrationResponse"
+  /v1/bridge-registrations/{bridgeId}:
+    get:
+      tags: [Bridge Registrations]
+      summary: Get an external runtime bridge registration.
+      parameters:
+        - $ref: "#/components/parameters/bridgeId"
+      responses:
+        "200":
+          description: Bridge detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BridgeRegistrationResponse"
+  /v1/connector-definitions:
+    get:
+      tags: [Connectors]
+      summary: List connector definitions.
+      responses:
+        "200":
+          description: Connector definition list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorDefinitionListResponse"
+    post:
+      tags: [Connectors]
+      summary: Create a connector definition.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectorDefinitionCreateRequest"
+      responses:
+        "200":
+          description: Connector definition created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorDefinitionResponse"
+  /v1/connector-bindings:
+    get:
+      tags: [Connectors]
+      summary: List connector bindings.
+      responses:
+        "200":
+          description: Connector binding list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorBindingListResponse"
+    post:
+      tags: [Connectors]
+      summary: Create a connector binding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ConnectorBindingCreateRequest"
+      responses:
+        "200":
+          description: Connector binding created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConnectorBindingResponse"
+  /v1/agents/{agentId}/action-bindings:
+    get:
+      tags: [Connectors, Agents]
+      summary: List action bindings for an agent.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      responses:
+        "200":
+          description: Action binding list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionBindingListResponse"
+    post:
+      tags: [Connectors, Agents]
+      summary: Create an action binding for an agent.
+      parameters:
+        - $ref: "#/components/parameters/agentId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActionBindingCreateRequest"
+      responses:
+        "200":
+          description: Action binding created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActionBindingResponse"
+  /v1/event-subscriptions:
+    get:
+      tags: [Connectors]
+      summary: List event subscriptions.
+      responses:
+        "200":
+          description: Event subscription list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventSubscriptionListResponse"
+    post:
+      tags: [Connectors]
+      summary: Create an event subscription.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EventSubscriptionCreateRequest"
+      responses:
+        "200":
+          description: Event subscription created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventSubscriptionResponse"
+
+  /v1/policy-bindings:
+    get:
+      tags: [Policy]
+      summary: List policy bindings.
+      responses:
+        "200":
+          description: Policy binding list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyBindingListResponse"
+    post:
+      tags: [Policy]
+      summary: Create a policy binding.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PolicyBindingCreateRequest"
+      responses:
+        "200":
+          description: Policy binding created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PolicyBindingResponse"
+  /v1/secret-refs:
+    get:
+      tags: [Policy]
+      summary: List secret refs.
+      responses:
+        "200":
+          description: Secret ref list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretRefListResponse"
+    post:
+      tags: [Policy]
+      summary: Create a secret ref.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SecretRefCreateRequest"
+      responses:
+        "200":
+          description: Secret ref created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecretRefResponse"
+  /v1/scope-grants:
+    get:
+      tags: [Policy]
+      summary: List scope grants.
+      responses:
+        "200":
+          description: Scope grant list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScopeGrantListResponse"
+
+  /v1/governance-change-requests:
+    get:
+      tags: [Governance Change Proposals]
+      summary: List governance-change proposals.
+      description: Auxiliary proposal storage only. Not authoritative runtime approval state.
+      responses:
+        "200":
+          description: Governance-change request list.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceChangeRequestListResponse"
+    post:
+      tags: [Governance Change Proposals]
+      summary: Create a governance-change proposal.
+      description: Auxiliary proposal storage only. Not authoritative runtime approval state.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceChangeRequestCreateRequest"
+      responses:
+        "200":
+          description: Governance-change proposal created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceChangeRequestResponse"
+  /v1/governance-change-requests/{requestId}:
+    get:
+      tags: [Governance Change Proposals]
+      summary: Get a governance-change proposal.
+      description: Auxiliary proposal storage only. Not authoritative runtime approval state.
+      parameters:
+        - $ref: "#/components/parameters/requestId"
+      responses:
+        "200":
+          description: Governance-change proposal detail.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceChangeRequestDetailResponse"
+  /v1/governance-change-requests/{requestId}/approve:
+    post:
+      tags: [Governance Change Proposals]
+      summary: Approve a governance-change proposal.
+      description: Auxiliary proposal storage only. Not authoritative runtime approval state.
+      parameters:
+        - $ref: "#/components/parameters/requestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceChangeDecisionRequest"
+      responses:
+        "200":
+          description: Governance-change proposal approved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceChangeDecisionResponse"
+  /v1/governance-change-requests/{requestId}/reject:
+    post:
+      tags: [Governance Change Proposals]
+      summary: Reject a governance-change proposal.
+      description: Auxiliary proposal storage only. Not authoritative runtime approval state.
+      parameters:
+        - $ref: "#/components/parameters/requestId"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GovernanceChangeDecisionRequest"
+      responses:
+        "200":
+          description: Governance-change proposal rejected.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GovernanceChangeDecisionResponse"
+
 components:
-  schemas: {}
+  responses:
+    Error:
+      description: Error response.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  parameters:
+    workflowId:
+      name: workflowId
+      in: path
+      required: true
+      schema: { type: string }
+    draftId:
+      name: draftId
+      in: path
+      required: true
+      schema: { type: string }
+    agentId:
+      name: agentId
+      in: path
+      required: true
+      schema: { type: string }
+    runId:
+      name: runId
+      in: path
+      required: true
+      schema: { type: string }
+    approvalRequestId:
+      name: approvalRequestId
+      in: path
+      required: true
+      schema: { type: string }
+    interactionRequestId:
+      name: interactionRequestId
+      in: path
+      required: true
+      schema: { type: string }
+    artifactId:
+      name: artifactId
+      in: path
+      required: true
+      schema: { type: string }
+    bridgeId:
+      name: bridgeId
+      in: path
+      required: true
+      schema: { type: string }
+    triggerBindingId:
+      name: triggerBindingId
+      in: path
+      required: true
+      schema: { type: string }
+    requestId:
+      name: requestId
+      in: path
+      required: true
+      schema: { type: string }
+  schemas:
+    Error:
+      type: object
+      additionalProperties: false
+      properties:
+        code: { type: string }
+        error: { type: string }
+        detail: { type: string }
+      required: [error]
+    JsonObject:
+      type: object
+      additionalProperties: true
+    WorkflowNodeSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        nodeKey: { type: string }
+        nodeType: { type: string }
+        executorId: { type: string }
+        transitions:
+          $ref: "#/components/schemas/JsonObject"
+        config:
+          $ref: "#/components/schemas/JsonObject"
+      required: [nodeKey, nodeType]
+    WorkflowTemplateSpec:
+      type: object
+      additionalProperties: false
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workflowKey: { type: string }
+        name: { type: string }
+        entryNode: { type: string }
+        nodes:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowNodeSpec"
+        metadata:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, workflowKey, name, entryNode, nodes]
+    WorkflowDraftSpec:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowTemplateSpec"
+        - type: object
+          properties:
+            requirements:
+              type: array
+              items: { type: string }
+    WorkflowTemplateRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        workflowId: { type: string }
+        workflowKey: { type: string }
+        name: { type: string }
+        status: { type: string, enum: [active, archived] }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required: [workflowId, workflowKey, name, status, createdAt, updatedAt]
+    WorkflowTemplateVersionRecord:
+      type: object
+      additionalProperties: false
+      properties:
+        templateVersionId: { type: string }
+        workflowId: { type: string }
+        workflowKey: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [published, superseded, archived] }
+        spec:
+          $ref: "#/components/schemas/WorkflowTemplateSpec"
+        createdAt: { type: integer }
+      required: [templateVersionId, workflowId, workflowKey, version, status, spec, createdAt]
+    WorkflowTemplateListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workflows:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowTemplateRecord"
+      required: [schemaVersion, workflows]
+    WorkflowDetailResponse:
+      type: object
+      properties:
+        workflow:
+          $ref: "#/components/schemas/WorkflowTemplateRecord"
+        versions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowTemplateVersionRecord"
+      required: [workflow, versions]
+    DraftValidationSummary:
+      type: object
+      properties:
+        isPublishable: { type: boolean }
+        errors:
+          type: array
+          items: { type: string }
+        warnings:
+          type: array
+          items: { type: string }
+        checkedAt: { type: integer }
+    WorkflowDraftRecord:
+      type: object
+      properties:
+        draftId: { type: string }
+        workflowKey: { type: string }
+        name: { type: string }
+        status: { type: string }
+        basedOnTemplateVersionId: { type: string }
+        publishedTemplateVersionId: { type: string }
+        currentSpec:
+          $ref: "#/components/schemas/WorkflowDraftSpec"
+        latestValidationSummary:
+          $ref: "#/components/schemas/DraftValidationSummary"
+        publishable: { type: boolean }
+        activeRevisionNumber: { type: integer }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    WorkflowDraftSessionLinkRecord:
+      type: object
+      properties:
+        sessionId: { type: string }
+        draftId: { type: string }
+        userId: { type: string }
+        isActive: { type: boolean }
+        lastFocusedAt: { type: integer }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    DraftRevisionRecord:
+      type: object
+      properties:
+        revisionId: { type: string }
+        draftId: { type: string }
+        revisionNumber: { type: integer }
+        source: { type: string }
+        actorId: { type: string }
+        changeSummary: { type: string }
+        specSnapshot:
+          $ref: "#/components/schemas/WorkflowDraftSpec"
+        validationSummary:
+          $ref: "#/components/schemas/DraftValidationSummary"
+        createdAt: { type: integer }
+    DraftRevisionListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        revisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DraftRevisionRecord"
+      required: [schemaVersion, revisions]
+    WorkflowDraftListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        drafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftSessionLinkRecord"
+      required: [schemaVersion, drafts, sessionLinks]
+    WorkflowDraftDetailResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        draft:
+          $ref: "#/components/schemas/WorkflowDraftRecord"
+        revisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/DraftRevisionRecord"
+        sessionDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftSessionLinkRecord"
+      required: [schemaVersion, draft, revisions, sessionDrafts, sessionLinks]
+    WorkflowDraftMutateResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        draft:
+          $ref: "#/components/schemas/WorkflowDraftRecord"
+        revision:
+          $ref: "#/components/schemas/DraftRevisionRecord"
+        sessionDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftSessionLinkRecord"
+      required: [schemaVersion, draft, revision, sessionDrafts, sessionLinks]
+    WorkflowDraftFocusResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        draft:
+          $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftSessionLinkRecord"
+      required: [schemaVersion, draft, sessionDrafts, sessionLinks]
+    WorkflowDraftPublishResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        draft:
+          $ref: "#/components/schemas/WorkflowDraftRecord"
+        revision:
+          $ref: "#/components/schemas/DraftRevisionRecord"
+        workflow:
+          $ref: "#/components/schemas/WorkflowTemplateRecord"
+        version:
+          $ref: "#/components/schemas/WorkflowTemplateVersionRecord"
+        sessionDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftRecord"
+        sessionLinks:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowDraftSessionLinkRecord"
+      required: [schemaVersion, draft, revision, workflow, version, sessionDrafts, sessionLinks]
+    WorkflowDraftCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        sessionId: { type: string }
+        userId: { type: string }
+        workflowKey: { type: string }
+        name: { type: string }
+        basedOnTemplateVersionId: { type: string }
+        source: { type: string }
+        initialText: { type: string }
+      required: [schemaVersion, sessionId, userId]
+    WorkflowDraftFocusRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        sessionId: { type: string }
+        userId: { type: string }
+      required: [schemaVersion, sessionId, userId]
+    WorkflowDraftIntakeRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        sessionId: { type: string }
+        userId: { type: string }
+        text: { type: string }
+        source: { type: string }
+      required: [schemaVersion, sessionId, userId, text]
+    WorkflowDraftPublishRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        sessionId: { type: string }
+        userId: { type: string }
+      required: [schemaVersion, sessionId, userId]
+    WorkflowDraftSpecPatchRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        sessionId: { type: string }
+        userId: { type: string }
+        patch:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, sessionId, userId, patch]
+    WorkflowDraftSpecPatchResponse:
+      allOf:
+        - $ref: "#/components/schemas/WorkflowDraftMutateResponse"
+    AgentRunStartRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        traceId: { type: string }
+        sessionId: { type: string }
+        userId: { type: string }
+        inputText: { type: string }
+        inputPayload:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, traceId, sessionId, userId]
+    WorkflowVersionRunStartRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        traceId: { type: string }
+        sessionId: { type: string }
+        userId: { type: string }
+        workflowTemplateVersionId: { type: string }
+        inputText: { type: string }
+        inputPayload:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, traceId, sessionId, userId, workflowTemplateVersionId]
+    WorkflowRunCancelRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        traceId: { type: string }
+        userId: { type: string }
+        reason: { type: string }
+      required: [schemaVersion, traceId, userId]
+    WorkflowRunRecord:
+      type: object
+      properties:
+        runId: { type: string }
+        workflowId: { type: string }
+        workflowKey: { type: string }
+        templateVersionId: { type: string }
+        agentId: { type: string }
+        startMode: { type: string, enum: [agent, debug_version] }
+        status: { type: string }
+        sessionId: { type: string }
+        userId: { type: string }
+        currentNodeRunId: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+        completedAt: { type: integer }
+        metadata:
+          $ref: "#/components/schemas/JsonObject"
+      required: [runId, workflowId, workflowKey, templateVersionId, startMode, status, sessionId, userId, createdAt, updatedAt]
+    WorkflowNodeRunRecord:
+      type: object
+      properties:
+        nodeRunId: { type: string }
+        runId: { type: string }
+        nodeKey: { type: string }
+        nodeType: { type: string }
+        status: { type: string }
+        executorId: { type: string }
+        attempt: { type: integer }
+        waitKey: { type: string }
+        interactionRequestId: { type: string }
+        executionPolicy: { type: string }
+        inputJson:
+          $ref: "#/components/schemas/JsonObject"
+        outputArtifactId: { type: string }
+        metadata:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required: [nodeRunId, runId, nodeKey, nodeType, status, attempt, createdAt, updatedAt]
+    WorkflowApprovalRequestRecord:
+      type: object
+      properties:
+        approvalRequestId: { type: string }
+        runId: { type: string }
+        nodeRunId: { type: string }
+        artifactId: { type: string }
+        status: { type: string }
+        requestedActorId: { type: string }
+        expiresAt: { type: integer }
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required: [approvalRequestId, runId, status, createdAt, updatedAt]
+    WorkflowApprovalDecisionRecord:
+      type: object
+      properties:
+        approvalDecisionId: { type: string }
+        approvalRequestId: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        decidedActorId: { type: string }
+        comment: { type: string }
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+      required: [approvalDecisionId, approvalRequestId, decision, createdAt]
+    WorkflowInteractionRequestRecord:
+      type: object
+      properties:
+        interactionRequestId: { type: string }
+        runId: { type: string }
+        nodeRunId: { type: string }
+        status: { type: string, enum: [pending, answered, expired, cancelled] }
+        prompt: { type: string }
+        answerSchemaJson:
+          $ref: "#/components/schemas/JsonObject"
+        uiSchemaJson:
+          $ref: "#/components/schemas/JsonObject"
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        responsePayloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        expiresAt: { type: integer }
+        respondedAt: { type: integer }
+        metadataJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required:
+        [interactionRequestId, runId, status, prompt, answerSchemaJson, uiSchemaJson, createdAt, updatedAt]
+    WorkflowArtifactRecord:
+      type: object
+      properties:
+        artifactId: { type: string }
+        runId: { type: string }
+        nodeRunId: { type: string }
+        artifactType: { type: string }
+        state: { type: string }
+        schemaRef: { type: string }
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        metadataJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required: [artifactId, runId, artifactType, state, payloadJson, createdAt, updatedAt]
+    WorkflowRunSnapshot:
+      type: object
+      properties:
+        run:
+          $ref: "#/components/schemas/WorkflowRunRecord"
+        nodeRuns:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowNodeRunRecord"
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowApprovalRequestRecord"
+        approvalDecisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowApprovalDecisionRecord"
+        interactionRequests:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowInteractionRequestRecord"
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowArtifactRecord"
+        actorProfiles:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+        actorMemberships:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+        audienceSelectors:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+        deliverySpecs:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+        deliveryTargets:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+      required:
+        [run, nodeRuns, approvals, approvalDecisions, interactionRequests, artifacts, actorProfiles, actorMemberships, audienceSelectors, deliverySpecs, deliveryTargets]
+    WorkflowFormalEvent:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        eventId: { type: string }
+        traceId: { type: string }
+        runId: { type: string }
+        timestampMs: { type: integer }
+        kind: { type: string }
+        payload:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, eventId, traceId, runId, timestampMs, kind, payload]
+    WorkflowCommandResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        run:
+          $ref: "#/components/schemas/WorkflowRunSnapshot"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowFormalEvent"
+        capturedRecipeDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, run, events]
+    WorkflowRunSummary:
+      type: object
+      properties:
+        runId: { type: string }
+        workflowId: { type: string }
+        workflowKey: { type: string }
+        templateVersionId: { type: string }
+        agentId: { type: string }
+        startMode: { type: string, enum: [agent, debug_version] }
+        status: { type: string }
+        sessionId: { type: string }
+        userId: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+        completedAt: { type: integer }
+        currentNodeRunId: { type: string }
+        currentNodeKey: { type: string }
+        currentNodeType: { type: string }
+        currentNodeStatus: { type: string }
+        blocker:
+          type: string
+          enum: [waiting_interaction, waiting_approval, failed, paused]
+        pendingApprovalCount: { type: integer }
+        deliverySummary:
+          $ref: "#/components/schemas/JsonObject"
+        artifactTypes:
+          type: array
+          items: { type: string }
+        requestedActorIds:
+          type: array
+          items: { type: string }
+      required:
+        [runId, workflowId, workflowKey, templateVersionId, startMode, status, sessionId, userId, createdAt, updatedAt, pendingApprovalCount, deliverySummary, artifactTypes, requestedActorIds]
+    WorkflowRunListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        runs:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowRunSummary"
+      required: [schemaVersion, runs]
+    WorkflowRunQueryResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        run:
+          $ref: "#/components/schemas/WorkflowRunSnapshot"
+        capturedRecipeDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, run]
+    WorkflowApprovalListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowApprovalRequestRecord"
+      required: [schemaVersion, approvals]
+    WorkflowApprovalQueueItem:
+      type: object
+      properties:
+        approvalRequestId: { type: string }
+        runId: { type: string }
+        workflowKey: { type: string }
+        templateVersionId: { type: string }
+        runStatus: { type: string }
+        nodeRunId: { type: string }
+        nodeKey: { type: string }
+        status: { type: string }
+        requestedActorId: { type: string }
+        approverDisplayName: { type: string }
+        artifactId: { type: string }
+        artifactIds:
+          type: array
+          items: { type: string }
+        artifactTypes:
+          type: array
+          items: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+      required:
+        [approvalRequestId, runId, workflowKey, templateVersionId, runStatus, status, artifactIds, artifactTypes, createdAt, updatedAt]
+    WorkflowApprovalQueueResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        approvals:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowApprovalQueueItem"
+      required: [schemaVersion, approvals]
+    WorkflowApprovalDetailResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        approval:
+          $ref: "#/components/schemas/WorkflowApprovalRequestRecord"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowApprovalDecisionRecord"
+        artifacts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowArtifactRecord"
+        run:
+          $ref: "#/components/schemas/WorkflowRunSnapshot"
+      required: [schemaVersion, approval, decisions, artifacts, run]
+    WorkflowApprovalDecisionRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        traceId: { type: string }
+        userId: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        comment: { type: string }
+        payload:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, traceId, userId, decision]
+    WorkflowApprovalDecisionResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        approval:
+          $ref: "#/components/schemas/WorkflowApprovalRequestRecord"
+        decision:
+          $ref: "#/components/schemas/WorkflowApprovalDecisionRecord"
+        run:
+          $ref: "#/components/schemas/WorkflowRunSnapshot"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowFormalEvent"
+        capturedRecipeDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, approval, decision, run, events]
+    WorkflowInteractionResponseRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        traceId: { type: string }
+        userId: { type: string }
+        payload:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, traceId, userId]
+    WorkflowInteractionResponseResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        interactionRequest:
+          $ref: "#/components/schemas/WorkflowInteractionRequestRecord"
+        run:
+          $ref: "#/components/schemas/WorkflowRunSnapshot"
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/WorkflowFormalEvent"
+        capturedRecipeDrafts:
+          type: array
+          items:
+            $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, interactionRequest, run, events]
+    WorkflowArtifactDetailResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        artifact:
+          $ref: "#/components/schemas/WorkflowArtifactRecord"
+        typedPayload:
+          $ref: "#/components/schemas/JsonObject"
+        lineage:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, artifact, typedPayload, lineage]
+    AgentDefinitionRecord:
+      type: object
+      properties:
+        agentId: { type: string }
+        workspaceId: { type: string }
+        templateVersionRef: { type: string }
+        name: { type: string }
+        activationState: { type: string }
+        executorStrategy: { type: string, enum: [platform_runtime, external_runtime] }
+        bridgeId: { type: string }
+        identityRef: { type: string }
+        toolProfile: { type: string }
+        riskLevel: { type: string }
+        ownerActorRef: { type: string }
+        createdBy: { type: string }
+        updatedBy: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    AgentDefinitionListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        agents:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentDefinitionRecord"
+      required: [schemaVersion, agents]
+    AgentDefinitionResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        agent:
+          $ref: "#/components/schemas/AgentDefinitionRecord"
+      required: [schemaVersion, agent]
+    AgentDefinitionCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        templateVersionRef: { type: string }
+        name: { type: string }
+        description: { type: string }
+        executorStrategy: { type: string }
+        bridgeId: { type: string }
+        identityRef: { type: string }
+        toolProfile: { type: string }
+        riskLevel: { type: string }
+        ownerActorRef: { type: string }
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, templateVersionRef, name, executorStrategy, userId]
+    TriggerBindingRecord:
+      type: object
+      properties:
+        triggerBindingId: { type: string }
+        workspaceId: { type: string }
+        agentId: { type: string }
+        triggerKind: { type: string }
+        status: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        publicTriggerKey: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    TriggerBindingListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        triggerBindings:
+          type: array
+          items:
+            $ref: "#/components/schemas/TriggerBindingRecord"
+      required: [schemaVersion, triggerBindings]
+    TriggerBindingResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        triggerBinding:
+          $ref: "#/components/schemas/TriggerBindingRecord"
+      required: [schemaVersion, triggerBinding]
+    TriggerBindingCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        triggerKind: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, triggerKind, configJson, userId]
+    TriggerBindingLifecycleRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        userId: { type: string }
+        summary: { type: string }
+        justification: { type: string }
+      required: [schemaVersion, userId]
+    BridgeRegistrationRecord:
+      type: object
+      properties:
+        bridgeId: { type: string }
+        workspaceId: { type: string }
+        name: { type: string }
+        description: { type: string }
+        baseUrl: { type: string }
+        serviceId: { type: string }
+        status: { type: string }
+        runtimeType: { type: string }
+        manifestJson:
+          $ref: "#/components/schemas/JsonObject"
+        healthJson:
+          $ref: "#/components/schemas/JsonObject"
+        authConfigJson:
+          $ref: "#/components/schemas/JsonObject"
+        callbackConfigJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    BridgeRegistrationListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        bridges:
+          type: array
+          items:
+            $ref: "#/components/schemas/BridgeRegistrationRecord"
+      required: [schemaVersion, bridges]
+    BridgeRegistrationResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        bridge:
+          $ref: "#/components/schemas/BridgeRegistrationRecord"
+      required: [schemaVersion, bridge]
+    BridgeRegistrationCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        userId: { type: string }
+        name: { type: string }
+        baseUrl: { type: string }
+        serviceId: { type: string }
+        description: { type: string }
+        authConfigJson:
+          $ref: "#/components/schemas/JsonObject"
+        callbackConfigJson:
+          $ref: "#/components/schemas/JsonObject"
+      required: [schemaVersion, workspaceId, userId, name, baseUrl, serviceId]
+    ConnectorDefinitionRecord:
+      type: object
+      properties:
+        connectorDefinitionId: { type: string }
+        workspaceId: { type: string }
+        key: { type: string }
+        name: { type: string }
+        status: { type: string }
+        manifestJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    ConnectorDefinitionListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        connectorDefinitions:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectorDefinitionRecord"
+      required: [schemaVersion, connectorDefinitions]
+    ConnectorDefinitionResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        connectorDefinition:
+          $ref: "#/components/schemas/ConnectorDefinitionRecord"
+      required: [schemaVersion, connectorDefinition]
+    ConnectorDefinitionCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        key: { type: string }
+        name: { type: string }
+        manifestJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, key, name, manifestJson, userId]
+    ConnectorBindingRecord:
+      type: object
+      properties:
+        connectorBindingId: { type: string }
+        workspaceId: { type: string }
+        connectorDefinitionId: { type: string }
+        name: { type: string }
+        status: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    ConnectorBindingListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        connectorBindings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ConnectorBindingRecord"
+      required: [schemaVersion, connectorBindings]
+    ConnectorBindingResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        connectorBinding:
+          $ref: "#/components/schemas/ConnectorBindingRecord"
+      required: [schemaVersion, connectorBinding]
+    ConnectorBindingCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        connectorDefinitionId: { type: string }
+        name: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, connectorDefinitionId, name, configJson, userId]
+    ActionBindingRecord:
+      type: object
+      properties:
+        actionBindingId: { type: string }
+        agentId: { type: string }
+        connectorBindingId: { type: string }
+        capabilityId: { type: string }
+        actionRef: { type: string }
+        status: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    ActionBindingListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        actionBindings:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActionBindingRecord"
+      required: [schemaVersion, actionBindings]
+    ActionBindingResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        actionBinding:
+          $ref: "#/components/schemas/ActionBindingRecord"
+      required: [schemaVersion, actionBinding]
+    ActionBindingCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        connectorBindingId: { type: string }
+        capabilityId: { type: string }
+        actionRef: { type: string }
+        userId: { type: string }
+      required: [schemaVersion, connectorBindingId, capabilityId, actionRef, userId]
+    EventSubscriptionRecord:
+      type: object
+      properties:
+        eventSubscriptionId: { type: string }
+        workspaceId: { type: string }
+        connectorBindingId: { type: string }
+        eventType: { type: string }
+        status: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        publicSubscriptionKey: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    EventSubscriptionListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        eventSubscriptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventSubscriptionRecord"
+      required: [schemaVersion, eventSubscriptions]
+    EventSubscriptionResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        eventSubscription:
+          $ref: "#/components/schemas/EventSubscriptionRecord"
+      required: [schemaVersion, eventSubscription]
+    EventSubscriptionCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        connectorBindingId: { type: string }
+        eventType: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, connectorBindingId, eventType, configJson, userId]
+    PolicyBindingRecord:
+      type: object
+      properties:
+        policyBindingId: { type: string }
+        workspaceId: { type: string }
+        policyKey: { type: string }
+        subjectRef: { type: string }
+        status: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    PolicyBindingListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        policyBindings:
+          type: array
+          items:
+            $ref: "#/components/schemas/PolicyBindingRecord"
+      required: [schemaVersion, policyBindings]
+    PolicyBindingResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        policyBinding:
+          $ref: "#/components/schemas/PolicyBindingRecord"
+      required: [schemaVersion, policyBinding]
+    PolicyBindingCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        policyKey: { type: string }
+        subjectRef: { type: string }
+        configJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, policyKey, subjectRef, configJson, userId]
+    SecretRefRecord:
+      type: object
+      properties:
+        secretRefId: { type: string }
+        workspaceId: { type: string }
+        key: { type: string }
+        provider: { type: string }
+        reference: { type: string }
+        status: { type: string }
+        metadataJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    SecretRefListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        secretRefs:
+          type: array
+          items:
+            $ref: "#/components/schemas/SecretRefRecord"
+      required: [schemaVersion, secretRefs]
+    SecretRefResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        secretRef:
+          $ref: "#/components/schemas/SecretRefRecord"
+      required: [schemaVersion, secretRef]
+    SecretRefCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        key: { type: string }
+        provider: { type: string }
+        reference: { type: string }
+        metadataJson:
+          $ref: "#/components/schemas/JsonObject"
+        userId: { type: string }
+      required: [schemaVersion, workspaceId, key, provider, reference, userId]
+    ScopeGrantRecord:
+      type: object
+      properties:
+        scopeGrantId: { type: string }
+        workspaceId: { type: string }
+        subjectRef: { type: string }
+        scope: { type: string }
+        status: { type: string }
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    ScopeGrantListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        scopeGrants:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScopeGrantRecord"
+      required: [schemaVersion, scopeGrants]
+    GovernanceChangeRequestRecord:
+      type: object
+      properties:
+        requestId: { type: string }
+        workspaceId: { type: string }
+        kind: { type: string }
+        status: { type: string }
+        summary: { type: string }
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        createdAt: { type: integer }
+        updatedAt: { type: integer }
+    GovernanceChangeDecisionRecord:
+      type: object
+      properties:
+        decisionId: { type: string }
+        requestId: { type: string }
+        actorRef: { type: string }
+        decision: { type: string, enum: [approved, rejected] }
+        comment: { type: string }
+        decidedAt: { type: integer }
+    GovernanceChangeRequestListResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        requests:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceChangeRequestRecord"
+      required: [schemaVersion, requests]
+    GovernanceChangeRequestResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        request:
+          $ref: "#/components/schemas/GovernanceChangeRequestRecord"
+      required: [schemaVersion, request]
+    GovernanceChangeRequestDetailResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        request:
+          $ref: "#/components/schemas/GovernanceChangeRequestRecord"
+        decisions:
+          type: array
+          items:
+            $ref: "#/components/schemas/GovernanceChangeDecisionRecord"
+      required: [schemaVersion, request, decisions]
+    GovernanceChangeDecisionRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        actorRef: { type: string }
+        comment: { type: string }
+      required: [schemaVersion, actorRef]
+    GovernanceChangeDecisionResponse:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        request:
+          $ref: "#/components/schemas/GovernanceChangeRequestRecord"
+        decision:
+          $ref: "#/components/schemas/GovernanceChangeDecisionRecord"
+      required: [schemaVersion, request, decision]
+    GovernanceChangeRequestCreateRequest:
+      type: object
+      properties:
+        schemaVersion: { type: string, enum: [v1] }
+        workspaceId: { type: string }
+        kind: { type: string }
+        summary: { type: string }
+        payloadJson:
+          $ref: "#/components/schemas/JsonObject"
+        actorRef: { type: string }
+      required: [schemaVersion, workspaceId, kind, summary, actorRef]

@@ -1,8 +1,7 @@
 import crypto from 'node:crypto';
 
 import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
-import type { WorkflowEntryRegistryEntry } from '@baseinterface/workflow-contracts';
-import type { ProviderRegistryEntry } from './gateway-types';
+import type { ProviderRegistryEntry, WorkflowEntryRegistryEntry } from './gateway-types';
 
 export const PORT = Number(process.env.PORT || 8787);
 export const ADAPTER_SECRET = process.env.UNIASSIST_ADAPTER_SECRET || 'dev-adapter-secret';

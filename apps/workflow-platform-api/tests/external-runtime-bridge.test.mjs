@@ -119,7 +119,7 @@ function buildRunSnapshot(body, runId, status = 'running') {
         runId,
         compatProviderId: body.template?.compatProviderId || 'sample',
         timestampMs: timestamp,
-        kind: 'run_state',
+        kind: 'run.lifecycle',
         payload: {
           status,
         },

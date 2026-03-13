@@ -58,7 +58,6 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
   const [initialText, setInitialText] = useState('');
   const [metadataWorkflowKey, setMetadataWorkflowKey] = useState('');
   const [metadataName, setMetadataName] = useState('');
-  const [metadataCompatProviderId, setMetadataCompatProviderId] = useState('');
   const [metadataEntryNode, setMetadataEntryNode] = useState('');
   const [requirementsText, setRequirementsText] = useState('');
   const [nodesText, setNodesText] = useState('[]');
@@ -71,7 +70,6 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
     if (!detail) return;
     setMetadataWorkflowKey(detail.draft.currentSpec.workflowKey || '');
     setMetadataName(detail.draft.currentSpec.name || '');
-    setMetadataCompatProviderId(detail.draft.currentSpec.compatProviderId || '');
     setMetadataEntryNode(detail.draft.currentSpec.entryNode || '');
     setRequirementsText((detail.draft.currentSpec.requirements || []).join('\n'));
     setNodesText(JSON.stringify(detail.draft.currentSpec.nodes || [], null, 2));
@@ -113,7 +111,6 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
           value: {
             workflowKey: metadataWorkflowKey.trim() || undefined,
             name: metadataName.trim() || undefined,
-            compatProviderId: metadataCompatProviderId.trim() || undefined,
             entryNode: metadataEntryNode.trim() || undefined,
           },
         },
@@ -307,16 +304,6 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
                       </div>
                     </div>
                     <div className="console-two-up">
-                      <div data-ui="field">
-                        <label data-slot="label" htmlFor="metadata-provider">Compat provider</label>
-                        <input
-                          id="metadata-provider"
-                          data-ui="input"
-                          data-size="md"
-                          value={metadataCompatProviderId}
-                          onChange={(event) => setMetadataCompatProviderId(event.target.value)}
-                        />
-                      </div>
                       <div data-ui="field">
                         <label data-slot="label" htmlFor="metadata-entry-node">Entry node</label>
                         <input

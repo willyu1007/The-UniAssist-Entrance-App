@@ -386,18 +386,19 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
   assert.equal(approvalQueue.status, 200);
   assert.equal(approvalQueue.json.approvals.length, 1);
 
-  const resumeResponse = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 'session-bridge',
-    userId: 'teacher:bridge',
-    runId: waitingApproval.run.run.runId,
-    compatProviderId: 'sample',
-    actionId: `approve_request:${waitingApproval.run.approvals[0].approvalRequestId}`,
-  });
+  const resumeResponse = await postInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/approvals/${waitingApproval.run.approvals[0].approvalRequestId}/decision`,
+    {
+      schemaVersion: 'v1',
+      traceId: randomUUID(),
+      userId: 'teacher:bridge',
+      decision: 'approved',
+    },
+  );
   assert.equal(resumeResponse.status, 200);
   assert.equal(resumeResponse.json.run.run.status, 'running');
-  assert.ok(resumeResponse.json.events.some((event) => event.kind === 'approval_decided'));
+  assert.ok(resumeResponse.json.events.some((event) => event.kind === 'approval.decided'));
 
   const completedRun = await waitForRunStatus(runtimeBaseUrl, waitingApproval.run.run.runId, 'completed');
   assert.equal(completedRun.run.approvalDecisions.length, 1);
@@ -452,15 +453,16 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
   );
   const bridgeApprovalRequest = bridgeApproval.run.approvals[0];
 
-  const resumeToNativeApproval = await postInternal(runtimeBaseUrl, '/internal/runtime/resume-run', {
-    schemaVersion: 'v1',
-    traceId: randomUUID(),
-    sessionId: 'session-bridge-native-approval',
-    userId: 'teacher:bridge',
-    runId: bridgeApproval.run.run.runId,
-    compatProviderId: 'sample',
-    actionId: `approve_request:${bridgeApprovalRequest.approvalRequestId}`,
-  });
+  const resumeToNativeApproval = await postInternal(
+    runtimeBaseUrl,
+    `/internal/runtime/approvals/${bridgeApprovalRequest.approvalRequestId}/decision`,
+    {
+      schemaVersion: 'v1',
+      traceId: randomUUID(),
+      userId: 'teacher:bridge',
+      decision: 'approved',
+    },
+  );
   assert.equal(resumeToNativeApproval.status, 200);
 
   const nativeApprovalWaiting = await waitForRunSnapshot(

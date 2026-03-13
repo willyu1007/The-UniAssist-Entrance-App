@@ -136,6 +136,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   const workflowKey = 'sample-b3-platform';
   const compatProviderId = 'sample';
   let runResumed = false;
+  let interactionRunResumed = false;
   let currentRunContext = {
     sessionId: 's-platform',
     userId: 'u-platform',
@@ -526,6 +527,172 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
     };
   }
 
+  function buildPendingInteractionRunSnapshot(sessionId, userId) {
+    const now = Date.now();
+    return {
+      run: {
+        runId: 'run-platform-interaction',
+        workflowId: 'wf-platform',
+        workflowKey,
+        templateVersionId: 'ver-platform',
+        status: 'waiting_interaction',
+        sessionId,
+        userId,
+        currentNodeRunId: 'node-interaction',
+        createdAt: now,
+        updatedAt: now,
+      },
+      nodeRuns: [
+        {
+          nodeRunId: 'node-interaction',
+          runId: 'run-platform-interaction',
+          nodeKey: 'collect_input',
+          nodeType: 'executor',
+          status: 'waiting_interaction',
+          interactionRequestId: 'interaction-1',
+          waitKey: 'interaction-1',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      approvals: [],
+      approvalDecisions: [],
+      interactionRequests: [
+        {
+          interactionRequestId: 'interaction-1',
+          runId: 'run-platform-interaction',
+          nodeRunId: 'node-interaction',
+          status: 'pending',
+          prompt: 'Please confirm the interaction fixture response.',
+          answerSchemaJson: {
+            type: 'object',
+            properties: {
+              confirmed: {
+                type: 'boolean',
+              },
+            },
+            required: ['confirmed'],
+          },
+          uiSchemaJson: {
+            order: ['confirmed'],
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      artifacts: [],
+      actorProfiles: [],
+      actorMemberships: [],
+      audienceSelectors: [],
+      deliverySpecs: [],
+      deliveryTargets: [],
+    };
+  }
+
+  function buildCompletedInteractionRunSnapshot(sessionId, userId) {
+    const now = Date.now();
+    return {
+      run: {
+        runId: 'run-platform-interaction',
+        workflowId: 'wf-platform',
+        workflowKey,
+        templateVersionId: 'ver-platform',
+        status: 'completed',
+        sessionId,
+        userId,
+        createdAt: now,
+        updatedAt: now,
+        completedAt: now,
+      },
+      nodeRuns: [
+        {
+          nodeRunId: 'node-interaction',
+          runId: 'run-platform-interaction',
+          nodeKey: 'collect_input',
+          nodeType: 'executor',
+          status: 'completed',
+          interactionRequestId: 'interaction-1',
+          waitKey: 'interaction-1',
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      approvals: [],
+      approvalDecisions: [],
+      interactionRequests: [
+        {
+          interactionRequestId: 'interaction-1',
+          runId: 'run-platform-interaction',
+          nodeRunId: 'node-interaction',
+          status: 'answered',
+          prompt: 'Please confirm the interaction fixture response.',
+          answerSchemaJson: {
+            type: 'object',
+            properties: {
+              confirmed: {
+                type: 'boolean',
+              },
+            },
+            required: ['confirmed'],
+          },
+          uiSchemaJson: {
+            order: ['confirmed'],
+          },
+          responsePayloadJson: {
+            confirmed: true,
+          },
+          respondedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      artifacts: [
+        {
+          artifactId: 'artifact-interaction-output-1',
+          runId: 'run-platform-interaction',
+          nodeRunId: 'node-interaction',
+          artifactType: 'InteractionFixtureArtifact',
+          state: 'published',
+          payloadJson: {
+            fixture: 'interaction_recovery',
+          },
+          metadataJson: {
+            lineage: {
+              nodeKey: 'collect_input',
+            },
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+        {
+          artifactId: 'artifact-interaction-recipe-1',
+          runId: 'run-platform-interaction',
+          nodeRunId: 'node-interaction',
+          artifactType: 'AnalysisRecipeCandidate',
+          state: 'validated',
+          payloadJson: {
+            title: 'Interaction workflow 配方候选',
+            normalizedSteps: ['Collect interaction input', 'Confirm execution'],
+            assumptions: ['interaction fixture completed'],
+            reviewerNotes: ['captured from interaction response path'],
+          },
+          metadataJson: {
+            lineage: {
+              nodeKey: 'collect_input',
+            },
+          },
+          createdAt: now,
+          updatedAt: now,
+        },
+      ],
+      actorProfiles: [],
+      actorMemberships: [],
+      audienceSelectors: [],
+      deliverySpecs: [],
+      deliveryTargets: [],
+    };
+  }
+
   const runtimeServer = createServer(async (req, res) => {
     const chunks = [];
     for await (const chunk of req) {
@@ -537,6 +704,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
 
     if (req.url === '/internal/runtime/start-run' && req.method === 'POST') {
       runResumed = false;
+      interactionRunResumed = false;
       currentRunContext = {
         sessionId: body.sessionId,
         userId: body.userId,
@@ -551,7 +719,11 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
     }
 
     if (req.url === '/internal/runtime/resume-run' && req.method === 'POST') {
-      runResumed = true;
+      if (body.runId === 'run-platform-interaction') {
+        interactionRunResumed = true;
+      } else {
+        runResumed = true;
+      }
       currentRunContext = {
         sessionId: body.sessionId,
         userId: body.userId,
@@ -559,8 +731,24 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
       res.writeHead(200, { 'content-type': 'application/json' });
       res.end(JSON.stringify({
         schemaVersion: 'v1',
-        run: buildCompletedRunSnapshot(body.sessionId, body.userId),
+        run: body.runId === 'run-platform-interaction'
+          ? buildCompletedInteractionRunSnapshot(body.sessionId, body.userId)
+          : buildCompletedRunSnapshot(body.sessionId, body.userId),
         events: [],
+      }));
+      return;
+    }
+
+    if (req.url === '/internal/runtime/interactions/interaction-1' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        schemaVersion: 'v1',
+        runId: 'run-platform-interaction',
+        interactionRequest: (
+          interactionRunResumed
+            ? buildCompletedInteractionRunSnapshot('s-platform-interaction', 'u-platform-interaction').interactionRequests[0]
+            : buildPendingInteractionRunSnapshot('s-platform-interaction', 'u-platform-interaction').interactionRequests[0]
+        ),
       }));
       return;
     }
@@ -687,6 +875,17 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
               sessionId: 's-platform',
               userId: 'u-platform',
             }),
+      }));
+      return;
+    }
+
+    if (req.url === '/internal/runtime/runs/run-platform-interaction' && req.method === 'GET') {
+      res.writeHead(200, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({
+        schemaVersion: 'v1',
+        run: interactionRunResumed
+          ? buildCompletedInteractionRunSnapshot('s-platform-interaction', 'u-platform-interaction')
+          : buildPendingInteractionRunSnapshot('s-platform-interaction', 'u-platform-interaction'),
       }));
       return;
     }
@@ -969,7 +1168,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
     traceId: 'trace-platform-start',
     sessionId: 's-platform',
     userId: 'u-platform',
-    workflowKey,
+    workflowTemplateVersionId: secondPublished.json.version.templateVersionId,
     inputText: '帮我启动一个 workflow run',
   });
 
@@ -1019,17 +1218,43 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
     actionId: 'execute_task',
   });
 
-  assert.equal(resumed.status, 200);
-  assert.equal(resumed.json.run.run.status, 'completed');
-  assert.equal(resumed.json.capturedRecipeDrafts.length, 1);
-  assert.equal(resumed.json.capturedRecipeDrafts[0].title, 'Alex workflow 配方候选');
-  assert.equal(runtimeRequests.at(-1).path, '/internal/runtime/resume-run');
-  assert.equal(runtimeRequests.at(-1).body.runId, 'run-platform-start');
+  assert.equal(resumed.status, 410);
+  assert.equal(resumed.json.code, 'WORKFLOW_RUN_RESUME_REMOVED');
 
   const runSnapshotAfterResume = await httpGet(`http://127.0.0.1:${ports.platform}/v1/runs/run-platform-start`);
   assert.equal(runSnapshotAfterResume.status, 200);
-  assert.equal(runSnapshotAfterResume.json.run.run.status, 'completed');
-  assert.equal(runSnapshotAfterResume.json.capturedRecipeDrafts.length, 1);
+  assert.equal(runSnapshotAfterResume.json.run.run.status, 'waiting_approval');
+  assert.equal(runSnapshotAfterResume.json.capturedRecipeDrafts.length, 0);
+
+  const interactionResponse = await httpPost(
+    `http://127.0.0.1:${ports.platform}/v1/interactions/interaction-1/responses`,
+    {
+      schemaVersion: 'v1',
+      traceId: 'trace-platform-interaction',
+      userId: 'u-platform-interaction',
+      payload: {
+        confirmed: true,
+      },
+    },
+  );
+  assert.equal(interactionResponse.status, 200);
+  assert.equal(interactionResponse.json.interactionRequest.interactionRequestId, 'interaction-1');
+  assert.equal(interactionResponse.json.interactionRequest.status, 'answered');
+  assert.equal(interactionResponse.json.run.run.status, 'completed');
+  assert.equal(interactionResponse.json.capturedRecipeDrafts.length, 1);
+  assert.equal(interactionResponse.json.capturedRecipeDrafts[0].title, 'Interaction workflow 配方候选');
+  assert.equal(runtimeRequests.at(-1).path, '/internal/runtime/resume-run');
+  assert.equal(runtimeRequests.at(-1).body.runId, 'run-platform-interaction');
+  assert.equal(runtimeRequests.at(-1).body.interactionRequestId, 'interaction-1');
+  assert.equal(
+    runtimeRequests.some((entry) => entry.method === 'GET' && entry.path === '/internal/runtime/interactions/interaction-1'),
+    true,
+  );
+
+  const interactionRunSnapshot = await httpGet(`http://127.0.0.1:${ports.platform}/v1/runs/run-platform-interaction`);
+  assert.equal(interactionRunSnapshot.status, 200);
+  assert.equal(interactionRunSnapshot.json.run.run.status, 'completed');
+  assert.equal(interactionRunSnapshot.json.capturedRecipeDrafts.length, 1);
 
   const approvals = await httpGet(`http://127.0.0.1:${ports.platform}/v1/approvals`);
   assert.equal(approvals.status, 200);
@@ -1040,7 +1265,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
     traceId: 'trace-platform-decision-start',
     sessionId: 's-platform-decision',
     userId: 'u-platform-decision',
-    workflowKey,
+    workflowTemplateVersionId: secondPublished.json.version.templateVersionId,
     inputText: 'start a second run to exercise decision endpoint',
   });
   assert.equal(decisionStarted.status, 201);
@@ -1079,7 +1304,7 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
 
   const listedRecipes = await httpGet(`http://127.0.0.1:${ports.platform}/v1/recipe-drafts`);
   assert.equal(listedRecipes.status, 200);
-  assert.equal(listedRecipes.json.recipeDrafts.length, 2);
+  assert.equal(listedRecipes.json.recipeDrafts.length, 3);
 
   const fetchedRecipe = await httpGet(`http://127.0.0.1:${ports.platform}/v1/recipe-drafts/${createdRecipe.json.recipeDraft.recipeDraftId}`);
   assert.equal(fetchedRecipe.status, 200);

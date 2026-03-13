@@ -51,7 +51,7 @@ function summarizeDelivery(run: WorkflowRunSnapshot['deliveryTargets']): Workflo
 }
 
 function deriveBlocker(status: WorkflowRunSnapshot['run']['status']): WorkflowRunSummary['blocker'] {
-  if (status === 'waiting_input') return 'waiting_input';
+  if (status === 'waiting_interaction') return 'waiting_interaction';
   if (status === 'waiting_approval') return 'waiting_approval';
   if (status === 'failed') return 'failed';
   if (status === 'paused') return 'paused';
@@ -68,7 +68,8 @@ export function buildRunboardProjectionSummary(snapshot: WorkflowRunSnapshot): W
     workflowId: snapshot.run.workflowId,
     workflowKey: snapshot.run.workflowKey,
     templateVersionId: snapshot.run.templateVersionId,
-    compatProviderId: snapshot.run.compatProviderId,
+    agentId: snapshot.run.agentId,
+    startMode: snapshot.run.startMode,
     status: snapshot.run.status,
     sessionId: snapshot.run.sessionId,
     userId: snapshot.run.userId,

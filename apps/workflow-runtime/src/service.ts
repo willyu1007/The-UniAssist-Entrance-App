@@ -37,6 +37,7 @@ import type {
   WorkflowCompatDeliveryTargetSeed,
   WorkflowCompatArtifactSeed,
   WorkflowFormalEvent,
+  WorkflowInteractionRequestRecord,
   WorkflowNodeRunRecord,
   WorkflowNodeSpec,
   WorkflowRunListResponse,
@@ -104,10 +105,67 @@ function getExternalRuntimeSnapshot(value: unknown): ExternalRuntimeBridgeSnapsh
   return value as ExternalRuntimeBridgeSnapshot;
 }
 
-function deriveBridgeDecision(actionId: string): 'approved' | 'rejected' | undefined {
-  if (actionId.includes('approve')) return 'approved';
-  if (actionId.includes('reject')) return 'rejected';
-  return undefined;
+type CompatInteractionState = {
+  taskId?: string;
+  questionId?: string;
+  replyToken?: string;
+  state?: string;
+  resumeActionId?: string;
+  prompt?: string;
+  metadata?: Record<string, unknown>;
+};
+
+function getCompatInteractionState(nodeRun: WorkflowNodeRunRecord): CompatInteractionState | undefined {
+  if (!isRecord(nodeRun.metadata?.compatInteraction)) {
+    return undefined;
+  }
+  const compatInteraction = nodeRun.metadata?.compatInteraction as Record<string, unknown>;
+  return {
+    taskId: typeof compatInteraction.taskId === 'string' ? compatInteraction.taskId : undefined,
+    questionId: typeof compatInteraction.questionId === 'string' ? compatInteraction.questionId : undefined,
+    replyToken: typeof compatInteraction.replyToken === 'string' ? compatInteraction.replyToken : undefined,
+    state: typeof compatInteraction.state === 'string' ? compatInteraction.state : undefined,
+    resumeActionId: typeof compatInteraction.resumeActionId === 'string' ? compatInteraction.resumeActionId : undefined,
+    prompt: typeof compatInteraction.prompt === 'string' ? compatInteraction.prompt : undefined,
+    metadata: isRecord(compatInteraction.metadata) ? compatInteraction.metadata : undefined,
+  };
+}
+
+const COMPAT_CONFIRMATION_ANSWER_SCHEMA = {
+  type: 'object',
+  properties: {
+    confirmed: {
+      type: 'boolean',
+      const: true,
+      title: 'Confirm execution',
+    },
+    comment: {
+      type: 'string',
+      title: 'Comment',
+    },
+  },
+  required: ['confirmed'],
+};
+
+const COMPAT_CONFIRMATION_UI_SCHEMA = {
+  order: ['confirmed', 'comment'],
+};
+
+function buildCompatConfirmationPrompt(metadata: Record<string, unknown> | undefined): string {
+  if (typeof metadata?.prompt === 'string' && metadata.prompt.trim()) {
+    return metadata.prompt.trim();
+  }
+  return 'Confirm to continue this workflow step.';
+}
+
+function resolveCompatInteractionActionId(compatInteraction: CompatInteractionState | undefined): string {
+  if (compatInteraction?.resumeActionId) {
+    return compatInteraction.resumeActionId;
+  }
+  if (compatInteraction?.state === 'ready') {
+    return 'execute_task';
+  }
+  return 'answer_task_question';
 }
 
 function isBridgeSessionTerminal(status: BridgeInvokeSessionRecord['status']): boolean {
@@ -150,6 +208,14 @@ function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
     })),
     approvals: state.approvals.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
     approvalDecisions: state.decisions.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
+    interactionRequests: state.interactionRequests.map((item) => ({
+      ...item,
+      answerSchemaJson: { ...item.answerSchemaJson },
+      uiSchemaJson: { ...item.uiSchemaJson },
+      payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined,
+      responsePayloadJson: item.responsePayloadJson ? { ...item.responsePayloadJson } : undefined,
+      metadataJson: item.metadataJson ? { ...item.metadataJson } : undefined,
+    })),
     artifacts: state.artifacts.map((item) => ({
       ...item,
       payloadJson: { ...item.payloadJson },
@@ -161,6 +227,10 @@ function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
     deliverySpecs: state.deliverySpecs.map((item) => ({ ...item, configJson: item.configJson ? { ...item.configJson } : undefined })),
     deliveryTargets: state.deliveryTargets.map((item) => ({ ...item, payloadJson: item.payloadJson ? { ...item.payloadJson } : undefined })),
   };
+}
+
+function cloneInternalRunState(state: InternalRunState): InternalRunState {
+  return structuredClone(state);
 }
 
 function toArtifactDetail(artifact: WorkflowArtifactRecord): WorkflowArtifactDetail {
@@ -188,8 +258,8 @@ function buildRunSummary(snapshot: WorkflowRunSnapshot): WorkflowRunSummary {
     failed: snapshot.deliveryTargets.filter((item) => item.status === 'failed').length,
     cancelled: snapshot.deliveryTargets.filter((item) => item.status === 'cancelled').length,
   };
-  const blocker = snapshot.run.status === 'waiting_input'
-    ? 'waiting_input'
+  const blocker = snapshot.run.status === 'waiting_interaction'
+    ? 'waiting_interaction'
     : snapshot.run.status === 'waiting_approval'
       ? 'waiting_approval'
       : snapshot.run.status === 'failed'
@@ -202,7 +272,8 @@ function buildRunSummary(snapshot: WorkflowRunSnapshot): WorkflowRunSummary {
     workflowId: snapshot.run.workflowId,
     workflowKey: snapshot.run.workflowKey,
     templateVersionId: snapshot.run.templateVersionId,
-    compatProviderId: snapshot.run.compatProviderId,
+    agentId: snapshot.run.agentId,
+    startMode: snapshot.run.startMode,
     status: snapshot.run.status,
     sessionId: snapshot.run.sessionId,
     userId: snapshot.run.userId,
@@ -245,7 +316,6 @@ function buildApprovalQueueItem(
     runId: approval.runId,
     workflowKey: snapshot.run.workflowKey,
     templateVersionId: snapshot.run.templateVersionId,
-    compatProviderId: snapshot.run.compatProviderId,
     runStatus: snapshot.run.status,
     nodeRunId: approval.nodeRunId,
     nodeKey: nodeRun?.nodeKey,
@@ -427,7 +497,8 @@ export class WorkflowRuntimeService {
       workflowId: request.template.workflowId,
       workflowKey: request.template.workflowKey,
       templateVersionId: request.version.templateVersionId,
-      compatProviderId: request.template.compatProviderId,
+      agentId: request.agentId,
+      startMode: request.startMode,
       status: 'created',
       sessionId: request.sessionId,
       userId: request.userId,
@@ -443,6 +514,7 @@ export class WorkflowRuntimeService {
       nodeRuns: [],
       approvals: [],
       decisions: [],
+      interactionRequests: [],
       artifacts: [],
       actorProfiles: [],
       actorMemberships: [],
@@ -477,16 +549,25 @@ export class WorkflowRuntimeService {
 
   async resumeRun(request: WorkflowRuntimeResumeRunRequest): Promise<WorkflowCommandResponse> {
     const state = await this.requireRunState(request.runId);
+    const rollbackState = cloneInternalRunState(state);
     const current = state.nodeRuns.find((item) => item.nodeRunId === state.run.currentNodeRunId);
     if (!current) {
       throw new Error(`workflow run missing current node: ${request.runId}`);
     }
 
-    let events: WorkflowFormalEvent[] = [];
     if (current.nodeType === 'approval_gate') {
-      events = await this.resumeApprovalGate(state, current, request.traceId, request.actionId);
-    } else {
+      throw new RuntimeRequestError(
+        409,
+        'APPROVAL_RESUME_REMOVED',
+        'approval resume moved to approval decision APIs',
+      );
+    }
+    let events: WorkflowFormalEvent[];
+    try {
       events = await this.resumeExecutorNode(state, current, request.traceId, request);
+    } catch (error) {
+      this.store.saveRun(rollbackState);
+      throw error;
     }
 
     await this.persistState(state);
@@ -954,6 +1035,15 @@ export class WorkflowRuntimeService {
     return await this.repository?.getApproval(approvalRequestId);
   }
 
+  async getInteractionRequest(interactionRequestId: string): Promise<WorkflowInteractionRequestRecord | undefined> {
+    const inMemory = this.store.getInteractionRequest(interactionRequestId);
+    if (inMemory) {
+      return structuredClone(inMemory);
+    }
+    const record = await this.repository?.getInteractionRequest(interactionRequestId);
+    return record ? structuredClone(record) : undefined;
+  }
+
   private syncConnectorRuntimeMetadata(state: InternalRunState): void {
     state.run.metadata = {
       ...(state.run.metadata || {}),
@@ -1144,13 +1234,11 @@ export class WorkflowRuntimeService {
         eventId: this.uuid(),
         traceId,
         runId: state.run.runId,
-        compatProviderId: state.run.compatProviderId,
         timestampMs: this.now(),
-        kind: 'approval_requested',
+        kind: 'approval.requested',
         payload: {
           approvalRequestId: approval.approvalRequestId,
           nodeRunId: nodeRun.nodeRunId,
-          taskId: approval.approvalRequestId,
           prompt: '等待审批后继续执行。',
         },
       });
@@ -1199,21 +1287,6 @@ export class WorkflowRuntimeService {
     return [...events, ...translated];
   }
 
-  private async resumeApprovalGate(
-    state: InternalRunState,
-    nodeRun: WorkflowNodeRunRecord,
-    traceId: string,
-    actionId: string,
-  ): Promise<WorkflowFormalEvent[]> {
-    return await this.applyApprovalDecision(
-      state,
-      nodeRun,
-      traceId,
-      actionId.includes('approve'),
-      state.run.userId,
-    );
-  }
-
   private async applyApprovalDecision(
     state: InternalRunState,
     nodeRun: WorkflowNodeRunRecord,
@@ -1259,9 +1332,8 @@ export class WorkflowRuntimeService {
         eventId: this.uuid(),
         traceId,
         runId: state.run.runId,
-        compatProviderId: state.run.compatProviderId,
         timestampMs: this.now(),
-        kind: 'approval_decided',
+        kind: 'approval.decided',
         payload: {
           approvalRequestId: approval.approvalRequestId,
           decision: decision.decision,
@@ -1311,12 +1383,28 @@ export class WorkflowRuntimeService {
     }
     if (this.getExternalRuntimeBridge(state)) {
       nodeRun.attempt += 1;
-      return await this.resumeExternalBridgeNode(state, nodeRun, traceId, request);
+      return await this.resumeExternalBridgeNode(state, nodeRun, traceId);
     }
     const compatEvents = await this.interactExecutor(state, nodeRun, node, traceId, request);
     nodeRun.attempt += 1;
     nodeRun.updatedAt = this.now();
-    return this.consumeCompatEvents(state, nodeRun, traceId, compatEvents, new Set<string>([nodeRun.nodeKey]));
+    const events = await this.consumeCompatEvents(state, nodeRun, traceId, compatEvents, new Set<string>([nodeRun.nodeKey]));
+    return [
+      {
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId,
+        runId: state.run.runId,
+        timestampMs: this.now(),
+        kind: 'interaction.responded',
+        payload: {
+          interactionRequestId: request.interactionRequestId,
+          nodeRunId: nodeRun.nodeRunId,
+          responsePayload: request.payload,
+        },
+      },
+      ...events,
+    ];
   }
 
   private getExternalRuntimeBridge(state: InternalRunState): ExternalRuntimeBridgeSnapshot | undefined {
@@ -1405,6 +1493,7 @@ export class WorkflowRuntimeService {
       approval.status = 'cancelled';
       approval.updatedAt = timestamp;
     }
+    this.cancelPendingInteractionRequests(state, nodeRunId, timestamp);
   }
 
   private async invokeConnectorRuntime(
@@ -1588,18 +1677,11 @@ export class WorkflowRuntimeService {
     state: InternalRunState,
     nodeRun: WorkflowNodeRunRecord,
     traceId: string,
-    request: WorkflowRuntimeResumeRunRequest,
   ): Promise<WorkflowFormalEvent[]> {
-    const decision = deriveBridgeDecision(request.actionId);
-    if (!decision) {
-      throw new RuntimeRequestError(409, 'BRIDGE_RESUME_ACTION_INVALID', 'external bridge resume requires approve/reject action');
-    }
-    return await this.applyBridgeApprovalDecision(
-      state,
-      nodeRun,
-      traceId,
-      decision === 'approved',
-      request.userId,
+    throw new RuntimeRequestError(
+      409,
+      'EXTERNAL_RUNTIME_INTERACTION_UNSUPPORTED',
+      'external runtime nodes are resumed by bridge callbacks or approval decisions, not interaction responses',
     );
   }
 
@@ -1693,9 +1775,8 @@ export class WorkflowRuntimeService {
         eventId: this.uuid(),
         traceId,
         runId: state.run.runId,
-        compatProviderId: state.run.compatProviderId,
         timestampMs: timestamp,
-        kind: 'approval_decided',
+        kind: 'approval.decided',
         payload: {
           approvalRequestId: approval.approvalRequestId,
           decision: decision.decision,
@@ -1743,9 +1824,8 @@ export class WorkflowRuntimeService {
         eventId: this.uuid(),
         traceId,
         runId: state.run.runId,
-        compatProviderId: state.run.compatProviderId,
         timestampMs: timestamp,
-        kind: 'artifact_created',
+        kind: 'artifact.created',
         payload: {
           artifactId: artifact.artifactId,
           artifactType: artifact.artifactType,
@@ -1796,20 +1876,23 @@ export class WorkflowRuntimeService {
         eventId: this.uuid(),
         traceId: request.traceId,
         runId: state.run.runId,
-        compatProviderId: state.run.compatProviderId,
         timestampMs: timestamp,
-        kind: 'checkpoint',
+        kind: 'external.callback.received',
         payload: {
           nodeRunId: nodeRun.nodeRunId,
-          nodeKey: nodeRun.nodeKey,
-          sequence: request.sequence,
+          bridgeId: bridgeSession.bridgeId,
+          callbackKind: request.kind,
           externalSessionRef: bridgeSession.externalSessionRef,
-          metadata: payload,
+          metadata: {
+            sequence: request.sequence,
+            nodeKey: nodeRun.nodeKey,
+            payload,
+          },
         },
       }];
     }
 
-    if (request.kind === 'approval_requested') {
+    if (request.kind === 'approval.requested') {
       const existingApproval = state.approvals.find((item) => item.nodeRunId === nodeRun.nodeRunId && item.status === 'pending');
       if (existingApproval) {
         throw new RuntimeRequestError(409, 'APPROVAL_ALREADY_PENDING', 'bridge node already has a pending approval');
@@ -1854,13 +1937,11 @@ export class WorkflowRuntimeService {
           eventId: this.uuid(),
           traceId: request.traceId,
           runId: state.run.runId,
-          compatProviderId: state.run.compatProviderId,
           timestampMs: timestamp,
-          kind: 'approval_requested',
+          kind: 'approval.requested',
           payload: {
             approvalRequestId: approval.approvalRequestId,
             nodeRunId: nodeRun.nodeRunId,
-            taskId: approval.approvalRequestId,
             prompt: typeof payload.prompt === 'string' ? payload.prompt : '等待 bridge 审批后继续执行。',
           },
         },
@@ -1903,9 +1984,8 @@ export class WorkflowRuntimeService {
           eventId: this.uuid(),
           traceId: request.traceId,
           runId: state.run.runId,
-          compatProviderId: state.run.compatProviderId,
           timestampMs: timestamp,
-          kind: 'artifact_created',
+          kind: 'artifact.created',
           payload: {
             artifactId: artifact.artifactId,
             artifactType: artifact.artifactType,
@@ -1996,6 +2076,13 @@ export class WorkflowRuntimeService {
     traceId: string,
     request: WorkflowRuntimeResumeRunRequest,
   ): Promise<InteractionEvent[]> {
+    const interactionRequest = state.interactionRequests.find((item) => item.interactionRequestId === request.interactionRequestId);
+    if (!interactionRequest || interactionRequest.nodeRunId !== nodeRun.nodeRunId) {
+      throw new RuntimeRequestError(404, 'INTERACTION_REQUEST_NOT_FOUND', 'interaction request not found for current node');
+    }
+    if (interactionRequest.status !== 'pending') {
+      throw new RuntimeRequestError(409, 'INTERACTION_REQUEST_NOT_PENDING', 'interaction request is not pending');
+    }
     if (!node.executorId) {
       throw new Error(`executor node missing executorId: ${node.nodeKey}`);
     }
@@ -2004,36 +2091,60 @@ export class WorkflowRuntimeService {
       throw new Error(`executor not found: ${node.executorId}`);
     }
 
+    const compatInteraction = getCompatInteractionState(nodeRun)
+      || (isRecord(interactionRequest.metadataJson?.compatInteraction)
+        ? interactionRequest.metadataJson?.compatInteraction as CompatInteractionState
+        : undefined);
+    const actionId = resolveCompatInteractionActionId(compatInteraction);
     const interactionPayload = {
       ...(request.payload || {}),
       __workflow: this.buildWorkflowEnvelope(state, node),
     };
+    const executorAdapterProviderId = node.executorId || state.run.workflowKey || 'workflow-runtime';
     const interaction: UserInteraction = {
       schemaVersion: 'v0',
       traceId,
       sessionId: state.run.sessionId,
       userId: state.run.userId,
-      providerId: state.run.compatProviderId,
+      providerId: executorAdapterProviderId,
       runId: state.run.runId,
-      actionId: request.actionId,
+      actionId,
       payload: interactionPayload,
-      replyToken: request.replyToken,
-      inReplyTo: request.taskId
+      replyToken: compatInteraction?.replyToken,
+      inReplyTo: compatInteraction?.taskId
         ? {
-            providerId: state.run.compatProviderId,
+            providerId: executorAdapterProviderId,
             runId: state.run.runId,
-            taskId: request.taskId,
-            questionId: nodeRun.questionId,
+            taskId: compatInteraction.taskId,
+            questionId: compatInteraction.questionId,
           }
         : undefined,
       timestampMs: this.now(),
     };
 
-    return this.compatExecutorClient.interact({
+    const compatEvents = await this.compatExecutorClient.interact({
       executor,
       interaction,
       context: buildContextPackage(state.run),
     });
+    const timestamp = this.now();
+    interactionRequest.status = 'answered';
+    interactionRequest.responsePayloadJson = request.payload ? { ...request.payload } : {};
+    interactionRequest.respondedAt = timestamp;
+    interactionRequest.updatedAt = timestamp;
+    nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
+    nodeRun.waitKey = interactionRequest.interactionRequestId;
+    nodeRun.metadata = {
+      ...(nodeRun.metadata || {}),
+      compatInteraction: compatInteraction
+        ? {
+            ...compatInteraction,
+            state: actionId === 'execute_task' ? 'execute_requested' : 'answered',
+          }
+        : undefined,
+      lastInteractionResponseAt: timestamp,
+    };
+    return compatEvents;
   }
 
   private async consumeCompatEvents(
@@ -2048,46 +2159,59 @@ export class WorkflowRuntimeService {
 
     for (const compatEvent of compatEvents) {
       if (compatEvent.type !== 'provider_extension') {
-        events.push({
-          schemaVersion: 'v1',
-          eventId: this.uuid(),
-          traceId,
-          runId: state.run.runId,
-          compatProviderId: state.run.compatProviderId,
-          timestampMs: this.now(),
-          kind: 'compat_interaction',
-          payload: {
-            interaction: compatEvent,
-          },
-        });
         continue;
       }
 
       if (compatEvent.extensionKind === 'task_question') {
-        nodeRun.status = 'waiting_input';
-        nodeRun.taskId = compatEvent.payload.taskId;
-        nodeRun.questionId = compatEvent.payload.questionId;
-        nodeRun.replyToken = compatEvent.payload.replyToken;
-        nodeRun.waitKey = compatEvent.payload.replyToken;
-        nodeRun.compatTaskState = 'collecting';
-        nodeRun.updatedAt = this.now();
-        state.run.status = 'waiting_input';
-        state.run.updatedAt = this.now();
-        events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_input'));
+        const timestamp = this.now();
+        this.cancelPendingInteractionRequests(state, nodeRun.nodeRunId, timestamp);
+        const interactionRequest: WorkflowInteractionRequestRecord = {
+          interactionRequestId: this.uuid(),
+          runId: state.run.runId,
+          nodeRunId: nodeRun.nodeRunId,
+          status: 'pending',
+          prompt: compatEvent.payload.prompt,
+          answerSchemaJson: compatEvent.payload.answerSchema,
+          uiSchemaJson: compatEvent.payload.uiSchema,
+          payloadJson: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+          metadataJson: {
+            compatInteraction: {
+              taskId: compatEvent.payload.taskId,
+              questionId: compatEvent.payload.questionId,
+              replyToken: compatEvent.payload.replyToken,
+              state: 'collecting',
+              resumeActionId: 'answer_task_question',
+              prompt: compatEvent.payload.prompt,
+              metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+            },
+          },
+          createdAt: timestamp,
+          updatedAt: timestamp,
+        };
+        state.interactionRequests.push(interactionRequest);
+        nodeRun.status = 'waiting_interaction';
+        nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
+        nodeRun.waitKey = interactionRequest.interactionRequestId;
+        nodeRun.metadata = {
+          ...(nodeRun.metadata || {}),
+          compatInteraction: interactionRequest.metadataJson?.compatInteraction,
+        };
+        nodeRun.updatedAt = timestamp;
+        state.run.status = 'waiting_interaction';
+        state.run.updatedAt = timestamp;
+        events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
+        events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
         events.push({
           schemaVersion: 'v1',
           eventId: this.uuid(),
           traceId,
           runId: state.run.runId,
-          compatProviderId: state.run.compatProviderId,
-          timestampMs: this.now(),
-          kind: 'waiting_input',
+          timestampMs: timestamp,
+          kind: 'interaction.requested',
           payload: {
-            nodeRunId: nodeRun.nodeRunId,
+            interactionRequestId: interactionRequest.interactionRequestId,
+            nodeRunId: interactionRequest.nodeRunId || nodeRun.nodeRunId,
             nodeKey: nodeRun.nodeKey,
-            taskId: compatEvent.payload.taskId,
-            questionId: compatEvent.payload.questionId,
-            replyToken: compatEvent.payload.replyToken,
             prompt: compatEvent.payload.prompt,
             answerSchema: compatEvent.payload.answerSchema,
             uiSchema: compatEvent.payload.uiSchema,
@@ -2098,50 +2222,139 @@ export class WorkflowRuntimeService {
       }
 
       if (compatEvent.extensionKind === 'task_state') {
-        nodeRun.taskId = compatEvent.payload.taskId;
+        const timestamp = this.now();
+        const currentInteractionRequest = nodeRun.interactionRequestId
+          ? state.interactionRequests.find((item) => item.interactionRequestId === nodeRun.interactionRequestId)
+          : undefined;
         nodeRun.executionPolicy = compatEvent.payload.executionPolicy;
-        nodeRun.compatTaskState = compatEvent.payload.state;
-        nodeRun.updatedAt = this.now();
+        nodeRun.metadata = {
+          ...(nodeRun.metadata || {}),
+          compatInteraction: {
+            ...(getCompatInteractionState(nodeRun) || {}),
+            taskId: compatEvent.payload.taskId,
+            state: compatEvent.payload.state,
+            metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+          },
+        };
+        nodeRun.updatedAt = timestamp;
 
         if (compatEvent.payload.state === 'collecting') {
-          nodeRun.status = 'waiting_input';
-          state.run.status = 'waiting_input';
-          state.run.updatedAt = this.now();
-          events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_input'));
+          nodeRun.status = 'waiting_interaction';
+          state.run.status = 'waiting_interaction';
+          state.run.updatedAt = timestamp;
+          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
+          events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
         } else if (compatEvent.payload.state === 'ready') {
           if (compatEvent.payload.executionPolicy === 'auto_execute') {
-            const autoEvents = await this.interactExecutor(
-              state,
-              nodeRun,
-              node,
-              traceId,
-              {
-                schemaVersion: 'v1',
+            if (!node.executorId) {
+              throw new Error(`executor node missing executorId: ${node.nodeKey}`);
+            }
+            const executor = this.compatExecutorClient.getExecutorEntry(node.executorId);
+            if (!executor) {
+              throw new Error(`executor not found: ${node.executorId}`);
+            }
+            const compatInteraction = getCompatInteractionState(nodeRun);
+            const autoEvents = await this.compatExecutorClient.interact({
+              executor,
+              interaction: {
+                schemaVersion: 'v0',
                 traceId,
                 sessionId: state.run.sessionId,
                 userId: state.run.userId,
+                providerId: node.executorId || state.run.workflowKey || 'workflow-runtime',
                 runId: state.run.runId,
-                compatProviderId: state.run.compatProviderId,
                 actionId: 'execute_task',
-                taskId: compatEvent.payload.taskId,
+                payload: {
+                  __workflow: this.buildWorkflowEnvelope(state, node),
+                },
+                replyToken: compatInteraction?.replyToken,
+                inReplyTo: compatInteraction?.taskId
+                  ? {
+                      providerId: node.executorId || state.run.workflowKey || 'workflow-runtime',
+                      runId: state.run.runId,
+                      taskId: compatInteraction.taskId,
+                      questionId: compatInteraction.questionId,
+                    }
+                  : undefined,
+                timestampMs: timestamp,
               },
-            );
+              context: buildContextPackage(state.run),
+            });
+            if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
+              currentInteractionRequest.status = 'cancelled';
+              currentInteractionRequest.updatedAt = timestamp;
+            }
             const translated = await this.consumeCompatEvents(state, nodeRun, traceId, autoEvents, visited);
             events.push(...translated);
             continue;
           }
-          nodeRun.status = 'paused';
-          state.run.status = 'paused';
-          state.run.updatedAt = this.now();
-          events.push(this.buildRunStateEvent(traceId, state.run, 'paused'));
+          const confirmationPrompt = buildCompatConfirmationPrompt(
+            isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+          );
+          const interactionRequest: WorkflowInteractionRequestRecord = {
+            interactionRequestId: this.uuid(),
+            runId: state.run.runId,
+            nodeRunId: nodeRun.nodeRunId,
+            status: 'pending',
+            prompt: confirmationPrompt,
+            answerSchemaJson: COMPAT_CONFIRMATION_ANSWER_SCHEMA,
+            uiSchemaJson: COMPAT_CONFIRMATION_UI_SCHEMA,
+            payloadJson: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+            metadataJson: {
+              compatInteraction: {
+                ...(getCompatInteractionState(nodeRun) || {}),
+                taskId: compatEvent.payload.taskId,
+                state: 'ready',
+                resumeActionId: 'execute_task',
+                prompt: confirmationPrompt,
+                metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
+              },
+            },
+            createdAt: timestamp,
+            updatedAt: timestamp,
+          };
+          state.interactionRequests.push(interactionRequest);
+          nodeRun.status = 'waiting_interaction';
+          nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
+          nodeRun.waitKey = interactionRequest.interactionRequestId;
+          nodeRun.metadata = {
+            ...(nodeRun.metadata || {}),
+            compatInteraction: interactionRequest.metadataJson?.compatInteraction,
+          };
+          state.run.status = 'waiting_interaction';
+          state.run.updatedAt = timestamp;
+          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
+          events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
+          events.push({
+            schemaVersion: 'v1',
+            eventId: this.uuid(),
+            traceId,
+            runId: state.run.runId,
+            timestampMs: timestamp,
+            kind: 'interaction.requested',
+            payload: {
+              interactionRequestId: interactionRequest.interactionRequestId,
+              nodeRunId: interactionRequest.nodeRunId || nodeRun.nodeRunId,
+              nodeKey: nodeRun.nodeKey,
+              prompt: confirmationPrompt,
+              answerSchema: COMPAT_CONFIRMATION_ANSWER_SCHEMA,
+              uiSchema: COMPAT_CONFIRMATION_UI_SCHEMA,
+              metadata: compatEvent.payload.metadata,
+            },
+          });
         } else if (compatEvent.payload.state === 'executing') {
           nodeRun.status = 'running';
           state.run.status = 'running';
-          state.run.updatedAt = this.now();
+          state.run.updatedAt = timestamp;
+          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'running'));
           events.push(this.buildRunStateEvent(traceId, state.run, 'running'));
         } else if (compatEvent.payload.state === 'completed') {
           nodeRun.status = 'completed';
-          state.run.updatedAt = this.now();
+          state.run.updatedAt = timestamp;
+          if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
+            currentInteractionRequest.status = 'cancelled';
+            currentInteractionRequest.updatedAt = timestamp;
+          }
           const completionMetadata = normalizeCompatCompletionMetadata(compatEvent.payload.metadata);
           const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
           this.applyCompatCompanionMetadata(state, completionMetadata);
@@ -2161,9 +2374,8 @@ export class WorkflowRuntimeService {
               eventId: this.uuid(),
               traceId,
               runId: state.run.runId,
-              compatProviderId: state.run.compatProviderId,
               timestampMs: this.now(),
-              kind: 'artifact_created',
+              kind: 'artifact.created',
               payload: {
                 artifactId: artifact.artifactId,
                 artifactType: artifact.artifactType,
@@ -2183,37 +2395,35 @@ export class WorkflowRuntimeService {
         } else if (compatEvent.payload.state === 'failed') {
           nodeRun.status = 'failed';
           state.run.status = 'failed';
-          state.run.updatedAt = this.now();
+          state.run.updatedAt = timestamp;
+          if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
+            currentInteractionRequest.status = 'cancelled';
+            currentInteractionRequest.updatedAt = timestamp;
+          }
+          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'failed'));
           events.push(this.buildRunStateEvent(traceId, state.run, 'failed'));
         }
-
-        events.push({
-          schemaVersion: 'v1',
-          eventId: this.uuid(),
-          traceId,
-          runId: state.run.runId,
-          compatProviderId: state.run.compatProviderId,
-          timestampMs: this.now(),
-          kind: 'node_state',
-          payload: {
-            nodeRunId: nodeRun.nodeRunId,
-            nodeKey: nodeRun.nodeKey,
-            nodeType: nodeRun.nodeType,
-            status: nodeRun.status,
-            compatTaskState: compatEvent.payload.state,
-            executionPolicy: compatEvent.payload.executionPolicy,
-            taskId: compatEvent.payload.taskId,
-            metadata: compatEvent.payload.metadata,
-          },
-        });
       }
     }
 
-    if (!events.some((event) => event.kind === 'node_state' && event.payload.status && isWorkflowNodeTerminal(event.payload.status))) {
+    if (!events.some((event) => event.kind === 'node.lifecycle' && isWorkflowNodeTerminal(event.payload.status))) {
       events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, nodeRun.status));
     }
 
     return events;
+  }
+
+  private cancelPendingInteractionRequests(
+    state: InternalRunState,
+    nodeRunId?: string,
+    timestamp = this.now(),
+  ): void {
+    for (const interactionRequest of state.interactionRequests) {
+      if (interactionRequest.status !== 'pending') continue;
+      if (nodeRunId && interactionRequest.nodeRunId !== nodeRunId) continue;
+      interactionRequest.status = 'cancelled';
+      interactionRequest.updatedAt = timestamp;
+    }
   }
 
   private createApprovalRequest(
@@ -2459,10 +2669,13 @@ export class WorkflowRuntimeService {
       eventId: this.uuid(),
       traceId,
       runId: run.runId,
-      compatProviderId: run.compatProviderId,
       timestampMs: this.now(),
-      kind: 'run_state',
-      payload: { status },
+      kind: 'run.lifecycle',
+      payload: {
+        status,
+        startMode: run.startMode,
+        agentId: run.agentId,
+      },
     };
   }
 
@@ -2477,17 +2690,14 @@ export class WorkflowRuntimeService {
       eventId: this.uuid(),
       traceId,
       runId: run.runId,
-      compatProviderId: run.compatProviderId,
       timestampMs: this.now(),
-      kind: 'node_state',
+      kind: 'node.lifecycle',
       payload: {
         nodeRunId: nodeRun.nodeRunId,
         nodeKey: nodeRun.nodeKey,
         nodeType: nodeRun.nodeType,
         status,
-        compatTaskState: nodeRun.compatTaskState,
         executionPolicy: nodeRun.executionPolicy,
-        taskId: nodeRun.taskId,
         metadata: nodeRun.metadata,
       },
     };
@@ -2506,7 +2716,6 @@ export class WorkflowRuntimeService {
       traceId,
       sessionId: state.run.sessionId,
       userId: state.run.userId,
-      compatProviderId: state.run.compatProviderId,
       runId: state.run.runId,
       events,
     };

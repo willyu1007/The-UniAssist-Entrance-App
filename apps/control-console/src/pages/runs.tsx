@@ -98,15 +98,14 @@ export function RunsWorkspace(props: { selectedRunId?: string }) {
                     workflowId: runQuery.data.run.run.workflowId,
                     workflowKey: runQuery.data.run.run.workflowKey,
                     templateVersionId: runQuery.data.run.run.templateVersionId,
-                    compatProviderId: runQuery.data.run.run.compatProviderId,
                     currentNodeRunId: runQuery.data.run.run.currentNodeRunId,
                     currentNodeKey: runQuery.data.run.nodeRuns.find((item) => item.nodeRunId === runQuery.data.run.run.currentNodeRunId)?.nodeKey,
                     currentNodeType: runQuery.data.run.nodeRuns.find((item) => item.nodeRunId === runQuery.data.run.run.currentNodeRunId)?.nodeType,
                     currentNodeStatus: runQuery.data.run.nodeRuns.find((item) => item.nodeRunId === runQuery.data.run.run.currentNodeRunId)?.status,
                     blocker: runQuery.data.run.run.status === 'waiting_approval'
                       ? 'waiting_approval'
-                      : runQuery.data.run.run.status === 'waiting_input'
-                        ? 'waiting_input'
+                      : runQuery.data.run.run.status === 'waiting_interaction'
+                        ? 'waiting_interaction'
                         : runQuery.data.run.run.status === 'failed'
                           ? 'failed'
                           : runQuery.data.run.run.status === 'paused'

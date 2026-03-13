@@ -11,6 +11,7 @@ import type {
   WorkflowApprovalDecisionRecord,
   WorkflowApprovalRequestRecord,
   WorkflowArtifactRecord,
+  WorkflowInteractionRequestRecord,
   WorkflowNodeRunRecord,
   WorkflowRunRecord,
   WorkflowRunSnapshot,
@@ -25,6 +26,7 @@ export type InternalRunState = {
   nodeRuns: WorkflowNodeRunRecord[];
   approvals: WorkflowApprovalRequestRecord[];
   decisions: WorkflowApprovalDecisionRecord[];
+  interactionRequests: WorkflowInteractionRequestRecord[];
   artifacts: WorkflowArtifactRecord[];
   actorProfiles: ActorProfileRecord[];
   actorMemberships: ActorMembershipRecord[];
@@ -77,6 +79,16 @@ export class RuntimeStore {
     return this.approvals.get(approvalRequestId);
   }
 
+  getInteractionRequest(interactionRequestId: string): WorkflowInteractionRequestRecord | undefined {
+    for (const state of this.runs.values()) {
+      const interactionRequest = state.interactionRequests.find((item) => item.interactionRequestId === interactionRequestId);
+      if (interactionRequest) {
+        return interactionRequest;
+      }
+    }
+    return undefined;
+  }
+
   getArtifact(artifactId: string): WorkflowArtifactRecord | undefined {
     return this.artifacts.get(artifactId);
   }
@@ -89,6 +101,7 @@ export class RuntimeStore {
       nodeRuns: state.nodeRuns,
       approvals: state.approvals,
       approvalDecisions: state.decisions,
+      interactionRequests: state.interactionRequests,
       artifacts: state.artifacts,
       actorProfiles: state.actorProfiles,
       actorMemberships: state.actorMemberships,

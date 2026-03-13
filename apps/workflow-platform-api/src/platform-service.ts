@@ -91,17 +91,18 @@ import type {
   WorkflowArtifactDetailResponse,
   WorkflowArtifactRecord,
   WorkflowCommandResponse,
-  WorkflowResumeRequest,
+  WorkflowInteractionResponseResponse,
+  WorkflowInteractionResponseRequest,
   WorkflowRunListResponse,
   WorkflowRunQueryResponse,
   WorkflowRunSnapshot,
   WorkflowRuntimeCancelRunRequest,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
-  WorkflowStartRequest,
   WorkflowTemplateRecord,
   WorkflowTemplateSpec,
   WorkflowTemplateVersionRecord,
+  WorkflowVersionRunStartRequest,
 } from '@baseinterface/workflow-contracts';
 import { isWorkflowDraftTerminal } from '@baseinterface/workflow-contracts';
 import type { ExternalBridgeClient } from '@baseinterface/executor-sdk';
@@ -198,9 +199,6 @@ function applyDraftSpecPatch(spec: WorkflowDraftSpec, patch: WorkflowDraftSpecPa
     if ('name' in patch.value) {
       next.name = sanitizeText(patch.value.name);
     }
-    if ('compatProviderId' in patch.value) {
-      next.compatProviderId = sanitizeText(patch.value.compatProviderId);
-    }
     if ('entryNode' in patch.value) {
       next.entryNode = sanitizeText(patch.value.entryNode);
     }
@@ -244,13 +242,11 @@ function buildSynthesizedSpec(draft: WorkflowDraftRecord): WorkflowDraftSpec {
   const requirements = normalizeRequirements(next);
   const name = sanitizeText(next.name) || buildDefaultName(draft.draftId, requirements);
   const workflowKey = sanitizeText(next.workflowKey) || buildDefaultWorkflowKey(name, draft.draftId);
-  const compatProviderId = sanitizeText(next.compatProviderId) || 'sample';
   const entryNode = sanitizeText(next.entryNode) || 'collect';
   const endNodeKey = 'finish';
 
   next.name = name;
   next.workflowKey = workflowKey;
-  next.compatProviderId = compatProviderId;
   next.entryNode = entryNode;
   next.nodes = Array.isArray(next.nodes) && next.nodes.length > 0
     ? next.nodes
@@ -258,7 +254,7 @@ function buildSynthesizedSpec(draft: WorkflowDraftRecord): WorkflowDraftSpec {
         {
           nodeKey: entryNode,
           nodeType: 'executor',
-          executorId: `compat-${compatProviderId}`,
+          executorId: 'draft-default-executor',
           transitions: {
             success: endNodeKey,
           },
@@ -288,7 +284,6 @@ function validateDraftSpec(spec: WorkflowDraftSpec, timestamp: number): DraftVal
   const warnings: string[] = [];
   const workflowKey = sanitizeText(spec.workflowKey);
   const name = sanitizeText(spec.name);
-  const compatProviderId = sanitizeText(spec.compatProviderId);
   const entryNode = sanitizeText(spec.entryNode);
   const nodes = Array.isArray(spec.nodes) ? spec.nodes : [];
 
@@ -304,10 +299,6 @@ function validateDraftSpec(spec: WorkflowDraftSpec, timestamp: number): DraftVal
 
   if (!name) {
     errors.push('name is required');
-  }
-
-  if (!compatProviderId) {
-    errors.push('compatProviderId is required');
   }
 
   if (!entryNode) {
@@ -374,7 +365,6 @@ function toTemplateSpec(spec: WorkflowDraftSpec): WorkflowTemplateSpec {
     schemaVersion: 'v1',
     workflowKey: String(spec.workflowKey),
     name: String(spec.name),
-    compatProviderId: String(spec.compatProviderId),
     entryNode: String(spec.entryNode),
     nodes: Array.isArray(spec.nodes) ? spec.nodes : [],
     metadata: spec.metadata,
@@ -453,44 +443,61 @@ export class PlatformService {
     return workflow;
   }
 
-  async startRun(body: WorkflowStartRequest): Promise<WorkflowCommandResponse> {
-    const workflow = await this.repository.getWorkflowByKey(body.workflowKey);
-    if (!workflow) {
-      throw new PlatformError(404, 'WORKFLOW_KEY_NOT_FOUND', 'workflow key not found');
-    }
-    const version = body.templateVersionId
-      ? await this.repository.getVersion(body.templateVersionId)
-      : await this.repository.getLatestVersion(body.workflowKey);
+  async startRun(body: WorkflowVersionRunStartRequest): Promise<WorkflowCommandResponse> {
+    const version = await this.repository.getVersion(body.workflowTemplateVersionId);
     if (!version) {
       throw new PlatformError(404, 'WORKFLOW_VERSION_NOT_FOUND', 'workflow version not found');
+    }
+    const workflow = await this.repository.getWorkflow(version.workflowId);
+    if (!workflow) {
+      throw new PlatformError(404, 'WORKFLOW_NOT_FOUND', 'workflow not found');
     }
     const response = await this.runtimeClient.startRun({
       schemaVersion: 'v1',
       traceId: body.traceId,
       sessionId: body.sessionId,
       userId: body.userId,
-      template: workflow,
+      template: workflow.workflow,
       version,
       inputText: body.inputText,
       inputPayload: body.inputPayload,
+      startMode: 'debug_version',
     } satisfies WorkflowRuntimeStartRunRequest);
     return await this.attachCapturedRecipeDrafts(response);
   }
 
-  async resumeRun(body: WorkflowResumeRequest): Promise<WorkflowCommandResponse> {
+  async respondInteraction(
+    interactionRequestId: string,
+    body: WorkflowInteractionResponseRequest,
+    runId?: string,
+  ): Promise<WorkflowInteractionResponseResponse> {
+    const interactionLookup = await this.runtimeClient.getInteractionRequest(interactionRequestId);
+    const resolvedRunId = runId || interactionLookup.runId;
+    if (runId && interactionLookup.runId !== runId) {
+      throw new PlatformError(409, 'INTERACTION_REQUEST_RUN_MISMATCH', 'interaction request does not belong to the specified run');
+    }
+    const run = await this.runtimeClient.getRun(resolvedRunId);
     const response = await this.runtimeClient.resumeRun({
       schemaVersion: 'v1',
       traceId: body.traceId,
-      sessionId: body.sessionId,
+      sessionId: run.run.run.sessionId,
       userId: body.userId,
-      runId: body.runId,
-      compatProviderId: '',
-      actionId: body.actionId,
-      replyToken: body.replyToken,
-      taskId: body.taskId,
+      runId: resolvedRunId,
+      interactionRequestId,
       payload: body.payload,
     } satisfies WorkflowRuntimeResumeRunRequest);
-    return await this.attachCapturedRecipeDrafts(response);
+    const enriched = await this.attachCapturedRecipeDrafts(response);
+    const interactionRequest = enriched.run.interactionRequests.find((item) => item.interactionRequestId === interactionRequestId);
+    if (!interactionRequest) {
+      throw new PlatformError(409, 'INTERACTION_REQUEST_NOT_FOUND', 'interaction request missing from resumed run snapshot');
+    }
+    return {
+      schemaVersion: 'v1',
+      interactionRequest,
+      run: enriched.run,
+      events: enriched.events,
+      capturedRecipeDrafts: enriched.capturedRecipeDrafts,
+    };
   }
 
   async getRun(runId: string): Promise<WorkflowRunQueryResponse> {
@@ -1610,7 +1617,7 @@ export class PlatformService {
         timestamp,
         draftId,
         revisionNumber: nextDraft.activeRevisionNumber,
-        source: input.source || 'chat_intake',
+        source: input.source || 'authoring_intake',
         actorId: input.userId,
         changeSummary: 'Appended builder requirement from chat intake',
         specSnapshot: nextSpec,
@@ -1646,7 +1653,7 @@ export class PlatformService {
         timestamp,
         draftId,
         revisionNumber: nextDraft.activeRevisionNumber,
-        source: 'builder_synthesize',
+        source: 'authoring_synthesize',
         actorId: input.userId,
         changeSummary: 'Synthesized draft into workflow template candidate',
         specSnapshot: nextSpec,
@@ -1681,7 +1688,7 @@ export class PlatformService {
         timestamp,
         draftId,
         revisionNumber: nextDraft.activeRevisionNumber,
-        source: 'builder_validate',
+        source: 'authoring_validate',
         actorId: input.userId,
         changeSummary: validationSummary.isPublishable
           ? 'Validated draft and marked it publishable'
@@ -1769,7 +1776,6 @@ export class PlatformService {
           workflowId: this.uuid(),
           workflowKey: spec.workflowKey,
           name: spec.name,
-          compatProviderId: spec.compatProviderId,
           status: 'active',
           createdAt: timestamp,
           updatedAt: timestamp,
@@ -1779,7 +1785,6 @@ export class PlatformService {
           ...workflow,
           workflowKey: spec.workflowKey,
           name: spec.name,
-          compatProviderId: spec.compatProviderId,
           updatedAt: timestamp,
         };
         workflow = await repository.updateWorkflowTemplate(updated);
@@ -2302,6 +2307,7 @@ export class PlatformService {
       inputText: params.inputText,
       inputPayload: params.inputPayload,
       agentId: params.agent.agentId,
+      startMode: 'agent',
       sourceType: params.sourceType,
       sourceRef: params.sourceRef,
       runtimeMetadata: {

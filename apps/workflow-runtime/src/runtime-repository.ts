@@ -13,6 +13,7 @@ import type {
   WorkflowApprovalDecisionRecord,
   WorkflowApprovalRequestRecord,
   WorkflowArtifactRecord,
+  WorkflowInteractionRequestRecord,
   WorkflowNodeRunRecord,
   WorkflowRunRecord,
   WorkflowTemplateRecord,
@@ -106,7 +107,6 @@ function toTemplateRecord(row: Record<string, unknown>): WorkflowTemplateRecord 
     workflowId: String(row.template_id),
     workflowKey: String(row.workflow_key),
     name: String(row.template_name),
-    compatProviderId: String(row.template_compat_provider_id),
     status: row.template_status === 'archived' ? 'archived' : 'active',
     createdAt: toMs(row.template_created_at),
     updatedAt: toMs(row.template_updated_at),
@@ -135,7 +135,8 @@ function toRunRecord(row: Record<string, unknown>): WorkflowRunRecord {
     workflowId: String(row.template_id),
     workflowKey: String(row.workflow_key),
     templateVersionId: String(row.template_version_id),
-    compatProviderId: String(row.compat_provider_id),
+    agentId: row.agent_id ? String(row.agent_id) : undefined,
+    startMode: String(row.start_mode) as WorkflowRunRecord['startMode'],
     status: String(row.status) as WorkflowRunRecord['status'],
     sessionId: String(row.session_id),
     userId: String(row.user_id),
@@ -157,10 +158,7 @@ function toNodeRunRecord(row: Record<string, unknown>): WorkflowNodeRunRecord {
     executorId: row.executor_id ? String(row.executor_id) : undefined,
     attempt: Number(row.attempt),
     waitKey: row.wait_key ? String(row.wait_key) : undefined,
-    taskId: row.task_id ? String(row.task_id) : undefined,
-    questionId: row.question_id ? String(row.question_id) : undefined,
-    replyToken: row.reply_token ? String(row.reply_token) : undefined,
-    compatTaskState: row.compat_task_state ? String(row.compat_task_state) as WorkflowNodeRunRecord['compatTaskState'] : undefined,
+    interactionRequestId: row.interaction_request_id ? String(row.interaction_request_id) : undefined,
     executionPolicy: row.execution_policy ? String(row.execution_policy) as WorkflowNodeRunRecord['executionPolicy'] : undefined,
     inputJson: parseJson(row.input_json, undefined),
     outputArtifactId: row.output_artifact_id ? String(row.output_artifact_id) : undefined,
@@ -209,6 +207,25 @@ function toDecisionRecord(row: Record<string, unknown>): WorkflowApprovalDecisio
     comment: row.comment ? String(row.comment) : undefined,
     payloadJson: parseJson(row.payload_json, undefined),
     createdAt: toMs(row.created_at),
+  };
+}
+
+function toInteractionRequestRecord(row: Record<string, unknown>): WorkflowInteractionRequestRecord {
+  return {
+    interactionRequestId: String(row.interaction_request_id),
+    runId: String(row.run_id),
+    nodeRunId: row.node_run_id ? String(row.node_run_id) : undefined,
+    status: String(row.status) as WorkflowInteractionRequestRecord['status'],
+    prompt: String(row.prompt),
+    answerSchemaJson: parseJson(row.answer_schema_json, {}),
+    uiSchemaJson: parseJson(row.ui_schema_json, {}),
+    payloadJson: parseJson(row.payload_json, undefined),
+    responsePayloadJson: parseJson(row.response_payload_json, undefined),
+    expiresAt: row.expires_at ? toMs(row.expires_at) : undefined,
+    respondedAt: row.responded_at ? toMs(row.responded_at) : undefined,
+    metadataJson: parseJson(row.metadata_json, undefined),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
   };
 }
 
@@ -315,6 +332,7 @@ export type RuntimeRepository = {
   listRunStates: (limit?: number) => Promise<InternalRunState[]>;
   listApprovals: () => Promise<WorkflowApprovalRequestRecord[]>;
   getApproval: (approvalRequestId: string) => Promise<WorkflowApprovalRequestRecord | undefined>;
+  getInteractionRequest: (interactionRequestId: string) => Promise<WorkflowInteractionRequestRecord | undefined>;
   getArtifact: (artifactId: string) => Promise<WorkflowArtifactRecord | undefined>;
 };
 
@@ -347,6 +365,9 @@ class PgRuntimeRepository implements RuntimeRepository {
       }
       for (const decision of state.decisions) {
         await this.upsertDecision(client, decision);
+      }
+      for (const interactionRequest of state.interactionRequests) {
+        await this.upsertInteractionRequest(client, interactionRequest);
       }
       for (const actorProfile of state.actorProfiles) {
         await this.upsertActorProfile(client, actorProfile);
@@ -384,7 +405,6 @@ class PgRuntimeRepository implements RuntimeRepository {
         r.*,
         t.workflow_key,
         t.name AS template_name,
-        t.compat_provider_id AS template_compat_provider_id,
         t.status AS template_status,
         t.created_at AS template_created_at,
         t.updated_at AS template_updated_at,
@@ -448,6 +468,16 @@ class PgRuntimeRepository implements RuntimeRepository {
       ORDER BY d.created_at ASC
     `, [runId]);
     const decisions = decisionsResult.rows.map((row) => toDecisionRecord(row as Record<string, unknown>));
+
+    const interactionRequestsResult = await this.pool.query(`
+      SELECT *
+      FROM interaction_requests
+      WHERE run_id = $1
+      ORDER BY created_at ASC
+    `, [runId]);
+    const interactionRequests = interactionRequestsResult.rows.map((row) => (
+      toInteractionRequestRecord(row as Record<string, unknown>)
+    ));
 
     const actorProfilesResult = await this.pool.query(`
       SELECT *
@@ -526,6 +556,7 @@ class PgRuntimeRepository implements RuntimeRepository {
       nodeRuns,
       approvals,
       decisions,
+      interactionRequests,
       artifacts,
       actorProfiles,
       actorMemberships,
@@ -587,6 +618,16 @@ class PgRuntimeRepository implements RuntimeRepository {
       LIMIT 1
     `, [approvalRequestId]);
     return result.rows[0] ? toApprovalRecord(result.rows[0] as Record<string, unknown>) : undefined;
+  }
+
+  async getInteractionRequest(interactionRequestId: string): Promise<WorkflowInteractionRequestRecord | undefined> {
+    const result = await this.pool.query(`
+      SELECT *
+      FROM interaction_requests
+      WHERE interaction_request_id = $1
+      LIMIT 1
+    `, [interactionRequestId]);
+    return result.rows[0] ? toInteractionRequestRecord(result.rows[0] as Record<string, unknown>) : undefined;
   }
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactRecord | undefined> {
@@ -673,18 +714,21 @@ class PgRuntimeRepository implements RuntimeRepository {
         run_id,
         template_id,
         template_version_id,
+        agent_id,
+        start_mode,
         status,
         session_id,
         user_id,
-        compat_provider_id,
         current_node_run_id,
         metadata_json,
         created_at,
         updated_at,
         completed_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9::jsonb, to_timestamp($10 / 1000.0), to_timestamp($11 / 1000.0), $12)
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10::jsonb, to_timestamp($11 / 1000.0), to_timestamp($12 / 1000.0), $13)
       ON CONFLICT (run_id) DO UPDATE
       SET
+        agent_id = EXCLUDED.agent_id,
+        start_mode = EXCLUDED.start_mode,
         status = EXCLUDED.status,
         current_node_run_id = EXCLUDED.current_node_run_id,
         metadata_json = EXCLUDED.metadata_json,
@@ -694,10 +738,11 @@ class PgRuntimeRepository implements RuntimeRepository {
       state.run.runId,
       state.run.workflowId,
       state.run.templateVersionId,
+      state.run.agentId ?? null,
+      state.run.startMode,
       state.run.status,
       state.run.sessionId,
       state.run.userId,
-      state.run.compatProviderId,
       state.run.currentNodeRunId ?? null,
       state.run.metadata ? JSON.stringify(state.run.metadata) : null,
       state.run.createdAt,
@@ -719,15 +764,12 @@ class PgRuntimeRepository implements RuntimeRepository {
         input_json,
         output_artifact_id,
         wait_key,
-        task_id,
-        question_id,
-        reply_token,
-        compat_task_state,
+        interaction_request_id,
         execution_policy,
         metadata_json,
         created_at,
         updated_at
-      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13, $14, $15, $16::jsonb, to_timestamp($17 / 1000.0), to_timestamp($18 / 1000.0))
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $11, $12, $13::jsonb, to_timestamp($14 / 1000.0), to_timestamp($15 / 1000.0))
       ON CONFLICT (node_run_id) DO UPDATE
       SET
         status = EXCLUDED.status,
@@ -736,10 +778,7 @@ class PgRuntimeRepository implements RuntimeRepository {
         input_json = EXCLUDED.input_json,
         output_artifact_id = EXCLUDED.output_artifact_id,
         wait_key = EXCLUDED.wait_key,
-        task_id = EXCLUDED.task_id,
-        question_id = EXCLUDED.question_id,
-        reply_token = EXCLUDED.reply_token,
-        compat_task_state = EXCLUDED.compat_task_state,
+        interaction_request_id = EXCLUDED.interaction_request_id,
         execution_policy = EXCLUDED.execution_policy,
         metadata_json = EXCLUDED.metadata_json,
         updated_at = EXCLUDED.updated_at
@@ -754,12 +793,60 @@ class PgRuntimeRepository implements RuntimeRepository {
       record.inputJson ? JSON.stringify(record.inputJson) : null,
       record.outputArtifactId ?? null,
       record.waitKey ?? null,
-      record.taskId ?? null,
-      record.questionId ?? null,
-      record.replyToken ?? null,
-      record.compatTaskState ?? null,
+      record.interactionRequestId ?? null,
       record.executionPolicy ?? null,
       record.metadata ? JSON.stringify(record.metadata) : null,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+  }
+
+  private async upsertInteractionRequest(client: PoolClient, record: WorkflowInteractionRequestRecord): Promise<void> {
+    await client.query(`
+      INSERT INTO interaction_requests (
+        interaction_request_id,
+        run_id,
+        node_run_id,
+        status,
+        prompt,
+        answer_schema_json,
+        ui_schema_json,
+        payload_json,
+        response_payload_json,
+        expires_at,
+        responded_at,
+        metadata_json,
+        created_at,
+        updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6::jsonb, $7::jsonb, $8::jsonb, $9::jsonb, $10, $11, $12::jsonb,
+        to_timestamp($13 / 1000.0), to_timestamp($14 / 1000.0)
+      )
+      ON CONFLICT (interaction_request_id) DO UPDATE
+      SET
+        status = EXCLUDED.status,
+        prompt = EXCLUDED.prompt,
+        answer_schema_json = EXCLUDED.answer_schema_json,
+        ui_schema_json = EXCLUDED.ui_schema_json,
+        payload_json = EXCLUDED.payload_json,
+        response_payload_json = EXCLUDED.response_payload_json,
+        expires_at = EXCLUDED.expires_at,
+        responded_at = EXCLUDED.responded_at,
+        metadata_json = EXCLUDED.metadata_json,
+        updated_at = EXCLUDED.updated_at
+    `, [
+      record.interactionRequestId,
+      record.runId,
+      record.nodeRunId ?? null,
+      record.status,
+      record.prompt,
+      JSON.stringify(record.answerSchemaJson),
+      JSON.stringify(record.uiSchemaJson),
+      record.payloadJson ? JSON.stringify(record.payloadJson) : null,
+      record.responsePayloadJson ? JSON.stringify(record.responsePayloadJson) : null,
+      record.expiresAt ? new Date(record.expiresAt) : null,
+      record.respondedAt ? new Date(record.respondedAt) : null,
+      record.metadataJson ? JSON.stringify(record.metadataJson) : null,
       record.createdAt,
       record.updatedAt,
     ]);

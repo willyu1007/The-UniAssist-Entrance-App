@@ -120,11 +120,11 @@
   - which tables remain authoritative for approvals, artifacts, and run events
 - `T-034` may implement only after these ownership choices are frozen.
 
-## Current repo evidence to account for
-- `packages/workflow-contracts/src/types.ts` still contains `compatProviderId`, `replyToken`, `taskId`, and `WorkflowEntryRegistryEntry`.
-- `apps/workflow-platform-api/src/platform-service.ts` still synthesizes template specs around `compatProviderId`.
-- `apps/workflow-runtime/src/service.ts` still constructs compat/provider-shaped interaction payloads.
-- `apps/workflow-runtime/src/runtime-repository.ts` and `apps/workflow-platform-api/src/platform-repository.ts` still persist compat-shaped fields.
+## Landing evidence
+- `packages/workflow-contracts/src/types.ts` now exposes pure-`v1` DTOs, formal events, and interaction records without mainline compat exports.
+- `apps/workflow-platform-api/src/platform-service.ts` now starts runs with `agent-first` / direct-version split semantics and no template-level `compatProviderId`.
+- `apps/workflow-runtime/src/runtime-repository.ts` persists `agentId`, `startMode`, and `interaction_requests` instead of authoritative compat columns.
+- `apps/workflow-runtime/src/service.ts` now emits pure-`v1` formal events at the contract boundary, while retaining limited local compat executor/bridge adapter logic for downstream cutover tasks.
 
 ## Handoff contract to T-034
 - `T-034` may implement services only after:

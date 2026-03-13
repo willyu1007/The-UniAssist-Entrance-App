@@ -9,12 +9,7 @@ export function translateWorkflowFormalEvents(
   const translated: InteractionEvent[] = [];
 
   for (const event of events) {
-    if (event.kind === 'compat_interaction') {
-      translated.push(event.payload.interaction);
-      continue;
-    }
-
-    if (event.kind === 'waiting_input') {
+    if (event.kind === 'interaction.requested') {
       translated.push({
         type: 'provider_extension',
         extensionKind: 'task_question',
@@ -22,9 +17,9 @@ export function translateWorkflowFormalEvents(
           schemaVersion: 'v0',
           providerId: compatProviderId,
           runId,
-          taskId: event.payload.taskId,
-          questionId: event.payload.questionId,
-          replyToken: event.payload.replyToken,
+          taskId: event.payload.interactionRequestId,
+          questionId: `${event.payload.interactionRequestId}:response`,
+          replyToken: event.payload.interactionRequestId,
           prompt: event.payload.prompt,
           answerSchema: event.payload.answerSchema,
           uiSchema: event.payload.uiSchema,
@@ -33,13 +28,14 @@ export function translateWorkflowFormalEvents(
             origin: 'workflow',
             nodeRunId: event.payload.nodeRunId,
             nodeKey: event.payload.nodeKey,
+            interactionRequestId: event.payload.interactionRequestId,
           },
         },
       });
       continue;
     }
 
-    if (event.kind === 'node_state' && event.payload.compatTaskState) {
+    if (event.kind === 'node.lifecycle' && event.payload.status === 'waiting_interaction') {
       translated.push({
         type: 'provider_extension',
         extensionKind: 'task_state',
@@ -47,8 +43,8 @@ export function translateWorkflowFormalEvents(
           schemaVersion: 'v0',
           providerId: compatProviderId,
           runId,
-          taskId: event.payload.taskId || event.payload.nodeRunId,
-          state: event.payload.compatTaskState,
+          taskId: event.payload.nodeRunId,
+          state: 'collecting',
           executionPolicy: event.payload.executionPolicy || 'require_user_confirm',
           metadata: {
             ...(event.payload.metadata || {}),
@@ -62,7 +58,7 @@ export function translateWorkflowFormalEvents(
       continue;
     }
 
-    if (event.kind === 'approval_requested') {
+    if (event.kind === 'approval.requested') {
       translated.push({
         type: 'card',
         title: '等待审批',
@@ -83,7 +79,7 @@ export function translateWorkflowFormalEvents(
       continue;
     }
 
-    if (event.kind === 'approval_decided') {
+    if (event.kind === 'approval.decided') {
       translated.push({
         type: 'assistant_message',
         text: event.payload.decision === 'approved' ? '审批已通过。' : '审批已拒绝。',
@@ -91,11 +87,20 @@ export function translateWorkflowFormalEvents(
       continue;
     }
 
-    if (event.kind === 'artifact_created') {
+    if (event.kind === 'artifact.created') {
       translated.push({
         type: 'assistant_message',
         text: `已生成结构化产物 ${event.payload.artifactType}（${event.payload.state}）。`,
       });
+      continue;
+    }
+
+    if (event.kind === 'artifact.updated') {
+      translated.push({
+        type: 'assistant_message',
+        text: `结构化产物 ${event.payload.artifactType} 已更新为 ${event.payload.state}。`,
+      });
+      continue;
     }
   }
 

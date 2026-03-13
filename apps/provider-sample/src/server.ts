@@ -846,10 +846,135 @@ function buildValidationSignalMetadata(
   };
 }
 
+function getWorkflowCompatTaskId(runId: string, workflow: WorkflowCompatContextEnvelope): string {
+  return `task:${runId}:${workflow.nodeKey}`;
+}
+
+function isInteractionRecoveryFixture(workflow: WorkflowCompatContextEnvelope): boolean {
+  return workflow.nodeConfig?.compatFixture === 'interaction_recovery';
+}
+
+function buildInteractionRecoveryFixtureMetadata(
+  workflow: WorkflowCompatContextEnvelope,
+  subject: string,
+): WorkflowCompatCompletionMetadata {
+  return {
+    artifacts: [
+      {
+        artifactType: 'InteractionFixtureArtifact',
+        state: 'validated',
+        payload: {
+          fixture: 'interaction_recovery',
+          nodeKey: workflow.nodeKey,
+          subject,
+        },
+        metadata: {
+          lineage: {
+            nodeKey: workflow.nodeKey,
+            fixture: 'interaction_recovery',
+          },
+        },
+      },
+    ],
+  };
+}
+
+function buildWorkflowInteractionFixtureInvokeEvents(
+  runId: string,
+  workflow: WorkflowCompatContextEnvelope,
+): InteractionEvent[] {
+  const taskId = getWorkflowCompatTaskId(runId, workflow);
+  sampleTaskMemory.set(taskId, {});
+  return [
+    {
+      type: 'assistant_message',
+      text: 'interaction recovery fixture 已启动，先收集执行主题。',
+    },
+    buildTaskQuestion(
+      runId,
+      taskId,
+      `${taskId}:subject`,
+      '请提供这次 interaction recovery fixture 的主题。',
+      SUBJECT_SCHEMA,
+      SUBJECT_UI_SCHEMA,
+    ),
+  ];
+}
+
+function buildWorkflowInteractionFixtureEvents(
+  body: ProviderInteractRequest,
+  workflow: WorkflowCompatContextEnvelope,
+): InteractionEvent[] {
+  const taskId = body.interaction.inReplyTo?.taskId || getWorkflowCompatTaskId(body.run.runId, workflow);
+  const actionId = body.interaction.actionId;
+  const task = sampleTaskMemory.get(taskId) || {};
+  const events: InteractionEvent[] = [];
+
+  if (actionId.startsWith('answer_task_question') || actionId.startsWith('submit_data_collection')) {
+    const subject = extractSubjectText(body.interaction.payload);
+    if (subject && !task.subject) {
+      task.subject = subject;
+    }
+    if (!task.subject) {
+      events.push(buildTaskQuestion(
+        body.run.runId,
+        taskId,
+        `${taskId}:subject`,
+        'fixture 仍缺少主题，请补充。',
+        SUBJECT_SCHEMA,
+        SUBJECT_UI_SCHEMA,
+      ));
+    } else {
+      events.push(buildTaskState(body.run.runId, taskId, 'ready', 'require_user_confirm', {
+        subject: task.subject,
+        prompt: '样例输入已完整，请确认是否继续执行 interaction recovery fixture。',
+      }));
+      events.push({
+        type: 'assistant_message',
+        text: 'interaction recovery fixture 已准备执行，请确认继续。',
+      });
+    }
+  } else if (actionId.startsWith('execute_task')) {
+    if (!task.subject) {
+      events.push(buildTaskQuestion(
+        body.run.runId,
+        taskId,
+        `${taskId}:subject`,
+        '执行前仍需要先确认 fixture 主题。',
+        SUBJECT_SCHEMA,
+        SUBJECT_UI_SCHEMA,
+      ));
+    } else {
+      events.push(buildTaskState(body.run.runId, taskId, 'executing', 'require_user_confirm', {
+        subject: task.subject,
+      }));
+      events.push({
+        type: 'assistant_message',
+        text: `正在执行 interaction recovery fixture：${task.subject}`,
+      });
+      events.push(buildTaskState(body.run.runId, taskId, 'completed', 'require_user_confirm', {
+        subject: task.subject,
+        ...buildInteractionRecoveryFixtureMetadata(workflow, task.subject),
+      }));
+    }
+  } else {
+    events.push({
+      type: 'ack',
+      message: 'interaction recovery fixture 已收到交互动作。',
+    });
+  }
+
+  sampleTaskMemory.set(taskId, task);
+  return events;
+}
+
 function buildWorkflowImmediateEvents(
   runId: string,
   workflow: WorkflowCompatContextEnvelope,
 ): InteractionEvent[] {
+  if (isInteractionRecoveryFixture(workflow)) {
+    return buildWorkflowInteractionFixtureInvokeEvents(runId, workflow);
+  }
   let metadata: WorkflowCompatCompletionMetadata;
   let message = `sample executor completed ${workflow.nodeKey}`;
   if (workflow.nodeKey === 'capture_inputs' || workflow.nodeKey === 'parse_materials') {
@@ -1032,12 +1157,14 @@ app.post('/v0/interact', async (req: RawBodyRequest, res) => {
     const response: ProviderInteractResponse = {
       schemaVersion: 'v0',
       runId: body.run.runId,
-      events: [
-        {
-          type: 'ack',
-          message: `sample compat executor received interact for ${workflow.nodeKey}`,
-        },
-      ],
+      events: isInteractionRecoveryFixture(workflow)
+        ? buildWorkflowInteractionFixtureEvents(body, workflow)
+        : [
+            {
+              type: 'ack',
+              message: `sample compat executor received interact for ${workflow.nodeKey}`,
+            },
+          ],
     };
     res.json(response);
     return;

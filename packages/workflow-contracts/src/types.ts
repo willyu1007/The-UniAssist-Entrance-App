@@ -1,4 +1,3 @@
-import type { InteractionEvent } from '@baseinterface/contracts';
 import type { ConnectorActionExecutionSnapshot } from './connector-runtime';
 import type { ExternalRuntimeBridgeSnapshot } from './external-runtime-bridge';
 
@@ -7,7 +6,7 @@ export type WorkflowSchemaVersion = 'v1';
 export type WorkflowRunStatus =
   | 'created'
   | 'running'
-  | 'waiting_input'
+  | 'waiting_interaction'
   | 'waiting_approval'
   | 'paused'
   | 'completed'
@@ -18,11 +17,17 @@ export type WorkflowNodeRunStatus =
   | 'created'
   | 'scheduled'
   | 'running'
-  | 'waiting_input'
+  | 'waiting_interaction'
   | 'waiting_approval'
   | 'paused'
   | 'completed'
   | 'failed'
+  | 'cancelled';
+
+export type WorkflowInteractionRequestStatus =
+  | 'pending'
+  | 'answered'
+  | 'expired'
   | 'cancelled';
 
 export type ApprovalRequestStatus =
@@ -75,11 +80,13 @@ export type WorkflowNodeType = 'executor' | 'approval_gate' | 'end';
 
 export type WorkflowTransitionKey =
   | 'success'
-  | 'needs_input'
+  | 'needs_interaction'
   | 'needs_approval'
   | 'approved'
   | 'rejected'
   | 'failed';
+
+export type WorkflowStartMode = 'agent' | 'debug_version';
 
 export type WorkflowNodeSpec = {
   nodeKey: string;
@@ -93,7 +100,6 @@ export type WorkflowTemplateSpec = {
   schemaVersion: WorkflowSchemaVersion;
   workflowKey: string;
   name: string;
-  compatProviderId: string;
   entryNode: string;
   nodes: WorkflowNodeSpec[];
   metadata?: Record<string, unknown>;
@@ -122,9 +128,9 @@ export type RecipeDraftStatus =
 export type DraftSource =
   | 'builder_quick_entry'
   | 'builder_text_entry'
-  | 'chat_intake'
-  | 'builder_synthesize'
-  | 'builder_validate'
+  | 'authoring_intake'
+  | 'authoring_synthesize'
+  | 'authoring_validate'
   | 'builder_publish'
   | 'console_edit'
   | 'run_derived_recipe';
@@ -133,7 +139,6 @@ export type WorkflowDraftSpec = {
   schemaVersion: WorkflowSchemaVersion;
   workflowKey?: string;
   name?: string;
-  compatProviderId?: string;
   entryNode?: string;
   nodes?: WorkflowNodeSpec[];
   metadata?: Record<string, unknown>;
@@ -272,7 +277,6 @@ export type WorkflowTemplateRecord = {
   workflowId: string;
   workflowKey: string;
   name: string;
-  compatProviderId: string;
   status: 'active' | 'archived';
   createdAt: number;
   updatedAt: number;
@@ -297,10 +301,7 @@ export type WorkflowNodeRunRecord = {
   executorId?: string;
   attempt: number;
   waitKey?: string;
-  taskId?: string;
-  questionId?: string;
-  replyToken?: string;
-  compatTaskState?: 'collecting' | 'ready' | 'executing' | 'completed' | 'failed';
+  interactionRequestId?: string;
   executionPolicy?: 'auto_execute' | 'require_user_confirm';
   inputJson?: Record<string, unknown>;
   outputArtifactId?: string;
@@ -314,7 +315,8 @@ export type WorkflowRunRecord = {
   workflowId: string;
   workflowKey: string;
   templateVersionId: string;
-  compatProviderId: string;
+  agentId?: string;
+  startMode: WorkflowStartMode;
   status: WorkflowRunStatus;
   sessionId: string;
   userId: string;
@@ -359,6 +361,23 @@ export type WorkflowApprovalDecisionRecord = {
   comment?: string;
   payloadJson?: Record<string, unknown>;
   createdAt: number;
+};
+
+export type WorkflowInteractionRequestRecord = {
+  interactionRequestId: string;
+  runId: string;
+  nodeRunId?: string;
+  status: WorkflowInteractionRequestStatus;
+  prompt: string;
+  answerSchemaJson: Record<string, unknown>;
+  uiSchemaJson: Record<string, unknown>;
+  payloadJson?: Record<string, unknown>;
+  responsePayloadJson?: Record<string, unknown>;
+  expiresAt?: number;
+  respondedAt?: number;
+  metadataJson?: Record<string, unknown>;
+  createdAt: number;
+  updatedAt: number;
 };
 
 export type ActorProfileRecord = {
@@ -421,6 +440,7 @@ export type WorkflowRunSnapshot = {
   nodeRuns: WorkflowNodeRunRecord[];
   approvals: WorkflowApprovalRequestRecord[];
   approvalDecisions: WorkflowApprovalDecisionRecord[];
+  interactionRequests: WorkflowInteractionRequestRecord[];
   artifacts: WorkflowArtifactRecord[];
   actorProfiles: ActorProfileRecord[];
   actorMemberships: ActorMembershipRecord[];
@@ -434,7 +454,8 @@ export type WorkflowRunSummary = {
   workflowId: string;
   workflowKey: string;
   templateVersionId: string;
-  compatProviderId: string;
+  agentId?: string;
+  startMode: WorkflowStartMode;
   status: WorkflowRunStatus;
   sessionId: string;
   userId: string;
@@ -445,7 +466,7 @@ export type WorkflowRunSummary = {
   currentNodeKey?: string;
   currentNodeType?: WorkflowNodeType;
   currentNodeStatus?: WorkflowNodeRunStatus;
-  blocker: 'waiting_input' | 'waiting_approval' | 'failed' | 'paused' | null;
+  blocker: 'waiting_interaction' | 'waiting_approval' | 'failed' | 'paused' | null;
   pendingApprovalCount: number;
   deliverySummary: {
     pendingResolution: number;
@@ -470,7 +491,6 @@ export type WorkflowApprovalQueueItem = {
   runId: string;
   workflowKey: string;
   templateVersionId: string;
-  compatProviderId: string;
   runStatus: WorkflowRunStatus;
   nodeRunId?: string;
   nodeKey?: string;
@@ -489,68 +509,67 @@ export type WorkflowFormalEventBase = {
   eventId: string;
   traceId: string;
   runId: string;
-  compatProviderId: string;
   timestampMs: number;
 };
 
 export type WorkflowFormalEvent =
   | (WorkflowFormalEventBase & {
-      kind: 'compat_interaction';
-      payload: {
-        interaction: InteractionEvent;
-      };
-    })
-  | (WorkflowFormalEventBase & {
-      kind: 'run_state';
+      kind: 'run.lifecycle';
       payload: {
         status: WorkflowRunStatus;
+        startMode: WorkflowStartMode;
+        agentId?: string;
       };
     })
   | (WorkflowFormalEventBase & {
-      kind: 'node_state';
+      kind: 'node.lifecycle';
       payload: {
         nodeRunId: string;
         nodeKey: string;
         nodeType: WorkflowNodeType;
         status: WorkflowNodeRunStatus;
-        compatTaskState?: 'collecting' | 'ready' | 'executing' | 'completed' | 'failed';
         executionPolicy?: 'auto_execute' | 'require_user_confirm';
-        taskId?: string;
         metadata?: Record<string, unknown>;
       };
     })
   | (WorkflowFormalEventBase & {
-      kind: 'waiting_input';
-      payload: {
-        nodeRunId: string;
-        nodeKey: string;
-        taskId: string;
-        questionId: string;
-        replyToken: string;
-        prompt: string;
-        answerSchema: Record<string, unknown>;
-        uiSchema: Record<string, unknown>;
-        metadata?: Record<string, unknown>;
-      };
-    })
-  | (WorkflowFormalEventBase & {
-      kind: 'approval_requested';
+      kind: 'approval.requested';
       payload: {
         approvalRequestId: string;
         nodeRunId: string;
-        taskId: string;
         prompt: string;
       };
     })
   | (WorkflowFormalEventBase & {
-      kind: 'approval_decided';
+      kind: 'approval.decided';
       payload: {
         approvalRequestId: string;
         decision: 'approved' | 'rejected';
       };
     })
   | (WorkflowFormalEventBase & {
-      kind: 'artifact_created';
+      kind: 'interaction.requested';
+      payload: {
+        interactionRequestId: string;
+        nodeRunId: string;
+        nodeKey: string;
+        prompt: string;
+        answerSchema: Record<string, unknown>;
+        uiSchema: Record<string, unknown>;
+        expiresAt?: number;
+        metadata?: Record<string, unknown>;
+      };
+    })
+  | (WorkflowFormalEventBase & {
+      kind: 'interaction.responded';
+      payload: {
+        interactionRequestId: string;
+        nodeRunId: string;
+        responsePayload?: Record<string, unknown>;
+      };
+    })
+  | (WorkflowFormalEventBase & {
+      kind: 'artifact.created';
       payload: {
         artifactId: string;
         artifactType: string;
@@ -558,11 +577,21 @@ export type WorkflowFormalEvent =
       };
     })
   | (WorkflowFormalEventBase & {
-      kind: 'checkpoint';
+      kind: 'artifact.updated';
       payload: {
-        nodeRunId: string;
-        nodeKey: string;
-        sequence: number;
+        artifactId: string;
+        artifactType: string;
+        state: ArtifactState;
+      };
+    })
+  | (WorkflowFormalEventBase & {
+      kind: 'external.callback.received';
+      payload: {
+        nodeRunId?: string;
+        bridgeId?: string;
+        connectorActionSessionId?: string;
+        connectorEventReceiptId?: string;
+        callbackKind: string;
         externalSessionRef: string;
         metadata?: Record<string, unknown>;
       };
@@ -572,7 +601,6 @@ export type WorkflowCreateRequest = {
   schemaVersion: WorkflowSchemaVersion;
   workflowKey: string;
   name: string;
-  compatProviderId: string;
   spec: WorkflowTemplateSpec;
 };
 
@@ -656,7 +684,6 @@ export type WorkflowDraftSpecPatch =
       value: {
         workflowKey?: string;
         name?: string;
-        compatProviderId?: string;
         entryNode?: string;
       };
     }
@@ -721,26 +748,20 @@ export type RecipeDraftListResponse = {
   recipeDrafts: RecipeDraftRecord[];
 };
 
-export type WorkflowStartRequest = {
+export type WorkflowVersionRunStartRequest = {
   schemaVersion: WorkflowSchemaVersion;
   traceId: string;
   sessionId: string;
   userId: string;
-  workflowKey: string;
-  templateVersionId?: string;
+  workflowTemplateVersionId: string;
   inputText?: string;
   inputPayload?: Record<string, unknown>;
 };
 
-export type WorkflowResumeRequest = {
+export type WorkflowInteractionResponseRequest = {
   schemaVersion: WorkflowSchemaVersion;
   traceId: string;
-  sessionId: string;
   userId: string;
-  runId: string;
-  actionId: string;
-  replyToken?: string;
-  taskId?: string;
   payload?: Record<string, unknown>;
 };
 
@@ -788,6 +809,14 @@ export type WorkflowApprovalDecisionResponse = {
   capturedRecipeDrafts?: RecipeDraftRecord[];
 };
 
+export type WorkflowInteractionResponseResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  interactionRequest: WorkflowInteractionRequestRecord;
+  run: WorkflowRunSnapshot;
+  events: WorkflowFormalEvent[];
+  capturedRecipeDrafts?: RecipeDraftRecord[];
+};
+
 export type WorkflowRunQueryResponse = {
   schemaVersion: WorkflowSchemaVersion;
   run: WorkflowRunSnapshot;
@@ -805,9 +834,10 @@ export type WorkflowConsoleStreamEvent = {
   schemaVersion: WorkflowSchemaVersion;
   eventId: string;
   timestampMs: number;
-  kind: 'run.updated' | 'approval.updated' | 'draft.updated' | 'artifact.updated';
+  kind: 'run.updated' | 'approval.updated' | 'draft.updated' | 'artifact.updated' | 'interaction.updated';
   runId?: string;
   approvalRequestId?: string;
+  interactionRequestId?: string;
   draftId?: string;
   artifactId?: string;
 };
@@ -834,6 +864,7 @@ export type WorkflowRuntimeStartRunRequest = {
   inputText?: string;
   inputPayload?: Record<string, unknown>;
   agentId?: string;
+  startMode: WorkflowStartMode;
   sourceType?: 'message' | 'manual' | 'schedule' | 'webhook' | 'event' | 'event_subscription';
   sourceRef?: string;
   runtimeMetadata?: Record<string, unknown>;
@@ -847,10 +878,7 @@ export type WorkflowRuntimeResumeRunRequest = {
   sessionId: string;
   userId: string;
   runId: string;
-  compatProviderId: string;
-  actionId: string;
-  replyToken?: string;
-  taskId?: string;
+  interactionRequestId: string;
   payload?: Record<string, unknown>;
 };
 
@@ -860,25 +888,6 @@ export type WorkflowRuntimeCancelRunRequest = {
   userId: string;
   runId: string;
   reason?: string;
-};
-
-export type WorkflowEventProjectionRequest = {
-  schemaVersion: WorkflowSchemaVersion;
-  traceId: string;
-  sessionId: string;
-  userId: string;
-  compatProviderId: string;
-  runId: string;
-  events: WorkflowFormalEvent[];
-};
-
-export type WorkflowEntryRegistryEntry = {
-  compatProviderId: string;
-  workflowKey: string;
-  matchKeywords: string[];
-  enabled: boolean;
-  defaultExecutorId: string;
-  defaultTemplateVersionRef?: string;
 };
 
 export function isWorkflowRunTerminal(status: WorkflowRunStatus): boolean {

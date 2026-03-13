@@ -5,20 +5,18 @@ import type {
 } from './types';
 
 export const CANONICAL_SAMPLE_REVIEW_WORKFLOW_KEY = 'sample-review-validation';
-export const CANONICAL_SAMPLE_REVIEW_COMPAT_PROVIDER_ID = 'sample';
 
 export function buildCanonicalSampleReviewWorkflowSpec(): WorkflowTemplateSpec {
   return {
     schemaVersion: 'v1',
     workflowKey: CANONICAL_SAMPLE_REVIEW_WORKFLOW_KEY,
     name: 'Sample Review Validation',
-    compatProviderId: CANONICAL_SAMPLE_REVIEW_COMPAT_PROVIDER_ID,
     entryNode: 'capture_inputs',
     nodes: [
       {
         nodeKey: 'capture_inputs',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'sample-review-capture',
         transitions: {
           success: 'synthesize_review_draft',
         },
@@ -26,7 +24,7 @@ export function buildCanonicalSampleReviewWorkflowSpec(): WorkflowTemplateSpec {
       {
         nodeKey: 'synthesize_review_draft',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'sample-review-synthesize',
         transitions: {
           success: 'approval_review',
         },
@@ -44,7 +42,7 @@ export function buildCanonicalSampleReviewWorkflowSpec(): WorkflowTemplateSpec {
       {
         nodeKey: 'publish_delivery',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'sample-review-publish',
         transitions: {
           success: 'finish',
         },
@@ -119,7 +117,6 @@ export function buildCanonicalSampleReviewTemplate(params: {
       workflowId: params.workflowId,
       workflowKey: spec.workflowKey,
       name: spec.name,
-      compatProviderId: spec.compatProviderId,
       status: 'active',
       createdAt: timestampMs,
       updatedAt: timestampMs,

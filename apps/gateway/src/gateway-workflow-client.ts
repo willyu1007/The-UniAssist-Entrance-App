@@ -1,7 +1,7 @@
 import type {
   WorkflowCommandResponse,
-  WorkflowEntryRegistryEntry,
 } from '@baseinterface/workflow-contracts';
+import type { WorkflowEntryRegistryEntry } from './gateway-types';
 
 type LoggerLike = {
   warn: (msg: string, fields?: Record<string, unknown>) => void;

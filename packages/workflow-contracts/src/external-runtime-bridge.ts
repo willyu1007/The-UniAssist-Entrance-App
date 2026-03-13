@@ -19,7 +19,7 @@ export type BridgeSessionStatus =
 
 export type BridgeCallbackKind =
   | 'checkpoint'
-  | 'approval_requested'
+  | 'approval.requested'
   | 'result'
   | 'error';
 
