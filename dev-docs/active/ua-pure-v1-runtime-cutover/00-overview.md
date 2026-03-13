@@ -18,6 +18,7 @@
 - `T-032` 要求 pure-`v1` backend kernel 必须先独立成立，否则 `T-036` 会承接过多主线责任。
 - 当前后端主线仍混有 `compatProviderId`、provider-shaped resume 和 `/v0` 投影路径。
 - `T-034` 的交付必须证明平台在没有外部能力层的情况下也能跑通最小流程。
+- 当前仓库还没有一个稳定、可重复触发 `interaction requested -> response -> continue` 的最小测试夹具；这一缺口会让交互恢复链路无法形成可信验收。
 
 ## Acceptance criteria (high level)
 - [ ] `workflow-platform-api`、`workflow-runtime`、`worker`、`trigger-scheduler` 已按 pure-`v1` contract 接线
@@ -26,3 +27,4 @@
 - [ ] schedule/webhook trigger 能经由 pure-`v1` path 启动 agent run，而不是回落到 legacy ingress
 - [ ] `approval` 与 `interaction` 阻塞/恢复使用 pure-`v1` request identity，而不是 compat 投影字段
 - [ ] formal events、artifacts、approvals 和 run queries 已形成 pure-`v1` 主线闭环
+- [ ] `T-034` 必须补一个最小 compat fixture，只用于稳定触发并验证 `interactionRequestId` 驱动的阻塞/恢复链路；该 fixture 不得成为内核的长期执行依赖

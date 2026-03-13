@@ -27,8 +27,16 @@
   - if connector or bridge integration is required to prove execution, `T-034` is incomplete
   - if schedule/webhook triggers cannot start a pure-`v1` run, production entry is incomplete
 
+## Additional implementation note
+- `T-034` now also owns a temporary verification harness requirement:
+  - add the smallest compat fixture that can deterministically drive `interaction requested -> response -> continue`
+  - keep it isolated from authoritative contracts and production kernel ownership
+  - remove or retire it later when native fixtures fully cover the same proof scenario
+- This note exists because the current repo does not yet provide a stable, repeatable fixture for the interaction recovery chain, and that gap would otherwise make kernel acceptance unverifiable.
+
 ## Implementation guardrails for later
 - Do not accept a backend cutover that only renames DTOs while keeping gateway in the mainline path.
 - Do not treat debug-only direct version runs as a substitute for production `agent-first` entry.
 - Do not move runtime state ownership into worker jobs just to ease async implementation.
 - Do not leave `trigger-scheduler` outside the task boundary just because the platform API already exposes trigger endpoints.
+- Do not let the temporary compat fixture leak provider/task semantics back into `packages/workflow-contracts` or the mainline API surface.

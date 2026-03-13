@@ -45,6 +45,11 @@
   - runtime state ownership
   - ledger persistence
   - formal event emission
+- Add one minimal compat fixture that exists only to make interaction recovery testable while the native proof path is being landed:
+  - it MUST deterministically emit a real interaction block
+  - it MUST allow resume by `interactionRequestId`
+  - it SHOULD also be able to force the `task_state.ready + require_user_confirm` continuation edge if that edge still exists during cutover
+  - it MUST stay quarantined as a test/proof harness, not a dependency of the authoritative contract or kernel architecture
 - Exit criteria:
   - the platform can execute and finish a run without any `/v0`, gateway, connector, or bridge dependency
 
@@ -77,6 +82,7 @@
   - approval pause/resume
   - interaction pause/resume
   - completion
+- Use the minimal compat fixture as a bounded proof harness wherever the current repo still lacks a stable native interaction fixture.
 - Confirm failure and cancel paths as part of the same kernel ownership model.
 - Exit criteria:
   - `T-035` and `T-036` can treat the backend kernel as a stable dependency rather than an unfinished scaffold
@@ -90,6 +96,7 @@
 - Emit at least one artifact.
 - Pause on one approval request and resume by `approvalRequestId`.
 - Pause on one interaction request and resume by `interactionRequestId`.
+- Use the minimal compat fixture to force at least one deterministic interaction-recovery path when platform-native fixtures are not yet sufficient for repeatable testing.
 - Complete the run and expose queryable final state.
 
 ## Dependencies
@@ -110,6 +117,10 @@
   - task becomes a rename-only refactor with no runnable kernel
   - Mitigation:
     - require a non-connector, non-bridge executable path in acceptance
+- Risk:
+  - interaction recovery remains untestable because the repo lacks a stable fixture that can reliably emit the blocking state
+  - Mitigation:
+    - require a minimal compat fixture inside `T-034` as temporary proof infrastructure, with explicit quarantine from authoritative contracts
 - Risk:
   - runtime and platform API boundaries drift during cutover
   - Mitigation:

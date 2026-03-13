@@ -93,6 +93,18 @@
   - resume blocked nodes from pure-`v1` request identities
 - This capability set is a kernel proof mechanism, not a long-term connector replacement.
 
+## Temporary compat proof fixture
+- `T-034` MAY add one minimal compat fixture when the current repo lacks a stable native way to exercise the interaction recovery chain.
+- The fixture MUST be scoped to proof and testability only:
+  - emit a deterministic interaction-blocking state
+  - accept the corresponding resume action
+  - optionally surface `task_state.ready + require_user_confirm` if that compat edge still needs to be proven during cutover
+- The fixture MUST NOT:
+  - redefine authoritative contracts
+  - reintroduce provider identity as a mainline runtime dependency
+  - become a required production execution path for the kernel
+- This fixture exists to prove that `workflow-platform-api` and `workflow-runtime` can honor `interactionRequestId`-based recovery before `T-036` lands external capability convergence.
+
 ## Boundary exclusions
 - `apps/gateway` is not part of the pure-`v1` kernel.
 - `apps/frontend` is not part of the pure-`v1` kernel.
@@ -121,3 +133,4 @@
 
 ## Verification target
 - An implementer can prove the pure-`v1` backend works before any connector or bridge path is added.
+- That proof MUST include a repeatable interaction-recovery scenario; if the native fixture is not ready, the temporary compat proof fixture is required to close the verification gap.
