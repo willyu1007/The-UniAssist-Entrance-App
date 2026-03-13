@@ -43,4 +43,15 @@ Project: `main`
 | T-029 ua-connector-runtime-and-first-capabilities-implementation | done | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
 | T-030 ua-rnd-collab-validation-implementation | archived | dev-docs/archive/ua-rnd-collab-validation-implementation |
 | T-031 ua-convex-projection-experiment | in-progress | dev-docs/active/ua-convex-projection-experiment |
+
+### F-001 Pure V1 Platform Rewrite
+
+| Task | Status | Dev Docs |
+| --- | --- | --- |
+| T-032 ua-pure-v1-platform-rewrite | in-progress | dev-docs/active/ua-pure-v1-platform-rewrite |
+| T-033 ua-pure-v1-contract-reset | planned | dev-docs/active/ua-pure-v1-contract-reset |
+| T-034 ua-pure-v1-runtime-cutover | planned | dev-docs/active/ua-pure-v1-runtime-cutover |
+| T-035 ua-pure-v1-studio-and-agent-ops | planned | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
+| T-036 ua-pure-v1-connector-bridge-convergence | planned | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
+| T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
 <!-- AUTO-GENERATED:END feature-map -->

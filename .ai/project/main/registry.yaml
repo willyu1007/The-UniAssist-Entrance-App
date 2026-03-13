@@ -12,6 +12,10 @@ milestones:
     title: "Inbox / Triage"
     status: in-progress
     description: "Triage queue for new or unplanned work."
+  - id: M-001
+    title: "Pure V1 Rewrite"
+    status: in-progress
+    description: "Planning and execution track for the pure-v1 platform rewrite."
 
 features:
   - id: F-000
@@ -19,6 +23,11 @@ features:
     status: in-progress
     description: "Untriaged tasks live here until mapped to a real feature."
     milestone_id: M-000
+  - id: F-001
+    title: "Pure V1 Platform Rewrite"
+    status: in-progress
+    description: "Authoritative planning and delivery track for the pure-v1 platform rewrite."
+    milestone_id: M-001
 
 requirements: []
 
@@ -239,4 +248,46 @@ tasks:
     milestone_id: M-000
     feature_id: F-000
     dev_docs_path: dev-docs/active/ua-convex-projection-experiment
+    updated: 2026-03-13
+  - id: T-032
+    slug: ua-pure-v1-platform-rewrite
+    status: in-progress
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-platform-rewrite
+    updated: 2026-03-13
+  - id: T-033
+    slug: ua-pure-v1-contract-reset
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-contract-reset
+    updated: 2026-03-13
+  - id: T-034
+    slug: ua-pure-v1-runtime-cutover
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-runtime-cutover
+    updated: 2026-03-13
+  - id: T-035
+    slug: ua-pure-v1-studio-and-agent-ops
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-studio-and-agent-ops
+    updated: 2026-03-13
+  - id: T-036
+    slug: ua-pure-v1-connector-bridge-convergence
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-connector-bridge-convergence
+    updated: 2026-03-13
+  - id: T-037
+    slug: ua-pure-v1-legacy-removal-and-identity-cleanup
+    status: planned
+    milestone_id: M-001
+    feature_id: F-001
+    dev_docs_path: dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup
     updated: 2026-03-13

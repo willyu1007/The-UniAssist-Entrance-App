@@ -8,7 +8,7 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 31 (planned: 0, in-progress: 16, blocked: 1, done: 8, archived: 6)
+- Tasks: 37 (planned: 5, in-progress: 17, blocked: 1, done: 8, archived: 6)
 
 ## Recent tasks
 
@@ -20,6 +20,12 @@ Project: `main`
 | T-025 ua-teaching-validation-implementation | archived | F-000 | dev-docs/archive/ua-teaching-validation-implementation |
 | T-030 ua-rnd-collab-validation-implementation | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-implementation |
 | T-031 ua-convex-projection-experiment | in-progress | F-000 | dev-docs/active/ua-convex-projection-experiment |
+| T-032 ua-pure-v1-platform-rewrite | in-progress | F-001 | dev-docs/active/ua-pure-v1-platform-rewrite |
+| T-033 ua-pure-v1-contract-reset | planned | F-001 | dev-docs/active/ua-pure-v1-contract-reset |
+| T-034 ua-pure-v1-runtime-cutover | planned | F-001 | dev-docs/active/ua-pure-v1-runtime-cutover |
+| T-035 ua-pure-v1-studio-and-agent-ops | planned | F-001 | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
+| T-036 ua-pure-v1-connector-bridge-convergence | planned | F-001 | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
+| T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | F-001 | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
 | T-024 ua-builder-draft-publish-implementation | done | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
 | T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
@@ -28,10 +34,4 @@ Project: `main`
 | T-011 ua-openclaw-collab-platform | in-progress | F-000 | dev-docs/active/ua-openclaw-collab-platform |
 | T-012 ua-workflow-core-skeleton-design | in-progress | F-000 | dev-docs/active/ua-workflow-core-skeleton-design |
 | T-013 ua-builder-draft-sot-design | in-progress | F-000 | dev-docs/active/ua-builder-draft-sot-design |
-| T-014 ua-connector-action-layer-design | in-progress | F-000 | dev-docs/active/ua-connector-action-layer-design |
-| T-015 ua-control-console-foundation-design | in-progress | F-000 | dev-docs/active/ua-control-console-foundation-design |
-| T-016 ua-convex-projection-evaluation | in-progress | F-000 | dev-docs/active/ua-convex-projection-evaluation |
-| T-018 ua-workflow-data-plane-design | in-progress | F-000 | dev-docs/active/ua-workflow-data-plane-design |
-| T-019 ua-agent-lifecycle-and-trigger-design | in-progress | F-000 | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
-| T-020 ua-external-runtime-bridge-design | in-progress | F-000 | dev-docs/active/ua-external-runtime-bridge-design |
 <!-- AUTO-GENERATED:END dashboard -->
