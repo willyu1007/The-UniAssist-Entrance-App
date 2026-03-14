@@ -292,6 +292,11 @@ export type WorkflowTemplateVersionRecord = {
   createdAt: number;
 };
 
+export type WorkflowTemplateDetail = {
+  workflow: WorkflowTemplateRecord;
+  versions: WorkflowTemplateVersionRecord[];
+};
+
 export type WorkflowNodeRunRecord = {
   nodeRunId: string;
   runId: string;
@@ -608,6 +613,16 @@ export type WorkflowCreateResponse = {
   schemaVersion: WorkflowSchemaVersion;
   workflow: WorkflowTemplateRecord;
   version: WorkflowTemplateVersionRecord;
+};
+
+export type WorkflowTemplateListResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  workflows: WorkflowTemplateRecord[];
+};
+
+export type WorkflowDetailResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  workflow: WorkflowTemplateDetail;
 };
 
 export type WorkflowDraftCreateRequest = {

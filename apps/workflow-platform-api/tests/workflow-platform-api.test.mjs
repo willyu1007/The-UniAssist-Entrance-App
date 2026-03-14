@@ -1018,11 +1018,18 @@ test('workflow platform api manages drafts, publish, recipes, and runtime comman
   const listed = await httpGet(`http://127.0.0.1:${ports.platform}/v1/workflows`);
   assert.equal(listed.status, 200);
   assert.equal(listed.json.workflows.length, 1);
+  assert.equal(listed.json.workflows[0].workflowId, firstPublish.published.json.workflow.workflowId);
+  assert.equal(listed.json.workflows[0].name, firstPublish.published.json.workflow.name);
 
   const fetched = await httpGet(`http://127.0.0.1:${ports.platform}/v1/workflows/${firstPublish.published.json.workflow.workflowId}`);
   assert.equal(fetched.status, 200);
   assert.equal(fetched.json.workflow.workflow.workflowKey, workflowKey);
+  assert.equal(fetched.json.workflow.workflow.name, firstPublish.published.json.workflow.name);
   assert.equal(fetched.json.workflow.versions.length, 1);
+  assert.equal(
+    fetched.json.workflow.versions[0].templateVersionId,
+    firstPublish.published.json.version.templateVersionId,
+  );
   assert.equal(fetched.json.workflow.versions[0].status, 'published');
 
   const secondDraft = await httpPost(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts`, {

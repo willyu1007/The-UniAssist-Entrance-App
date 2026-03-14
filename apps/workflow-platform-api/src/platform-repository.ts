@@ -6,6 +6,7 @@ import type {
   WorkflowDraftSpec,
   WorkflowDraftRecord,
   WorkflowDraftSessionLinkRecord,
+  WorkflowTemplateDetail,
   WorkflowTemplateRecord,
   WorkflowTemplateVersionRecord,
 } from '@baseinterface/workflow-contracts';
@@ -121,10 +122,7 @@ function toRecipeDraftRecord(row: Record<string, unknown>): RecipeDraftRecord {
   };
 }
 
-export type WorkflowDetail = {
-  workflow: WorkflowTemplateRecord;
-  versions: WorkflowTemplateVersionRecord[];
-};
+export type WorkflowDetail = WorkflowTemplateDetail;
 
 export type SessionDraftList = {
   drafts: WorkflowDraftRecord[];
