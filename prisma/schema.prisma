@@ -7,75 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Session {
-  sessionId            String    @id @map("session_id")
-  userId               String    @map("user_id")
-  seq                  BigInt
-  lastActivityAt       DateTime  @map("last_activity_at")
-  lastUserText         String?   @map("last_user_text")
-  topicDriftStreak     Int       @default(0) @map("topic_drift_streak")
-  stickyProviderId     String?   @map("sticky_provider_id")
-  stickyWeight         Decimal   @default(0.150) @map("sticky_weight") @db.Decimal(5, 3)
-  switchLeadProviderId String?   @map("switch_lead_provider_id")
-  switchLeadStreak     Int       @default(0) @map("switch_lead_streak")
-  lastSwitchTs         DateTime? @map("last_switch_ts")
-  topicState           Json?     @map("topic_state")
-  createdAt            DateTime  @default(now()) @map("created_at")
-  updatedAt            DateTime  @updatedAt @map("updated_at")
-
-  @@index([userId], map: "idx_sessions_user_id")
-  @@index([lastActivityAt], map: "idx_sessions_last_activity_at")
-  @@map("sessions")
-}
-
-model TimelineEvent {
-  eventId         String   @id @map("event_id")
-  traceId         String   @map("trace_id")
-  sessionId       String   @map("session_id")
-  userId          String   @map("user_id")
-  providerId      String?  @map("provider_id")
-  runId           String?  @map("run_id")
-  seq             BigInt
-  timestampMs     BigInt   @map("timestamp_ms")
-  kind            String
-  extensionKind   String?  @map("extension_kind")
-  renderSchemaRef String?  @map("render_schema_ref")
-  payload         Json
-  createdAt       DateTime @default(now()) @map("created_at")
-
-  @@unique([sessionId, seq], map: "timeline_events_session_seq_key")
-  @@index([sessionId, seq], map: "idx_timeline_events_session_seq")
-  @@map("timeline_events")
-}
-
-model ProviderRun {
-  runId          String   @id @map("run_id")
-  traceId        String   @map("trace_id")
-  sessionId      String   @map("session_id")
-  userId         String   @map("user_id")
-  providerId     String   @map("provider_id")
-  mode           String
-  routingMode    String   @map("routing_mode")
-  idempotencyKey String   @map("idempotency_key")
-  status         String
-  createdAt      DateTime @default(now()) @map("created_at")
-  updatedAt      DateTime @updatedAt @map("updated_at")
-
-  @@index([sessionId], map: "idx_provider_runs_session_id")
-  @@map("provider_runs")
-}
-
-model UserContextCache {
-  profileRef   String   @id @map("profile_ref")
-  userId       String   @map("user_id")
-  snapshot     Json
-  ttlExpiresAt DateTime @map("ttl_expires_at")
-  updatedAt    DateTime @updatedAt @map("updated_at")
-
-  @@index([ttlExpiresAt], map: "idx_user_context_cache_ttl")
-  @@map("user_context_cache")
-}
-
 model OutboxEvent {
   id          BigInt    @id @default(autoincrement())
   eventId     String    @unique @map("event_id")
@@ -98,26 +29,6 @@ model OutboxEvent {
   @@index([status, createdAt], map: "idx_outbox_events_status_created_at")
   @@index([status, nextRetryAt], map: "idx_outbox_events_status_next_retry")
   @@map("outbox_events")
-}
-
-model TaskThread {
-  taskId           String   @map("task_id")
-  sessionId        String   @map("session_id")
-  providerId       String   @map("provider_id")
-  runId            String   @map("run_id")
-  state            String
-  executionPolicy  String   @map("execution_policy")
-  activeQuestionId String?  @map("active_question_id")
-  activeReplyToken String?  @map("active_reply_token")
-  metadata         Json?
-  updatedAt        DateTime @updatedAt @map("updated_at")
-  createdAt        DateTime @default(now()) @map("created_at")
-
-  @@id([sessionId, taskId], map: "task_threads_pkey")
-  @@index([sessionId], map: "idx_task_threads_session_id")
-  @@index([sessionId, state], map: "idx_task_threads_session_state")
-  @@index([activeReplyToken], map: "idx_task_threads_active_reply_token")
-  @@map("task_threads")
 }
 
 model WorkflowTemplate {

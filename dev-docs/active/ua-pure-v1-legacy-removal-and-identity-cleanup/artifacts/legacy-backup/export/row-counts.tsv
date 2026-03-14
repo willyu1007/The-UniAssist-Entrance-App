@@ -1,0 +1,6 @@
+table_name	source_database	row_count	export_file
+sessions	uniassist_gateway	2	export/sessions.csv
+timeline_events	uniassist_gateway	8	export/timeline_events.csv
+provider_runs	uniassist_gateway	2	export/provider_runs.csv
+task_threads	postgres	3	export/task_threads.csv
+user_context_cache	uniassist_gateway	0	export/user_context_cache.csv

@@ -4,6 +4,25 @@
 - `T-037` is intentionally destructive and must run last.
 - It turns the planning promise of “no semantic drift remains” into an enforceable repo state.
 
+## Landed in repo
+- removed legacy workspaces:
+  - `apps/gateway`
+  - `apps/frontend`
+  - `apps/adapter-wechat`
+  - `apps/provider-sample`
+  - `packages/contracts`
+- removed compat executor client and registry exports from `packages/executor-sdk`
+- normalized `packages/workflow-contracts` and surviving runtime/platform/worker code to pure-`v1` type names
+- changed workspace identity from `@baseinterface/*` to `@uniassist/*`
+- switched root/dev entrypoints, packaging, deploy manifests, staging runbook, and alert drill to pure-`v1` services
+- removed legacy Prisma SSOT models:
+  - `sessions`
+  - `timeline_events`
+  - `provider_runs`
+  - `task_threads`
+  - `user_context_cache`
+- added repo-side migration `20260314130500_drop_legacy_v0_tables`
+
 ## Responsibility contract
 - predecessor tasks must prove pure-`v1` replacement exists
 - this task then removes old artifacts and cleans remaining identity drift
@@ -31,3 +50,11 @@
 - Do not leave repo-level docs for “later” after deleting code; documentation drift is part of the cleanup task.
 - Do not keep compat package names because they are convenient for import stability.
 - Do not allow active tests to preserve deleted semantics under the label of regression coverage.
+- Do not mark backup/export as complete unless artifact files and checksums come from a real database snapshot.
+
+## Backup execution note
+- The backup/export step was executed against local PostgreSQL snapshots on `2026-03-14`.
+- Source drift exists in the local legacy footprint:
+  - `sessions`, `timeline_events`, `provider_runs`, `user_context_cache` were exported from `uniassist_gateway`
+  - `task_threads` was absent in `uniassist_gateway` and was exported from `postgres`
+- The artifact ledger now records the actual row counts, checksums, and source databases rather than a blocked placeholder.

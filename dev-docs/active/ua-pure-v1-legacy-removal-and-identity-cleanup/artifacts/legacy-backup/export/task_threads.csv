@@ -1,0 +1,4 @@
+task_id,session_id,provider_id,run_id,state,execution_policy,active_question_id,active_reply_token,metadata,updated_at,created_at
+38e9b33e-3a36-425a-954e-9ebdc7b1b598,s-smoke-57aba14b,reminder,38e9b33e-3a36-425a-954e-9ebdc7b1b598,collecting,require_user_confirm,38e9b33e-3a36-425a-954e-9ebdc7b1b598:q:default,07c9db5a-247d-46d8-bc98-ac95093a04ee,{},2026-03-06 07:59:17.433473+08,2026-03-06 07:59:17.433473+08
+task:8aceca9b-61cc-403e-83e0-c3e129cffc0f,s-smoke-57aba14b,plan,8aceca9b-61cc-403e-83e0-c3e129cffc0f,collecting,require_user_confirm,task:8aceca9b-61cc-403e-83e0-c3e129cffc0f:goal,872290df-0861-48a0-ac05-51762c5219fb,{},2026-03-06 07:59:17.41903+08,2026-03-06 07:59:17.41903+08
+task:3d811891-80bf-4a9b-a528-09d0e6311f45,s-smoke-c556350c,plan,3d811891-80bf-4a9b-a528-09d0e6311f45,collecting,require_user_confirm,task:3d811891-80bf-4a9b-a528-09d0e6311f45:goal,f2deb1df-1a6a-4215-b7e5-69aa87ebc73c,{},2026-03-06 08:11:23.317764+08,2026-03-06 08:11:23.317764+08

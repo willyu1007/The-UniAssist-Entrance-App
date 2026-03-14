@@ -1,0 +1,47 @@
+{
+  "taskId": "T-037",
+  "generatedAt": "2026-03-14T13:38:03Z",
+  "status": "executed_local_snapshot",
+  "tables": [
+    {
+      "table": "sessions",
+      "sourceDatabase": "uniassist_gateway",
+      "exportFile": "export/sessions.csv",
+      "rowCount": 2,
+      "checksumSha256": "e033791ccd8e5300f3ab5203a5addc73a40f2ec0c48879c2e2f0c7643d91c9bc"
+    },
+    {
+      "table": "timeline_events",
+      "sourceDatabase": "uniassist_gateway",
+      "exportFile": "export/timeline_events.csv",
+      "rowCount": 8,
+      "checksumSha256": "d14feda07f595551e23bf3846d5aec5023cadb8d8ce3490a2da5a1649b4e998e"
+    },
+    {
+      "table": "provider_runs",
+      "sourceDatabase": "uniassist_gateway",
+      "exportFile": "export/provider_runs.csv",
+      "rowCount": 2,
+      "checksumSha256": "cf890ee8255e314c6a1fb0f27e81d4140738d93a164a0294177bd91d4b0f27d3"
+    },
+    {
+      "table": "task_threads",
+      "sourceDatabase": "postgres",
+      "exportFile": "export/task_threads.csv",
+      "rowCount": 3,
+      "checksumSha256": "edbae6231fc06f31dc91e15f23c313b5df97d9176fe9907ff73640ac8dd36d7e"
+    },
+    {
+      "table": "user_context_cache",
+      "sourceDatabase": "uniassist_gateway",
+      "exportFile": "export/user_context_cache.csv",
+      "rowCount": 0,
+      "checksumSha256": "701c2e88fb74b0c0037d9c5391d141f8694457a80409e27ebfaaea3a290bbc3e"
+    }
+  ],
+  "notes": [
+    "Export files were generated on 2026-03-14 using local PostgreSQL snapshots on 127.0.0.1:5432.",
+    "The local legacy footprint was split across two databases, so sourceDatabase is recorded per table.",
+    "This satisfies the backup evidence requirement for the local execution environment; any shared/live target still needs an environment-owner decision before destructive apply."
+  ]
+}

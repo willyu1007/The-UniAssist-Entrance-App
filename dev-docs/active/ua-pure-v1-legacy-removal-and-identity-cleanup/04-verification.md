@@ -1,37 +1,67 @@
 # 04 Verification
 
-## Planning bundle review
+## Repo-side cutover
 - Status: passed
 - Evidence:
-  - `01-plan.md` now defines:
-    - admission criteria
-    - destructive sequencing
-    - final grep gate
-  - `02-architecture.md` now defines:
-    - expected target classes
-    - allowed historical residue
-    - final gate model
+  - legacy workspaces removed from filesystem:
+    - `apps/gateway`
+    - `apps/frontend`
+    - `apps/adapter-wechat`
+    - `apps/provider-sample`
+    - `packages/contracts`
+  - pure-`v1` replacements now own default dev/deploy topology:
+    - `control-console`
+    - `workflow-platform-api`
+    - `workflow-runtime`
+    - `connector-runtime`
+    - `trigger-scheduler`
+    - `worker`
 
-## Current repo legacy-surface scan
-- Status: passed
-- Command:
-  - `rg -n "\\/v0|compatProviderId|WorkflowEntryRegistryEntry|replyToken|provider_run|apps/frontend|apps/gateway|packages/contracts|providerId" README.md AGENTS.md dev-docs apps packages .ai/project/main | head -n 300`
+## Prisma cutover
+- Status: passed (repo-side)
+- Evidence:
+  - `prisma/schema.prisma` no longer declares `sessions`, `timeline_events`, `provider_runs`, `task_threads`, `user_context_cache`
+  - migration added:
+    - `prisma/migrations/20260314130500_drop_legacy_v0_tables/migration.sql`
 - Notes:
-  - confirmed legacy semantics are still active in:
-    - repo-level docs
-    - gateway and frontend references
-    - compat contract types
-    - executor SDK compat helpers
-    - active tests and scenario helpers
+  - destructive apply against a shared/live target remains environment-owned; repo migration, schema refresh, and local backup evidence are complete
 
-## Package-closure review
+## Backup artifact ledger
 - Status: passed
+- Evidence:
+  - `artifacts/legacy-backup/README.md`
+  - `artifacts/legacy-backup/export-manifest.json`
+  - `artifacts/legacy-backup/removal-ledger.md`
+  - `artifacts/legacy-backup/export/row-counts.tsv`
+  - `artifacts/legacy-backup/export/checksums.sha256`
+  - `artifacts/legacy-backup/export/*.csv`
 - Notes:
-  - `T-037` now defines when destructive cleanup is allowed, what can remain only as history, and how final completion will be proven.
+  - local backup export executed with direct `psql` connections to local PostgreSQL on `127.0.0.1:5432`
+  - source DB mapping is explicit because the local legacy footprint was split:
+    - `sessions`, `timeline_events`, `provider_runs`, `user_context_cache` from `uniassist_gateway`
+    - `task_threads` from `postgres`
 
-## Execution-stage verification to record later
-- backup/export evidence
-- destructive removal commands
-- grep gate results
-- governance sync/lint after cleanup
-- mainline build/test validation after cleanup
+## Execution-stage verification
+- Status: passed
+- Evidence:
+  - `pnpm install`
+  - workspace typecheck:
+    - `pnpm --filter @uniassist/workflow-contracts typecheck`
+    - `pnpm --filter @uniassist/executor-sdk typecheck`
+    - `pnpm --filter @uniassist/connector-sdk typecheck`
+    - `pnpm --filter @uniassist/executor-bridge-sample typecheck`
+  - workspace tests:
+    - `pnpm --filter @uniassist/workflow-runtime test`
+    - `pnpm --filter @uniassist/workflow-platform-api test`
+    - `pnpm --filter @uniassist/control-console test`
+    - `pnpm --filter @uniassist/worker test`
+    - `pnpm --filter @uniassist/connector-runtime test`
+    - `pnpm --filter @uniassist/trigger-scheduler test`
+  - DB/context/governance:
+    - `DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/uniassist pnpm prisma validate`
+    - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
+    - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+    - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+  - deployment/grep gate:
+    - `pnpm k8s:staging:validate`
+    - final forbidden-term grep against active paths returned clean

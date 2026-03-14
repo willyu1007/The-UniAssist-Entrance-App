@@ -1,0 +1,3 @@
+run_id,trace_id,session_id,user_id,provider_id,mode,routing_mode,idempotency_key,status,created_at,updated_at
+1f4026fc-283e-4746-86ab-5d7041814249,36739091-169c-4e34-9718-f17ba60216f5,s-recover,u-recover,builtin_chat,async,fallback,36739091-169c-4e34-9718-f17ba60216f5:builtin_chat,in-progress,2026-02-23 15:44:31.374941+08,2026-02-23 15:44:31.374941+08
+68e24495-fb1c-4c21-9d2e-1ecbe8ea6ec8,64827950-bf47-45be-8c9f-a5ef8d1aa6b9,s-pg,u-pg,plan,async,normal,64827950-bf47-45be-8c9f-a5ef8d1aa6b9:plan,in-progress,2026-02-23 15:44:16.910895+08,2026-02-23 15:44:16.910895+08

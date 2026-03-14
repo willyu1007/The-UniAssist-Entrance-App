@@ -1,0 +1,3 @@
+session_id,user_id,seq,last_activity_at,last_user_text,topic_drift_streak,sticky_provider_id,sticky_weight,switch_lead_provider_id,switch_lead_streak,last_switch_ts,topic_state,created_at,updated_at
+s-pg,u-pg,3,2026-02-23 15:44:16+08,请规划一下,0,plan,0.150,,0,2026-02-23 15:44:16.902+08,"{""topicDriftStreak"": 0}",2026-02-23 15:44:16.910889+08,2026-02-23 15:44:16.910889+08
+s-recover,u-recover,4,2026-02-23 15:44:31+08,普通消息,0,,0.120,,0,,"{""topicDriftStreak"": 0}",2026-02-23 15:44:31.378304+08,2026-02-23 15:44:31.378304+08
