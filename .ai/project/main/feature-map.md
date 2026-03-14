@@ -52,6 +52,6 @@ Project: `main`
 | T-033 ua-pure-v1-contract-reset | planned | dev-docs/active/ua-pure-v1-contract-reset |
 | T-034 ua-pure-v1-runtime-cutover | done | dev-docs/active/ua-pure-v1-runtime-cutover |
 | T-035 ua-pure-v1-studio-and-agent-ops | done | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
-| T-036 ua-pure-v1-connector-bridge-convergence | planned | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
+| T-036 ua-pure-v1-connector-bridge-convergence | done | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
 | T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
 <!-- AUTO-GENERATED:END feature-map -->
