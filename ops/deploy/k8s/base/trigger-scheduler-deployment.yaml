@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: trigger-scheduler
+  namespace: uniassist-staging
+  labels:
+    app: trigger-scheduler
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: trigger-scheduler
+  template:
+    metadata:
+      labels:
+        app: trigger-scheduler
+    spec:
+      containers:
+        - name: trigger-scheduler
+          image: uniassist/trigger-scheduler:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8793
+              name: http
+          envFrom:
+            - configMapRef:
+                name: uniassist-common-config
+            - secretRef:
+                name: uniassist-secrets
+          env:
+            - name: PORT
+              value: "8793"
+            - name: UNIASSIST_SERVICE_ID
+              value: trigger-scheduler

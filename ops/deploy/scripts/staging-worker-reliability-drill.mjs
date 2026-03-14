@@ -142,13 +142,12 @@ async function runCommand(name, args, extraEnv) {
   return { stdout, stderr };
 }
 
-function buildReport({ mode, gatewayBaseUrl, streamGroup, globalStreamKey, results, outputPath }) {
+function buildReport({ mode, streamGroup, globalStreamKey, results, outputPath }) {
   const lines = [];
   lines.push('# Staging Worker Reliability Drill Report');
   lines.push('');
   lines.push(`- Timestamp: ${nowIso()}`);
   lines.push(`- Mode: ${mode}`);
-  lines.push(`- Gateway: ${gatewayBaseUrl || 'n/a'}`);
   lines.push(`- Stream group: ${streamGroup}`);
   lines.push(`- Global stream key: ${globalStreamKey}`);
   lines.push('');
@@ -167,7 +166,6 @@ async function main() {
   const mode = (process.env.WORKER_DRILL_MODE || 'simulate').trim();
   const databaseUrl = process.env.DATABASE_URL || '';
   const redisUrl = process.env.REDIS_URL || '';
-  const gatewayBaseUrl = (process.env.STAGING_GATEWAY_BASE_URL || '').replace(/\/$/, '');
   const timeoutMs = envInt('WORKER_DRILL_TIMEOUT_MS', 45_000);
   const enableNoGroupStep = boolEnv('WORKER_DRILL_ENABLE_NOGROUP', true);
   const streamPrefix = process.env.UNIASSIST_STREAM_PREFIX || 'uniassist:timeline:';
@@ -180,36 +178,12 @@ async function main() {
 
   const results = [];
 
-  if (gatewayBaseUrl) {
-    const startedAt = nowMs();
-    try {
-      const health = await fetch(`${gatewayBaseUrl}/health`);
-      const body = await health.json().catch(() => ({}));
-      if (health.status !== 200 || body.ok !== true) {
-        throw new Error(`health failed status=${health.status}`);
-      }
-      results.push({
-        step: 'gateway-health',
-        result: 'pass',
-        elapsedMs: nowMs() - startedAt,
-        details: 'gateway /health ok',
-      });
-    } catch (error) {
-      results.push({
-        step: 'gateway-health',
-        result: 'fail',
-        elapsedMs: nowMs() - startedAt,
-        details: String(error),
-      });
-    }
-  }
-
   if (mode !== 'live') {
     const startedAt = nowMs();
     const replayHelp = await runCommand(
       'replay-help',
       ['worker:replay:dead-letter', '--', '--help'],
-      { DATABASE_URL: databaseUrl || 'postgres://localhost:5432/uniassist_gateway' },
+      { DATABASE_URL: databaseUrl || 'postgres://localhost:5432/uniassist_workflow_platform' },
     );
     results.push({
       step: 'replay-cli-ready',
@@ -220,7 +194,6 @@ async function main() {
 
     const report = buildReport({
       mode,
-      gatewayBaseUrl,
       streamGroup,
       globalStreamKey,
       results,
@@ -398,12 +371,11 @@ async function main() {
     await pool.end();
   }
 
-  const report = buildReport({
-    mode,
-    gatewayBaseUrl,
-    streamGroup,
-    globalStreamKey,
-    results,
+    const report = buildReport({
+      mode,
+      streamGroup,
+      globalStreamKey,
+      results,
     outputPath,
   });
   fs.writeFileSync(reportAbsPath, report, 'utf8');

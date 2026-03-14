@@ -5,14 +5,20 @@ resources:
   - ../../base
 
 images:
-  - name: uniassist/gateway
-    newName: ghcr.io/willyu1007/the-ua-entrance-app/gateway
+  - name: uniassist/control-console
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/control-console
     newTag: staging-latest
-  - name: uniassist/provider-sample
-    newName: ghcr.io/willyu1007/the-ua-entrance-app/provider-sample
+  - name: uniassist/workflow-platform-api
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/workflow-platform-api
     newTag: staging-latest
-  - name: uniassist/adapter-wechat
-    newName: ghcr.io/willyu1007/the-ua-entrance-app/adapter-wechat
+  - name: uniassist/workflow-runtime
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/workflow-runtime
+    newTag: staging-latest
+  - name: uniassist/connector-runtime
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/connector-runtime
+    newTag: staging-latest
+  - name: uniassist/trigger-scheduler
+    newName: ghcr.io/willyu1007/the-ua-entrance-app/trigger-scheduler
     newTag: staging-latest
   - name: uniassist/worker
     newName: ghcr.io/willyu1007/the-ua-entrance-app/worker
@@ -34,26 +40,40 @@ patches:
       kind: Secret
       name: uniassist-secrets
       namespace: uniassist-staging
-  - path: gateway-resources.patch.yaml
+  - path: control-console-resources.patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
-      name: gateway
+      name: control-console
       namespace: uniassist-staging
-  - path: provider-sample-resources.patch.yaml
+  - path: workflow-platform-api-resources.patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
-      name: provider-sample
+      name: workflow-platform-api
       namespace: uniassist-staging
-  - path: adapter-wechat-resources.patch.yaml
+  - path: workflow-runtime-resources.patch.yaml
     target:
       group: apps
       version: v1
       kind: Deployment
-      name: adapter-wechat
+      name: workflow-runtime
+      namespace: uniassist-staging
+  - path: connector-runtime-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: connector-runtime
+      namespace: uniassist-staging
+  - path: trigger-scheduler-resources.patch.yaml
+    target:
+      group: apps
+      version: v1
+      kind: Deployment
+      name: trigger-scheduler
       namespace: uniassist-staging
   - path: worker-resources.patch.yaml
     target:

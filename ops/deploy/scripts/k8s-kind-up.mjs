@@ -12,16 +12,30 @@ const kindConfigPath = path.join(repoRoot, 'ops/deploy/k8s/kind/cluster.yaml');
 const overlayPath = path.join(repoRoot, 'ops/deploy/k8s/overlays/kind');
 
 const services = [
-  { id: 'gateway', image: 'uniassist/gateway:local', dockerfile: 'ops/packaging/services/gateway.Dockerfile' },
   {
-    id: 'provider-sample',
-    image: 'uniassist/provider-sample:local',
-    dockerfile: 'ops/packaging/services/provider-sample.Dockerfile',
+    id: 'control-console',
+    image: 'uniassist/control-console:local',
+    dockerfile: 'ops/packaging/services/control-console.Dockerfile',
   },
   {
-    id: 'adapter-wechat',
-    image: 'uniassist/adapter-wechat:local',
-    dockerfile: 'ops/packaging/services/adapter-wechat.Dockerfile',
+    id: 'workflow-platform-api',
+    image: 'uniassist/workflow-platform-api:local',
+    dockerfile: 'ops/packaging/services/workflow-platform-api.Dockerfile',
+  },
+  {
+    id: 'workflow-runtime',
+    image: 'uniassist/workflow-runtime:local',
+    dockerfile: 'ops/packaging/services/workflow-runtime.Dockerfile',
+  },
+  {
+    id: 'connector-runtime',
+    image: 'uniassist/connector-runtime:local',
+    dockerfile: 'ops/packaging/services/connector-runtime.Dockerfile',
+  },
+  {
+    id: 'trigger-scheduler',
+    image: 'uniassist/trigger-scheduler:local',
+    dockerfile: 'ops/packaging/services/trigger-scheduler.Dockerfile',
   },
   { id: 'worker', image: 'uniassist/worker:local', dockerfile: 'ops/packaging/services/worker.Dockerfile' },
 ];
@@ -134,21 +148,30 @@ async function main() {
   console.log('[k8s-kind-up] applying manifests');
   await run('kubectl', ['apply', '-k', overlayPath]);
 
-  const deployments = ['postgres', 'redis', 'provider-sample', 'gateway', 'adapter-wechat', 'worker'];
+  const deployments = [
+    'postgres',
+    'redis',
+    'control-console',
+    'workflow-platform-api',
+    'workflow-runtime',
+    'connector-runtime',
+    'trigger-scheduler',
+    'worker',
+  ];
   for (const deployment of deployments) {
     console.log(`[k8s-kind-up] waiting rollout: ${deployment}`);
     await waitForRollout(deployment);
   }
 
-  await waitForHttp('http://127.0.0.1:8787/health', 120000);
-  await waitForHttp('http://127.0.0.1:8788/health', 120000);
+  await waitForHttp('http://127.0.0.1:8787', 120000);
+  await waitForHttp('http://127.0.0.1:8791/health', 120000);
 
   await run('kubectl', ['-n', 'uniassist-staging', 'get', 'pods']);
   await run('kubectl', ['-n', 'uniassist-staging', 'get', 'svc']);
 
   console.log('[k8s-kind-up][PASS] kind cluster is ready');
-  console.log('[k8s-kind-up] gateway: http://127.0.0.1:8787/health');
-  console.log('[k8s-kind-up] adapter-wechat: http://127.0.0.1:8788/health');
+  console.log('[k8s-kind-up] control-console: http://127.0.0.1:8787');
+  console.log('[k8s-kind-up] workflow-platform-api: http://127.0.0.1:8791/health');
 }
 
 main().catch((error) => {

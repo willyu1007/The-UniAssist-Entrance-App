@@ -8,7 +8,7 @@ description: Production environment
 database:
   host: ${DB_HOST}
   port: ${DB_PORT:-5432}
-  name: ${DB_NAME:-app_prod}
+  name: ${DB_NAME:-uniassist_prod}
   user: ${DB_USER}
   # password: use secrets manager
   ssl: true
@@ -18,7 +18,7 @@ api:
   baseUrl: ${API_BASE_URL}
   timeout: ${API_TIMEOUT:-30000}
 
-gateway:
+platformIngress:
   rateLimit:
     enabled: true
     requestsPerMinute: ${RATE_LIMIT:-1000}
@@ -38,4 +38,3 @@ features:
 scaling:
   minReplicas: ${MIN_REPLICAS:-2}
   maxReplicas: ${MAX_REPLICAS:-10}
-

@@ -11,6 +11,6 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
-EXPOSE 8890
+EXPOSE 8792
 
-CMD ["pnpm", "--filter", "@baseinterface/provider-sample", "start"]
+CMD ["pnpm", "--filter", "@uniassist/workflow-runtime", "start"]

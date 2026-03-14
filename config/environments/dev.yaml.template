@@ -7,7 +7,7 @@ description: Local development environment
 database:
   host: ${DB_HOST:-localhost}
   port: ${DB_PORT:-5432}
-  name: ${DB_NAME:-app_dev}
+  name: ${DB_NAME:-uniassist_dev}
   user: ${DB_USER:-dev_user}
   # password: use DB_PASSWORD env var
 
@@ -15,7 +15,7 @@ api:
   baseUrl: ${API_BASE_URL:-http://localhost:3000}
   timeout: ${API_TIMEOUT:-30000}
 
-gateway:
+platformIngress:
   rateLimit:
     enabled: false
   auth:
@@ -28,4 +28,3 @@ logging:
 features:
   debugMode: true
   mockServices: true
-

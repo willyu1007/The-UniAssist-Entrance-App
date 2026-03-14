@@ -1,27 +1,27 @@
 groups:
-  - name: uniassist-staging-gateway
+  - name: uniassist-staging-pure-v1
     rules:
-      - alert: UniAssistGatewayIngestErrorRateHigh
-        expr: uniassist_gateway_ingest_error_rate > 0.05
+      - alert: UniAssistWorkflowPlatformApiUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="workflow-platform-api"} > 0
         for: 5m
         labels:
           severity: p1
-          service: gateway
+          service: workflow-platform-api
         annotations:
-          summary: "Gateway ingest error rate too high"
-          description: "ingest error rate has been above 5% for 5 minutes."
-          runbook: "ops/observability/runbooks/incident-playbook.md#p1-gateway-ingest-error-rate-high"
+          summary: "Workflow platform API deployment unavailable"
+          description: "workflow-platform-api has unavailable replicas for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-workflow-platform-api-unavailable"
 
-      - alert: UniAssistGatewayIngestLatencyP95High
-        expr: uniassist_gateway_ingest_latency_p95_ms > 1500
-        for: 10m
+      - alert: UniAssistWorkflowRuntimeUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="workflow-runtime"} > 0
+        for: 5m
         labels:
-          severity: p2
-          service: gateway
+          severity: p1
+          service: workflow-runtime
         annotations:
-          summary: "Gateway ingest latency p95 is high"
-          description: "ingest p95 latency has stayed above 1500ms for 10 minutes."
-          runbook: "ops/observability/runbooks/incident-playbook.md#p2-gateway-ingest-latency-high"
+          summary: "Workflow runtime deployment unavailable"
+          description: "workflow-runtime has unavailable replicas for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-workflow-runtime-unavailable"
 
       - alert: UniAssistOutboxBacklogHigh
         expr: uniassist_outbox_backlog_total > 100
@@ -45,13 +45,46 @@ groups:
           description: "at least one outbox event moved to dead_letter state."
           runbook: "ops/observability/runbooks/incident-playbook.md#p1-dead-letter-detected"
 
-      - alert: UniAssistProviderInvokeErrorsHigh
-        expr: increase(uniassist_gateway_provider_invoke_error_total[10m]) > 10
+      - alert: UniAssistWorkerUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="worker"} > 0
+        for: 5m
+        labels:
+          severity: p1
+          service: worker
+        annotations:
+          summary: "Worker deployment unavailable"
+          description: "worker has unavailable replicas for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p1-worker-unavailable"
+
+      - alert: UniAssistConnectorRuntimeUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="connector-runtime"} > 0
         for: 5m
         labels:
           severity: p2
-          service: provider
+          service: connector-runtime
         annotations:
-          summary: "Provider invoke failures increasing"
-          description: "provider invoke errors increased by >10 in 10 minutes."
-          runbook: "ops/observability/runbooks/incident-playbook.md#p2-provider-invoke-errors-high"
+          summary: "Connector runtime deployment unavailable"
+          description: "connector-runtime has unavailable replicas for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p2-connector-runtime-unavailable"
+
+      - alert: UniAssistTriggerSchedulerUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="trigger-scheduler"} > 0
+        for: 5m
+        labels:
+          severity: p2
+          service: trigger-scheduler
+        annotations:
+          summary: "Trigger scheduler deployment unavailable"
+          description: "trigger-scheduler has unavailable replicas for 5 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p2-trigger-scheduler-unavailable"
+
+      - alert: UniAssistControlConsoleUnavailable
+        expr: kube_deployment_status_replicas_unavailable{namespace="uniassist-staging",deployment="control-console"} > 0
+        for: 10m
+        labels:
+          severity: p2
+          service: control-console
+        annotations:
+          summary: "Control console deployment unavailable"
+          description: "control-console has unavailable replicas for 10 minutes."
+          runbook: "ops/observability/runbooks/incident-playbook.md#p2-control-console-unavailable"

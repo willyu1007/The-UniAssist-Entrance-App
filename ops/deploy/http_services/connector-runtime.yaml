@@ -1,0 +1,7 @@
+# Service deployment descriptor
+# Generated: 2026-03-14T00:00:00.000Z
+
+id: connector-runtime
+kind: http_service
+artifact: uniassist/connector-runtime:local
+description: UniAssist connector runtime

@@ -8,8 +8,7 @@ rule_files:
   - /etc/prometheus/rules/uniassist-staging.rules.yml
 
 scrape_configs:
-  - job_name: uniassist-gateway
-    metrics_path: /metrics
+  - job_name: kube-state-metrics
     static_configs:
       - targets:
-          - gateway.staging.example.com
+          - kube-state-metrics.monitoring.svc.cluster.local:8080

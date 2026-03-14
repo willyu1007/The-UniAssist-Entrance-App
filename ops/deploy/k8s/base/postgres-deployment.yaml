@@ -24,7 +24,7 @@ spec:
               name: postgres
           env:
             - name: POSTGRES_DB
-              value: uniassist_gateway
+              value: uniassist_staging
             - name: POSTGRES_USER
               value: postgres
             - name: POSTGRES_PASSWORD
@@ -34,7 +34,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -U postgres -d uniassist_gateway
+                - pg_isready -U postgres -d uniassist_staging
             initialDelaySeconds: 5
             periodSeconds: 5
           livenessProbe:
@@ -42,7 +42,7 @@ spec:
               command:
                 - sh
                 - -c
-                - pg_isready -U postgres -d uniassist_gateway
+                - pg_isready -U postgres -d uniassist_staging
             initialDelaySeconds: 15
             periodSeconds: 10
           volumeMounts:

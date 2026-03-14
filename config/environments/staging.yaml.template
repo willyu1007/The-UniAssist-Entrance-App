@@ -7,7 +7,7 @@ description: Testing and QA environment
 database:
   host: ${DB_HOST}
   port: ${DB_PORT:-5432}
-  name: ${DB_NAME:-app_staging}
+  name: ${DB_NAME:-uniassist_staging}
   user: ${DB_USER}
   # password: use DB_PASSWORD env var or secrets manager
   ssl: true
@@ -16,7 +16,7 @@ api:
   baseUrl: ${API_BASE_URL}
   timeout: ${API_TIMEOUT:-30000}
 
-gateway:
+platformIngress:
   rateLimit:
     enabled: true
     requestsPerMinute: ${RATE_LIMIT:-100}
@@ -31,4 +31,3 @@ logging:
 features:
   debugMode: false
   mockServices: false
-

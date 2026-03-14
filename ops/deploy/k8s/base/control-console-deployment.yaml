@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-console
+  namespace: uniassist-staging
+  labels:
+    app: control-console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: control-console
+  template:
+    metadata:
+      labels:
+        app: control-console
+    spec:
+      containers:
+        - name: control-console
+          image: uniassist/control-console:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 4174
+              name: http
+          envFrom:
+            - configMapRef:
+                name: uniassist-common-config
+            - secretRef:
+                name: uniassist-secrets
+          env:
+            - name: UNIASSIST_SERVICE_ID
+              value: control-console

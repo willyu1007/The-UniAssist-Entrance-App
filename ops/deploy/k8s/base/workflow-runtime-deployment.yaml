@@ -1,0 +1,34 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: workflow-runtime
+  namespace: uniassist-staging
+  labels:
+    app: workflow-runtime
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: workflow-runtime
+  template:
+    metadata:
+      labels:
+        app: workflow-runtime
+    spec:
+      containers:
+        - name: workflow-runtime
+          image: uniassist/workflow-runtime:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8792
+              name: http
+          envFrom:
+            - configMapRef:
+                name: uniassist-common-config
+            - secretRef:
+                name: uniassist-secrets
+          env:
+            - name: PORT
+              value: "8792"
+            - name: UNIASSIST_SERVICE_ID
+              value: workflow-runtime

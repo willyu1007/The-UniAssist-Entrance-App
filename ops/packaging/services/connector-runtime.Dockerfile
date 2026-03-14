@@ -11,4 +11,6 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
-CMD ["pnpm", "--filter", "@uniassist/worker", "start"]
+EXPOSE 8895
+
+CMD ["pnpm", "--filter", "@uniassist/connector-runtime", "start"]

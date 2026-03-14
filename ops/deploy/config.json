@@ -27,25 +27,39 @@
   ],
   "services": [
     {
-      "id": "gateway",
+      "id": "control-console",
       "kind": "http_service",
-      "artifact": "uniassist/gateway:local",
-      "description": "UniAssist gateway",
-      "addedAt": "2026-03-04T14:37:10.883Z"
+      "artifact": "uniassist/control-console:local",
+      "description": "UniAssist control console",
+      "addedAt": "2026-03-14T00:00:00.000Z"
     },
     {
-      "id": "provider-sample",
+      "id": "workflow-platform-api",
       "kind": "http_service",
-      "artifact": "uniassist/provider-sample:local",
-      "description": "Plan provider",
-      "addedAt": "2026-03-04T14:37:10.908Z"
+      "artifact": "uniassist/workflow-platform-api:local",
+      "description": "UniAssist workflow platform API",
+      "addedAt": "2026-03-14T00:00:00.000Z"
     },
     {
-      "id": "adapter-wechat",
+      "id": "workflow-runtime",
       "kind": "http_service",
-      "artifact": "uniassist/adapter-wechat:local",
-      "description": "WeChat adapter",
-      "addedAt": "2026-03-04T14:37:10.961Z"
+      "artifact": "uniassist/workflow-runtime:local",
+      "description": "UniAssist workflow runtime",
+      "addedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "id": "connector-runtime",
+      "kind": "http_service",
+      "artifact": "uniassist/connector-runtime:local",
+      "description": "UniAssist connector runtime",
+      "addedAt": "2026-03-14T00:00:00.000Z"
+    },
+    {
+      "id": "trigger-scheduler",
+      "kind": "http_service",
+      "artifact": "uniassist/trigger-scheduler:local",
+      "description": "UniAssist trigger scheduler",
+      "addedAt": "2026-03-14T00:00:00.000Z"
     },
     {
       "id": "worker",

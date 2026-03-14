@@ -5,10 +5,22 @@ metadata:
   namespace: uniassist-staging
 data:
   NODE_ENV: staging
+  VITE_WORKFLOW_PLATFORM_API_BASE_URL: "http://127.0.0.1:8791"
   UNIASSIST_STREAM_PREFIX: "uniassist:timeline:"
   UNIASSIST_STREAM_GLOBAL_KEY: "uniassist:timeline:all"
   UNIASSIST_STREAM_GROUP: "ua-delivery-staging"
   UNIASSIST_STREAM_CONSUMER: "ua-worker-staging"
+  UNIASSIST_WORKFLOW_PLATFORM_API_BASE_URL: "http://workflow-platform-api:8791"
+  UNIASSIST_WORKFLOW_PLATFORM_BASE_URL: "http://workflow-platform-api:8791"
+  UNIASSIST_WORKFLOW_PLATFORM_SERVICE_ID: workflow-platform-api
+  UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: "http://workflow-runtime:8792"
+  UNIASSIST_WORKFLOW_RUNTIME_PUBLIC_BASE_URL: "http://workflow-runtime:8792"
+  UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID: workflow-runtime
+  UNIASSIST_CONNECTOR_RUNTIME_BASE_URL: "http://connector-runtime:8895"
+  UNIASSIST_CONNECTOR_RUNTIME_SERVICE_ID: connector-runtime
+  UNIASSIST_TRIGGER_SCHEDULER_SERVICE_ID: trigger-scheduler
+  UNIASSIST_EXTERNAL_BRIDGE_ALLOWED_SUBJECTS: "executor-bridge-sample"
+  UNIASSIST_TRIGGER_SCHEDULER_POLL_INTERVAL_MS: "5000"
   UNIASSIST_INTERNAL_AUTH_MODE: audit
   UNIASSIST_INTERNAL_AUTH_ISSUER: uniassist-internal
   UNIASSIST_INTERNAL_AUTH_SIGNING_KID: kid-main

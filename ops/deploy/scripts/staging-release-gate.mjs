@@ -7,8 +7,6 @@ import { fileURLToPath } from 'node:url';
 const scriptDir = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(scriptDir, '../../..');
 
-const REQUIRED_ENV = ['DATABASE_URL', 'REDIS_URL'];
-
 function fail(message) {
   console.error(`[staging-gate][FAIL] ${message}`);
   process.exit(1);
@@ -50,21 +48,17 @@ async function runStep(step) {
 }
 
 async function main() {
-  const missing = REQUIRED_ENV.filter((name) => !process.env[name]);
-  if (missing.length > 0) {
-    fail(`missing required env: ${missing.join(', ')}`);
-  }
-
   const steps = [
     { name: 'workspace typecheck', cmd: 'pnpm', args: ['typecheck:workspaces'] },
-    { name: 'conformance suite', cmd: 'pnpm', args: ['test:conformance'] },
+    { name: 'pure-v1 smoke suite', cmd: 'pnpm', args: ['smoke:pure-v1'] },
+    { name: 'connector runtime tests', cmd: 'pnpm', args: ['--filter', '@uniassist/connector-runtime', 'test'] },
+    { name: 'trigger scheduler tests', cmd: 'pnpm', args: ['--filter', '@uniassist/trigger-scheduler', 'test'] },
     {
-      name: 'redis e2e smoke',
+      name: 'worker simulate drill',
       cmd: 'pnpm',
-      args: ['smoke:redis:e2e'],
+      args: ['worker:drill:staging'],
       env: {
-        DATABASE_URL: process.env.DATABASE_URL,
-        REDIS_URL: process.env.REDIS_URL,
+        WORKER_DRILL_MODE: 'simulate',
       },
     },
   ];

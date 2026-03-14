@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: control-console
+  namespace: uniassist-staging
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: control-console
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "160Mi"
+            limits:
+              cpu: "300m"
+              memory: "320Mi"

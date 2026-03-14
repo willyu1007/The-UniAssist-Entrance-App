@@ -5,17 +5,17 @@ resources:
   - ../../base
 
 patches:
-  - path: gateway-nodeport-patch.yaml
+  - path: control-console-nodeport-patch.yaml
     target:
       group: ""
       version: v1
       kind: Service
-      name: gateway
+      name: control-console
       namespace: uniassist-staging
-  - path: adapter-wechat-nodeport-patch.yaml
+  - path: workflow-platform-api-nodeport-patch.yaml
     target:
       group: ""
       version: v1
       kind: Service
-      name: adapter-wechat
+      name: workflow-platform-api
       namespace: uniassist-staging

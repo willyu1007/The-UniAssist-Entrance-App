@@ -1,7 +1,0 @@
-# Service deployment descriptor
-# Generated: 2026-03-04T14:37:10.883Z
-
-id: gateway
-kind: http_service
-artifact: uniassist/gateway:local
-description: UniAssist gateway

@@ -2,7 +2,7 @@
 
 ## Scope
 
-- Services: `gateway`, `worker`, `provider-sample`, `adapter-wechat`
+- Services: `control-console`, `workflow-platform-api`, `workflow-runtime`, `connector-runtime`, `trigger-scheduler`, `worker`
 - Dependencies: Postgres, Redis
 
 ## Prerequisites
@@ -24,17 +24,21 @@ DATABASE_URL=... REDIS_URL=... pnpm release:gate:staging
 
 Gate content:
 - `pnpm typecheck:workspaces`
-- `pnpm test:conformance`
-- `pnpm smoke:redis:e2e`
+- `pnpm smoke:pure-v1`
+- `pnpm --filter @uniassist/connector-runtime test`
+- `pnpm --filter @uniassist/trigger-scheduler test`
+- `WORKER_DRILL_MODE=simulate pnpm worker:drill:staging`
 
 If any step fails: stop rollout and fix before retry.
 
 ## Rollout order
 
-1. Deploy `provider-sample`
-2. Deploy `adapter-wechat`
-3. Deploy `gateway`
-4. Deploy `worker`
+1. Deploy `workflow-runtime`
+2. Deploy `workflow-platform-api`
+3. Deploy `connector-runtime`
+4. Deploy `trigger-scheduler`
+5. Deploy `worker`
+6. Deploy `control-console`
 
 After each step, check `/health` endpoint of updated service.
 
@@ -47,21 +51,19 @@ kubectl apply -k ops/deploy/k8s/overlays/staging
 ## Post-release verification
 
 ```bash
-STAGING_GATEWAY_BASE_URL=... \
-STAGING_PROVIDER_PLAN_BASE_URL=... \
-STAGING_ADAPTER_WECHAT_BASE_URL=... \
-STAGING_INTERNAL_AUTH_KID=... \
-STAGING_INTERNAL_AUTH_SECRET=... \
-STAGING_INTERNAL_AUTH_ISSUER=uniassist-internal \
-STAGING_CONTEXT_SUBJECT=provider-sample \
+STAGING_CONTROL_CONSOLE_BASE_URL=... \
+STAGING_WORKFLOW_PLATFORM_API_BASE_URL=... \
+STAGING_WORKFLOW_RUNTIME_BASE_URL=... \
+STAGING_CONNECTOR_RUNTIME_BASE_URL=... \
+STAGING_TRIGGER_SCHEDULER_BASE_URL=... \
 pnpm release:verify:staging
 ```
 
 Verification criteria:
-- health endpoints all green
-- one ingest request accepted
-- timeline contains routing + provider run + interaction events
-- context API internal auth path works (`context:read` scope)
+- control-console root responds with HTML
+- pure-v1 health endpoints all green
+- one draft -> validate -> publish -> run smoke path completes
+- smoke run emits at least one artifact on the pure-v1 kernel
 
 ## Worker reliability drill
 
@@ -102,7 +104,7 @@ Trigger rollback if any of the following occurs:
 
 Rollback steps:
 1. Stop new worker instances first (prevent additional write/consume drift).
-2. Revert `gateway/provider-sample/adapter-wechat/worker` to previous stable revision.
+2. Revert `workflow-runtime/workflow-platform-api/connector-runtime/trigger-scheduler/worker/control-console` to previous stable revision.
 3. Re-apply previous env set and restart in rollout order.
 4. Re-run post-release verification command.
 5. Record incident timeline and root cause.

@@ -11,6 +11,6 @@ COPY packages ./packages
 
 RUN pnpm install --frozen-lockfile
 
-EXPOSE 8788
+EXPOSE 8793
 
-CMD ["pnpm", "--filter", "@baseinterface/adapter-wechat", "start"]
+CMD ["pnpm", "--filter", "@uniassist/trigger-scheduler", "start"]

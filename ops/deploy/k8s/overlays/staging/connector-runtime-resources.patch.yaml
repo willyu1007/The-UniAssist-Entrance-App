@@ -1,0 +1,18 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: connector-runtime
+  namespace: uniassist-staging
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+        - name: connector-runtime
+          resources:
+            requests:
+              cpu: "120m"
+              memory: "160Mi"
+            limits:
+              cpu: "300m"
+              memory: "320Mi"

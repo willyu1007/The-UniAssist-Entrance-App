@@ -9,10 +9,14 @@ resources:
   - postgres-service.yaml
   - redis-deployment.yaml
   - redis-service.yaml
-  - gateway-deployment.yaml
-  - gateway-service.yaml
-  - provider-sample-deployment.yaml
-  - provider-sample-service.yaml
-  - adapter-wechat-deployment.yaml
-  - adapter-wechat-service.yaml
+  - control-console-deployment.yaml
+  - control-console-service.yaml
+  - workflow-platform-api-deployment.yaml
+  - workflow-platform-api-service.yaml
+  - workflow-runtime-deployment.yaml
+  - workflow-runtime-service.yaml
+  - connector-runtime-deployment.yaml
+  - connector-runtime-service.yaml
+  - trigger-scheduler-deployment.yaml
+  - trigger-scheduler-service.yaml
   - worker-deployment.yaml
