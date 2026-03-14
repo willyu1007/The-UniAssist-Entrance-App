@@ -8,12 +8,13 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 37 (planned: 5, in-progress: 17, blocked: 1, done: 8, archived: 6)
+- Tasks: 37 (planned: 4, in-progress: 17, blocked: 1, done: 9, archived: 6)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
+| T-034 ua-pure-v1-runtime-cutover | done | F-001 | dev-docs/active/ua-pure-v1-runtime-cutover |
 | T-001 uniassist-entrance-engine-v0 | archived | F-000 | dev-docs/archive/uniassist-entrance-engine-v0 |
 | T-017 ua-teaching-assessment-scenario-design | archived | F-000 | dev-docs/archive/ua-teaching-assessment-scenario-design |
 | T-022 ua-rnd-collab-validation-scenario-design | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
@@ -22,7 +23,6 @@ Project: `main`
 | T-031 ua-convex-projection-experiment | in-progress | F-000 | dev-docs/active/ua-convex-projection-experiment |
 | T-032 ua-pure-v1-platform-rewrite | in-progress | F-001 | dev-docs/active/ua-pure-v1-platform-rewrite |
 | T-033 ua-pure-v1-contract-reset | planned | F-001 | dev-docs/active/ua-pure-v1-contract-reset |
-| T-034 ua-pure-v1-runtime-cutover | planned | F-001 | dev-docs/active/ua-pure-v1-runtime-cutover |
 | T-035 ua-pure-v1-studio-and-agent-ops | planned | F-001 | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
 | T-036 ua-pure-v1-connector-bridge-convergence | planned | F-001 | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
 | T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | F-001 | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |

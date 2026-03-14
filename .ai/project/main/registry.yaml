@@ -265,11 +265,11 @@ tasks:
     updated: 2026-03-13
   - id: T-034
     slug: ua-pure-v1-runtime-cutover
-    status: planned
+    status: done
     milestone_id: M-001
     feature_id: F-001
     dev_docs_path: dev-docs/active/ua-pure-v1-runtime-cutover
-    updated: 2026-03-13
+    updated: 2026-03-14
   - id: T-035
     slug: ua-pure-v1-studio-and-agent-ops
     status: planned

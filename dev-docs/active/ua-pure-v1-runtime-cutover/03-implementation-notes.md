@@ -40,3 +40,11 @@
 - Do not move runtime state ownership into worker jobs just to ease async implementation.
 - Do not leave `trigger-scheduler` outside the task boundary just because the platform API already exposes trigger endpoints.
 - Do not let the temporary compat fixture leak provider/task semantics back into `packages/workflow-contracts` or the mainline API surface.
+
+## Landed in this task
+- `apps/workflow-runtime` now treats `platform.emit_artifact`, `platform.request_interaction`, and `platform.fail` as reserved native executors inside the existing `executorId` string contract; no public DTO or schema field was added.
+- Runtime executor routing is now ordered as: connector executor -> external runtime bridge -> platform-native executor -> compat executor fallback. This makes `platform_runtime` the real pure-`v1` mainline while keeping compat harnesses isolated for regression coverage.
+- `cancelRun()` no longer assumes an external runtime bridge exists. Platform-native runs now cancel authoritatively from `waiting_approval` and `waiting_interaction`, including current node state, run state, pending approvals, pending interactions, and live connector sessions.
+- `apps/worker` no longer treats gateway projection as a correctness dependency. `workflow_formal_event` forwarding is skipped when no gateway base URL is configured, and gateway failures are logged as sidecar degradation instead of poisoning the authoritative kernel path.
+- `apps/workflow-runtime/tests/native-platform-runtime.test.ts` is the new pure-`v1` proof fixture for native artifact -> approval -> interaction -> completion / failure / cancel flows. The older compat fixture remains in place only to keep `interactionRequestId` recovery regressions observable.
+- `apps/workflow-platform-api/tests/native-platform-runtime.test.mjs` proves that published native workflows can be attached to an active agent and started through both webhook and schedule trigger dispatch, with duplicate dispatch dedupe preserved and public run/approval/artifact queries remaining intact.

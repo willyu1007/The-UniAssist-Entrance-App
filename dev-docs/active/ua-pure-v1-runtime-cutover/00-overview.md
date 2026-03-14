@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Status note: `T-034` 已建立为 pure-`v1` backend kernel cutover task；当前仅完成任务包建档。
-- Next step: 在 `T-033` 冻结 contract baseline 后，接手 `workflow-platform-api`、`workflow-runtime`、`worker` 和 `trigger-scheduler` 的主线切换。
+- State: done
+- Status note: `T-034` 已完成 pure-`v1` backend kernel cutover：`workflow-runtime` 现在可在不依赖 `/v0` compat provider 的前提下执行 platform-native workflow，`worker -> gateway` 已降级为可选 projection sidecar，`platform-api`/`trigger-scheduler` 复用现有 trigger control-plane 跑通 native proof。
+- Next step: `T-035` 直接消费已稳定的 run/approval/interaction/artifact/query/cancel semantics；`T-036` 仅负责把 connector / bridge 能力接回 pure-`v1` kernel，而不是补主线可运行性。
 
 ## Goal
 交付一个不依赖 `/v0`、gateway、provider projection、connector runtime 或 external runtime bridge 的最小 pure-`v1` backend kernel，并包含 production entry 所需的平台自有 trigger runtime infrastructure。
@@ -21,10 +21,10 @@
 - 当前仓库还没有一个稳定、可重复触发 `interaction requested -> response -> continue` 的最小测试夹具；这一缺口会让交互恢复链路无法形成可信验收。
 
 ## Acceptance criteria (high level)
-- [ ] `workflow-platform-api`、`workflow-runtime`、`worker`、`trigger-scheduler` 已按 pure-`v1` contract 接线
-- [ ] 生产运行入口固定为 `agent-first`，无论来自显式 API 还是平台拥有的 trigger dispatch
-- [ ] 平台可在不依赖 connector/bridge 的前提下跑通最小 run lifecycle
-- [ ] schedule/webhook trigger 能经由 pure-`v1` path 启动 agent run，而不是回落到 legacy ingress
-- [ ] `approval` 与 `interaction` 阻塞/恢复使用 pure-`v1` request identity，而不是 compat 投影字段
-- [ ] formal events、artifacts、approvals 和 run queries 已形成 pure-`v1` 主线闭环
-- [ ] `T-034` 必须补一个最小 compat fixture，只用于稳定触发并验证 `interactionRequestId` 驱动的阻塞/恢复链路；该 fixture 不得成为内核的长期执行依赖
+- [x] `workflow-platform-api`、`workflow-runtime`、`worker`、`trigger-scheduler` 已按 pure-`v1` contract 接线
+- [x] 生产运行入口固定为 `agent-first`，无论来自显式 API 还是平台拥有的 trigger dispatch
+- [x] 平台可在不依赖 connector/bridge 的前提下跑通最小 run lifecycle
+- [x] schedule/webhook trigger 能经由 pure-`v1` path 启动 agent run，而不是回落到 legacy ingress
+- [x] `approval` 与 `interaction` 阻塞/恢复使用 pure-`v1` request identity，而不是 compat 投影字段
+- [x] formal events、artifacts、approvals 和 run queries 已形成 pure-`v1` 主线闭环
+- [x] `T-034` 保留最小 compat fixture 作为 `interactionRequestId` 恢复链路回归证明，同时新增独立 native fixture 作为 pure-`v1` kernel 主证明

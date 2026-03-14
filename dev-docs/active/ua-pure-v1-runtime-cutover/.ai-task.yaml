@@ -2,5 +2,5 @@ version: 1
 task_id: T-034
 project: main
 slug: ua-pure-v1-runtime-cutover
-status: planned
-updated: "2026-03-13"
+status: done
+updated: "2026-03-14"

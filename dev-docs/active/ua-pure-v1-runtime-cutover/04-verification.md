@@ -37,13 +37,18 @@
   - `T-034` therefore now requires a minimal compat fixture as temporary proof infrastructure until a native fixture closes the same gap
 
 ## Execution-stage verification to record later
-- pure-`v1` API/runtime/worker typecheck
-- backend integration tests
-- run lifecycle smoke tests
-- approval resume and interaction resume tests
-- cancellation and failure-path tests
-- compat-fixture-backed interaction recovery proof covering:
-  - interaction block creation
-  - response by `interactionRequestId`
-  - continuation after response
-  - optional `task_state.ready + require_user_confirm` continuation when that compat edge still exists
+- Status: passed
+- Typecheck commands:
+  - `pnpm --filter @baseinterface/workflow-runtime typecheck`
+  - `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+  - `pnpm --filter @baseinterface/worker typecheck`
+- Test commands:
+  - `pnpm --filter @baseinterface/worker test`
+  - `pnpm --filter @baseinterface/workflow-runtime test`
+  - `pnpm --filter @baseinterface/workflow-platform-api exec node --test tests/native-platform-runtime.test.mjs`
+  - `pnpm --filter @baseinterface/trigger-scheduler test`
+- Notes:
+  - `apps/workflow-runtime` test suite passed with the new native proof plus the existing compat/provider, connector, and external-bridge regressions.
+  - `apps/workflow-platform-api/tests/native-platform-runtime.test.mjs` passed against a real `workflow-runtime` process, proving webhook/schedule trigger dispatch into a published native workflow and validating run/approval/artifact query surfaces plus duplicate dispatch dedupe.
+  - `apps/worker/tests/worker.test.ts` passed, proving gateway projection is now optional and gateway failures no longer block `workflow_formal_event` consumption.
+  - `apps/trigger-scheduler` transport proof still passed unchanged, confirming the existing scheduler/webhook transport remains reusable after the kernel cutover.
