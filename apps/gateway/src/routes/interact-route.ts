@@ -280,14 +280,14 @@ export function registerInteractRoute(
           payload: interaction.payload,
         });
         const translated = translateWorkflowFormalEvents(
-          workflowResponse.run.run.compatProviderId,
+          interaction.providerId,
           workflowResponse.run.run.runId,
           workflowResponse.events,
         );
         await emitProviderEvents(
           session,
           inputRef,
-          workflowResponse.run.run.compatProviderId,
+          interaction.providerId,
           workflowResponse.run.run.runId,
           translated,
         );

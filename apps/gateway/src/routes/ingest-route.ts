@@ -203,14 +203,14 @@ export function registerIngestRoute(
               payload: forwarded.payload,
             });
             const translated = translateWorkflowFormalEvents(
-              workflowResponse.run.run.compatProviderId,
+              thread.providerId,
               workflowResponse.run.run.runId,
               workflowResponse.events,
             );
             await emitProviderEvents(
               session,
               effectiveInput,
-              workflowResponse.run.run.compatProviderId,
+              thread.providerId,
               workflowResponse.run.run.runId,
               translated,
             );
@@ -347,7 +347,7 @@ export function registerIngestRoute(
               sessionId: session.sessionId,
               userId: effectiveInput.userId,
               text: builderEntry.text,
-              source: 'chat_intake',
+              source: 'authoring_intake',
             })
             : await services.builderClient.focusDraft(activeDraft.draftId, {
               schemaVersion: 'v1',
@@ -503,14 +503,14 @@ export function registerIngestRoute(
         }, workflowEntry.compatProviderId, runId);
 
         const translated = translateWorkflowFormalEvents(
-          workflowResponse.run.run.compatProviderId,
+          workflowEntry.compatProviderId,
           workflowResponse.run.run.runId,
           workflowResponse.events,
         );
         await emitProviderEvents(
           session,
           effectiveInput,
-          workflowResponse.run.run.compatProviderId,
+          workflowEntry.compatProviderId,
           workflowResponse.run.run.runId,
           translated,
         );
