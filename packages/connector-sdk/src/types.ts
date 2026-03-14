@@ -2,14 +2,14 @@ import type {
   ConnectorActionExecutionSnapshot,
   ConnectorCatalog,
   ConnectorRuntimeInvokeRequest,
-  WorkflowExternalLedgerResult,
-} from '@baseinterface/workflow-contracts';
+  WorkflowLedgerResult,
+} from '@uniassist/workflow-contracts';
 
 export type ConnectorAdapterInvokeResult =
   | {
       status: 'completed';
       externalSessionRef: string;
-      result?: WorkflowExternalLedgerResult;
+      result?: WorkflowLedgerResult;
       metadata?: Record<string, unknown>;
     }
   | {
@@ -56,7 +56,7 @@ export type ConnectorAdapter = {
 };
 
 export type ConnectorRuntimeClient = {
-  invoke: (body: ConnectorRuntimeInvokeRequest) => Promise<import('@baseinterface/workflow-contracts').ConnectorRuntimeInvokeResponse>;
+  invoke: (body: ConnectorRuntimeInvokeRequest) => Promise<import('@uniassist/workflow-contracts').ConnectorRuntimeInvokeResponse>;
 };
 
 export type ConnectorRegistryEntry = {
@@ -71,19 +71,19 @@ export type ConnectorModuleLoader = (specifier: string) => Promise<unknown>;
 const DEFAULT_CONNECTOR_REGISTRY: ConnectorRegistryEntry[] = [
   {
     connectorKey: 'issue_tracker',
-    packageName: '@baseinterface/connector-issue-tracker-sample',
+    packageName: '@uniassist/connector-issue-tracker-sample',
     exportName: 'issueTrackerSampleConnector',
     enabled: true,
   },
   {
     connectorKey: 'ci_pipeline',
-    packageName: '@baseinterface/connector-ci-pipeline-sample',
+    packageName: '@uniassist/connector-ci-pipeline-sample',
     exportName: 'ciPipelineSampleConnector',
     enabled: true,
   },
   {
     connectorKey: 'source_control',
-    packageName: '@baseinterface/connector-source-control-sample',
+    packageName: '@uniassist/connector-source-control-sample',
     exportName: 'sourceControlSampleConnector',
     enabled: true,
   },

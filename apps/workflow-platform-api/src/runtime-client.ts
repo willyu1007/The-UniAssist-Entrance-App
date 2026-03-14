@@ -1,4 +1,4 @@
-import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
+import { buildInternalAuthHeaders, type InternalAuthConfig } from '@uniassist/shared';
 import type {
   WorkflowRuntimeCancelRunRequest,
   WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
@@ -14,7 +14,7 @@ import type {
   WorkflowRunQueryResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import { PlatformError } from './platform-errors';
 
 type RuntimeInteractionLookupResponse = {

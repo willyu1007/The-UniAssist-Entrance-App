@@ -35,7 +35,7 @@ import type {
   WorkflowInteractionResponseRequest,
   WorkflowRunCancelRequest,
   WorkflowVersionRunStartRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import { isPlatformError, PlatformError } from './platform-errors';
 import type { PlatformService } from './platform-service';
 import type { ControlConsoleStreamBroker } from './control-console-stream';

@@ -1,5 +1,5 @@
-import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
-import type { ConnectorRuntimeInvokeRequest, ConnectorRuntimeInvokeResponse } from '@baseinterface/workflow-contracts';
+import { buildInternalAuthHeaders, type InternalAuthConfig } from '@uniassist/shared';
+import type { ConnectorRuntimeInvokeRequest, ConnectorRuntimeInvokeResponse } from '@uniassist/workflow-contracts';
 import type { ConnectorRuntimeClient } from './types';
 
 type CreateConnectorRuntimeClientDeps = {

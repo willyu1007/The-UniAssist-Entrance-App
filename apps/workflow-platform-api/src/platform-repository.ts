@@ -9,7 +9,7 @@ import type {
   WorkflowTemplateDetail,
   WorkflowTemplateRecord,
   WorkflowTemplateVersionRecord,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 const EMPTY_DRAFT_SPEC: WorkflowDraftSpec = {
   schemaVersion: 'v1',

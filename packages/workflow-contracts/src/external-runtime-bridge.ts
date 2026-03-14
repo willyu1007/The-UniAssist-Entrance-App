@@ -1,3 +1,5 @@
+import type { WorkflowRuntimeContextEnvelope } from './types';
+
 export type BridgeRegistrationStatus =
   | 'registered'
   | 'active'
@@ -199,17 +201,7 @@ export type ExternalRuntimeBridgeInvokeRequest = {
   capabilityRef?: string;
   inputText?: string;
   inputPayload?: Record<string, unknown>;
-  context: {
-    nodeKey: string;
-    nodeType: string;
-    nodeConfig?: Record<string, unknown>;
-    runInput?: Record<string, unknown>;
-    upstreamArtifactRefs: Array<{
-      artifactId: string;
-      artifactType: string;
-      state: string;
-    }>;
-  };
+  context: WorkflowRuntimeContextEnvelope;
   callback: ExternalRuntimeBridgeCallbackConfig;
   metadata?: Record<string, unknown>;
 };

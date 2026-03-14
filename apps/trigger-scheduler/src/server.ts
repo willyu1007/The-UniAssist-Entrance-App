@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
+import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@uniassist/shared';
 import { PlatformClient, PlatformClientError } from './platform-client';
 import {
   INTERNAL_AUTH_CONFIG,

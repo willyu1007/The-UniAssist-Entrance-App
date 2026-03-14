@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from '@tanstack/react-router';
-import type { WorkflowNodeSpec } from '@baseinterface/workflow-contracts';
+import type { WorkflowNodeSpec } from '@uniassist/workflow-contracts';
 import {
   DraftDagPreview,
   DraftValidationPanel,

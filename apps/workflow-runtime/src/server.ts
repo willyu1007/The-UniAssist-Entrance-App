@@ -1,9 +1,9 @@
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@baseinterface/shared';
-import { createConnectorRuntimeClient } from '@baseinterface/connector-sdk';
-import { createCompatExecutorClient, createExternalBridgeClient } from '@baseinterface/executor-sdk';
+import { createMemoryNonceStore, createLogger, verifyInternalAuthRequest } from '@uniassist/shared';
+import { createConnectorRuntimeClient } from '@uniassist/connector-sdk';
+import { createExternalBridgeClient } from '@uniassist/executor-sdk';
 import type {
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
@@ -23,13 +23,12 @@ import type {
   WorkflowRuntimeRecordEventSubscriptionReceiptResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import {
   CONNECTOR_RUNTIME_ALLOWED_SUBJECTS,
   CONNECTOR_RUNTIME_BASE_URL,
   CONNECTOR_RUNTIME_SERVICE_ID,
   DATABASE_URL,
-  EXECUTOR_REGISTRY,
   EXTERNAL_BRIDGE_ALLOWED_SUBJECTS,
   INTERNAL_AUTH_CONFIG,
   PORT,
@@ -66,10 +65,6 @@ app.use((req, res, next) => {
 
 const runtimeService = createWorkflowRuntimeService({
   store: new RuntimeStore(),
-  compatExecutorClient: createCompatExecutorClient({
-    internalAuthConfig: INTERNAL_AUTH_CONFIG,
-    executorRegistry: EXECUTOR_REGISTRY,
-  }),
   connectorRuntimeClient: createConnectorRuntimeClient({
     baseUrl: CONNECTOR_RUNTIME_BASE_URL,
     internalAuthConfig: INTERNAL_AUTH_CONFIG,

@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 
-import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
-import { parseExecutorRegistryFromEnv } from '@baseinterface/executor-sdk';
+import { loadInternalAuthConfigFromEnv } from '@uniassist/shared';
 
 export const PORT = Number(process.env.PORT || 8792);
 export const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'workflow-runtime';
@@ -12,7 +11,6 @@ export const INTERNAL_AUTH_CONFIG = (() => {
   }
   return config;
 })();
-export const EXECUTOR_REGISTRY = parseExecutorRegistryFromEnv(process.env);
 export const EXTERNAL_BRIDGE_ALLOWED_SUBJECTS = (process.env.UNIASSIST_EXTERNAL_BRIDGE_ALLOWED_SUBJECTS || 'executor-bridge-sample')
   .split(',')
   .map((value) => value.trim())

@@ -1,6 +1,6 @@
 import crypto from 'node:crypto';
 
-import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
+import { loadInternalAuthConfigFromEnv } from '@uniassist/shared';
 
 export const PORT = Number(process.env.PORT || 8793);
 export const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'trigger-scheduler';

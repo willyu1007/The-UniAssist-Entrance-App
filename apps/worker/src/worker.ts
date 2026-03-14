@@ -4,12 +4,11 @@ import { pathToFileURL } from 'node:url';
 import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
 import {
-  buildInternalAuthHeaders,
   createLogger,
   loadInternalAuthConfigFromEnv,
   serializeError,
   type InternalAuthConfig,
-} from '@baseinterface/shared';
+} from '@uniassist/shared';
 
 type OutboxRow = {
   id: number;
@@ -37,8 +36,6 @@ export type WorkerConfig = {
   outboxBackoffMaxMs: number;
   consumerBlockMs: number;
   consumerBatchSize: number;
-  gatewayBaseUrl?: string;
-  gatewayServiceId: string;
   internalAuthConfig: InternalAuthConfig;
 };
 
@@ -57,12 +54,6 @@ function toBool(value: string | undefined, fallback: boolean): boolean {
 function toInt(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
-}
-
-function normalizeOptionalBaseUrl(value: string | undefined): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const normalized = value.trim().replace(/\/$/, '');
-  return normalized ? normalized : undefined;
 }
 
 export function loadConfig(): WorkerConfig {
@@ -87,8 +78,6 @@ export function loadConfig(): WorkerConfig {
     outboxBackoffMaxMs: toInt(process.env.OUTBOX_BACKOFF_MAX_MS, 300000),
     consumerBlockMs: toInt(process.env.STREAM_CONSUMER_BLOCK_MS, 2000),
     consumerBatchSize: toInt(process.env.STREAM_CONSUMER_BATCH_SIZE, 100),
-    gatewayBaseUrl: normalizeOptionalBaseUrl(process.env.UNIASSIST_GATEWAY_BASE_URL),
-    gatewayServiceId: process.env.UNIASSIST_GATEWAY_SERVICE_ID || 'gateway',
     internalAuthConfig,
   };
 }
@@ -525,56 +514,10 @@ export class DeliveryWorker {
   }
 
   private async forwardWorkflowFormalEvent(payload: Record<string, unknown>): Promise<void> {
-    if (!this.config.gatewayBaseUrl) {
-      return;
-    }
-    const path = '/internal/workflow-events';
-    const rawBody = JSON.stringify(payload);
-    const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 5000);
-    try {
-      const signedHeaders = this.config.internalAuthConfig.mode === 'off'
-        ? undefined
-        : buildInternalAuthHeaders(this.config.internalAuthConfig, {
-            method: 'POST',
-            path,
-            rawBody,
-            audience: this.config.gatewayServiceId,
-            scopes: ['events:write'],
-          });
-
-      const response = await fetch(`${this.config.gatewayBaseUrl}${path}`, {
-        method: 'POST',
-        headers: {
-          'content-type': 'application/json',
-          ...(signedHeaders
-            ? {
-                authorization: signedHeaders.authorization,
-                'x-uniassist-internal-kid': signedHeaders['x-uniassist-internal-kid'],
-                'x-uniassist-internal-ts': signedHeaders['x-uniassist-internal-ts'],
-                'x-uniassist-internal-nonce': signedHeaders['x-uniassist-internal-nonce'],
-                'x-uniassist-internal-signature': signedHeaders['x-uniassist-internal-signature'],
-              }
-            : {}),
-        },
-        body: rawBody,
-        signal: controller.signal,
-      });
-
-      if (!response.ok) {
-        logger.warn('workflow formal event projection failed', {
-          gatewayBaseUrl: this.config.gatewayBaseUrl,
-          status: response.status,
-        });
-      }
-    } catch (error) {
-      logger.warn('workflow formal event projection skipped after gateway failure', {
-        gatewayBaseUrl: this.config.gatewayBaseUrl,
-        error: errorMessage(error),
-      });
-    } finally {
-      clearTimeout(timer);
-    }
+    logger.info('workflow formal event acknowledged without legacy projection', {
+      kind: toStringValue(payload.kind),
+      runId: toStringValue(payload.runId),
+    });
   }
 
   private async consumeStreamOnce(): Promise<void> {

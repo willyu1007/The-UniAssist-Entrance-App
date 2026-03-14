@@ -1,13 +1,7 @@
 import { Pool } from 'pg';
 
-import type {
-  ContextPackage,
-  InteractionEvent,
-  UserInteraction,
-  UnifiedUserInput,
-} from '@baseinterface/contracts';
-import type { ConnectorRuntimeClient } from '@baseinterface/connector-sdk';
-import type { CompatExecutorClient, ExternalBridgeClient } from '@baseinterface/executor-sdk';
+import type { ConnectorRuntimeClient } from '@uniassist/connector-sdk';
+import type { ExternalBridgeClient } from '@uniassist/executor-sdk';
 import type {
   ActorMembershipRecord,
   ActorProfileRecord,
@@ -27,30 +21,23 @@ import type {
   WorkflowApprovalRequestRecord,
   WorkflowArtifactDetail,
   WorkflowArtifactRecord,
+  WorkflowArtifactSeed,
+  WorkflowActorMembershipSeed,
+  WorkflowActorProfileSeed,
+  WorkflowAudienceSelectorSeed,
   WorkflowCommandResponse,
-  WorkflowCompatActorMembershipSeed,
-  WorkflowCompatActorProfileSeed,
-  WorkflowCompatAudienceSelectorSeed,
-  WorkflowCompatCompletionMetadata,
-  WorkflowCompatContextEnvelope,
-  WorkflowCompatDeliverySpecSeed,
-  WorkflowCompatDeliveryTargetSeed,
-  WorkflowCompatArtifactSeed,
-  WorkflowExternalActorMembershipSeed,
-  WorkflowExternalActorProfileSeed,
-  WorkflowExternalAudienceSelectorSeed,
-  WorkflowExternalDeliverySpecSeed,
-  WorkflowExternalDeliveryTargetSeed,
-  WorkflowExternalArtifactSeed,
-  WorkflowExternalLedgerResult,
+  WorkflowDeliverySpecSeed,
+  WorkflowDeliveryTargetSeed,
   WorkflowFormalEvent,
   WorkflowInteractionRequestRecord,
+  WorkflowLedgerResult,
   WorkflowNodeRunRecord,
   WorkflowNodeSpec,
   WorkflowRunListResponse,
   WorkflowRunRecord,
   WorkflowRunSnapshot,
   WorkflowRunSummary,
+  WorkflowRuntimeContextEnvelope,
   WorkflowRuntimeBridgeCallbackRequest,
   WorkflowRuntimeBridgeCallbackResponse,
   WorkflowRuntimeCancelRunRequest,
@@ -62,15 +49,14 @@ import type {
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowTemplateSpec,
-} from '@baseinterface/workflow-contracts';
-import { isWorkflowNodeTerminal, isWorkflowRunTerminal } from '@baseinterface/workflow-contracts';
-import { createLogger, serializeError } from '@baseinterface/shared';
+} from '@uniassist/workflow-contracts';
+import { isWorkflowNodeTerminal, isWorkflowRunTerminal } from '@uniassist/workflow-contracts';
+import { createLogger, serializeError } from '@uniassist/shared';
 import { createRuntimeRepository, type RuntimeRepository } from './runtime-repository';
 import type { InternalRunState, RuntimeStore } from './store';
 
 type RuntimeServiceDeps = {
   store: RuntimeStore;
-  compatExecutorClient: CompatExecutorClient;
   connectorRuntimeClient: ConnectorRuntimeClient;
   externalBridgeClient: ExternalBridgeClient;
   databaseUrl?: string;
@@ -112,69 +98,6 @@ function getExternalRuntimeSnapshot(value: unknown): ExternalRuntimeBridgeSnapsh
     return undefined;
   }
   return value as ExternalRuntimeBridgeSnapshot;
-}
-
-type CompatInteractionState = {
-  taskId?: string;
-  questionId?: string;
-  replyToken?: string;
-  state?: string;
-  resumeActionId?: string;
-  prompt?: string;
-  metadata?: Record<string, unknown>;
-};
-
-function getCompatInteractionState(nodeRun: WorkflowNodeRunRecord): CompatInteractionState | undefined {
-  if (!isRecord(nodeRun.metadata?.compatInteraction)) {
-    return undefined;
-  }
-  const compatInteraction = nodeRun.metadata?.compatInteraction as Record<string, unknown>;
-  return {
-    taskId: typeof compatInteraction.taskId === 'string' ? compatInteraction.taskId : undefined,
-    questionId: typeof compatInteraction.questionId === 'string' ? compatInteraction.questionId : undefined,
-    replyToken: typeof compatInteraction.replyToken === 'string' ? compatInteraction.replyToken : undefined,
-    state: typeof compatInteraction.state === 'string' ? compatInteraction.state : undefined,
-    resumeActionId: typeof compatInteraction.resumeActionId === 'string' ? compatInteraction.resumeActionId : undefined,
-    prompt: typeof compatInteraction.prompt === 'string' ? compatInteraction.prompt : undefined,
-    metadata: isRecord(compatInteraction.metadata) ? compatInteraction.metadata : undefined,
-  };
-}
-
-const COMPAT_CONFIRMATION_ANSWER_SCHEMA = {
-  type: 'object',
-  properties: {
-    confirmed: {
-      type: 'boolean',
-      const: true,
-      title: 'Confirm execution',
-    },
-    comment: {
-      type: 'string',
-      title: 'Comment',
-    },
-  },
-  required: ['confirmed'],
-};
-
-const COMPAT_CONFIRMATION_UI_SCHEMA = {
-  order: ['confirmed', 'comment'],
-};
-
-function buildCompatConfirmationPrompt(metadata: Record<string, unknown> | undefined): string {
-  if (typeof metadata?.prompt === 'string' && metadata.prompt.trim()) {
-    return metadata.prompt.trim();
-  }
-  return 'Confirm to continue this workflow step.';
-}
-
-function resolveCompatInteractionActionId(compatInteraction: CompatInteractionState | undefined): string {
-  if (compatInteraction?.resumeActionId) {
-    return compatInteraction.resumeActionId;
-  }
-  if (compatInteraction?.state === 'ready') {
-    return 'execute_task';
-  }
-  return 'answer_task_question';
 }
 
 type NativePlatformExecutorId =
@@ -306,24 +229,6 @@ function getNativeFailConfig(node: WorkflowNodeSpec): NativeFailConfig {
 
 function isBridgeSessionTerminal(status: BridgeInvokeSessionRecord['status']): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
-}
-
-function buildContextPackage(run: WorkflowRunRecord): ContextPackage {
-  return {
-    schemaVersion: 'v0',
-    user: {
-      userId: run.userId,
-    },
-    profileSnapshot: {
-      displayName: run.userId,
-    },
-    profileRef: `profile:${run.userId}`,
-    permissions: ['context:read'],
-    session: {
-      sessionId: run.sessionId,
-      recentEventsCursor: 0,
-    },
-  };
 }
 
 function findNode(spec: WorkflowTemplateSpec, nodeKey: string): WorkflowNodeSpec {
@@ -492,21 +397,21 @@ function buildApprovalQueueItem(
   };
 }
 
-function normalizeCompatArtifacts(value: unknown): WorkflowCompatArtifactSeed[] {
+function normalizeArtifactSeeds(value: unknown): WorkflowArtifactSeed[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(isRecord)
     .filter((item) => typeof item.artifactType === 'string' && isRecord(item.payload))
     .map((item) => ({
       artifactType: String(item.artifactType),
-      state: typeof item.state === 'string' ? item.state as WorkflowCompatArtifactSeed['state'] : undefined,
+      state: typeof item.state === 'string' ? item.state as WorkflowArtifactSeed['state'] : undefined,
       schemaRef: typeof item.schemaRef === 'string' ? item.schemaRef : undefined,
       payload: item.payload as Record<string, unknown>,
       metadata: isRecord(item.metadata) ? item.metadata : undefined,
     }));
 }
 
-function normalizeActorProfiles(value: unknown): WorkflowCompatActorProfileSeed[] {
+function normalizeActorProfiles(value: unknown): WorkflowActorProfileSeed[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(isRecord)
@@ -514,14 +419,14 @@ function normalizeActorProfiles(value: unknown): WorkflowCompatActorProfileSeed[
     .map((item) => ({
       actorId: String(item.actorId),
       workspaceId: String(item.workspaceId),
-      status: String(item.status || 'active') as WorkflowCompatActorProfileSeed['status'],
+      status: String(item.status || 'active') as WorkflowActorProfileSeed['status'],
       displayName: String(item.displayName),
-      actorType: String(item.actorType || 'person') as WorkflowCompatActorProfileSeed['actorType'],
+      actorType: String(item.actorType || 'person') as WorkflowActorProfileSeed['actorType'],
       payloadJson: isRecord(item.payloadJson) ? item.payloadJson : undefined,
     }));
 }
 
-function normalizeActorMemberships(value: unknown): WorkflowCompatActorMembershipSeed[] {
+function normalizeActorMemberships(value: unknown): WorkflowActorMembershipSeed[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(isRecord)
@@ -531,36 +436,36 @@ function normalizeActorMemberships(value: unknown): WorkflowCompatActorMembershi
       fromActorId: String(item.fromActorId),
       toActorId: String(item.toActorId),
       relationType: String(item.relationType || 'related_to'),
-      status: String(item.status || 'active') as WorkflowCompatActorMembershipSeed['status'],
+      status: String(item.status || 'active') as WorkflowActorMembershipSeed['status'],
       confirmedAt: typeof item.confirmedAt === 'number' ? item.confirmedAt : undefined,
       payloadJson: isRecord(item.payloadJson) ? item.payloadJson : undefined,
     }));
 }
 
-function normalizeAudienceSelector(value: unknown): WorkflowCompatAudienceSelectorSeed | undefined {
+function normalizeAudienceSelector(value: unknown): WorkflowAudienceSelectorSeed | undefined {
   if (!isRecord(value)) return undefined;
   if (typeof value.audienceSelectorId !== 'string' || !isRecord(value.selectorJson)) return undefined;
   return {
     audienceSelectorId: String(value.audienceSelectorId),
-    status: String(value.status || 'draft') as WorkflowCompatAudienceSelectorSeed['status'],
+    status: String(value.status || 'draft') as WorkflowAudienceSelectorSeed['status'],
     selectorJson: value.selectorJson,
   };
 }
 
-function normalizeDeliverySpec(value: unknown): WorkflowCompatDeliverySpecSeed | undefined {
+function normalizeDeliverySpec(value: unknown): WorkflowDeliverySpecSeed | undefined {
   if (!isRecord(value)) return undefined;
   if (typeof value.deliverySpecId !== 'string' || typeof value.audienceSelectorId !== 'string') return undefined;
   return {
     deliverySpecId: String(value.deliverySpecId),
     audienceSelectorId: String(value.audienceSelectorId),
     reviewRequired: value.reviewRequired !== false,
-    deliveryMode: String(value.deliveryMode || 'manual_handoff') as WorkflowCompatDeliverySpecSeed['deliveryMode'],
-    status: String(value.status || 'draft') as WorkflowCompatDeliverySpecSeed['status'],
+    deliveryMode: String(value.deliveryMode || 'manual_handoff') as WorkflowDeliverySpecSeed['deliveryMode'],
+    status: String(value.status || 'draft') as WorkflowDeliverySpecSeed['status'],
     configJson: isRecord(value.configJson) ? value.configJson : undefined,
   };
 }
 
-function normalizeDeliveryTargets(value: unknown): WorkflowCompatDeliveryTargetSeed[] {
+function normalizeDeliveryTargets(value: unknown): WorkflowDeliveryTargetSeed[] {
   if (!Array.isArray(value)) return [];
   return value
     .filter(isRecord)
@@ -569,56 +474,20 @@ function normalizeDeliveryTargets(value: unknown): WorkflowCompatDeliveryTargetS
       deliveryTargetId: String(item.deliveryTargetId),
       deliverySpecId: String(item.deliverySpecId),
       targetActorId: typeof item.targetActorId === 'string' ? item.targetActorId : undefined,
-      status: String(item.status || 'pending_resolution') as WorkflowCompatDeliveryTargetSeed['status'],
+      status: String(item.status || 'pending_resolution') as WorkflowDeliveryTargetSeed['status'],
       payloadJson: isRecord(item.payloadJson) ? item.payloadJson : undefined,
     }));
 }
 
-function normalizeCompatCompletionMetadata(value: unknown): WorkflowCompatCompletionMetadata {
+function normalizeLedgerResult(value: unknown): WorkflowLedgerResult {
   if (!isRecord(value)) return {};
   return {
-    artifacts: normalizeCompatArtifacts(value.artifacts),
+    artifacts: normalizeArtifactSeeds(value.artifacts),
     actorProfiles: normalizeActorProfiles(value.actorProfiles),
     actorMemberships: normalizeActorMemberships(value.actorMemberships),
     audienceSelector: normalizeAudienceSelector(value.audienceSelector),
     deliverySpec: normalizeDeliverySpec(value.deliverySpec),
     deliveryTargets: normalizeDeliveryTargets(value.deliveryTargets),
-  };
-}
-
-function normalizeExternalArtifacts(value: unknown): WorkflowExternalArtifactSeed[] {
-  return normalizeCompatArtifacts(value) as WorkflowExternalArtifactSeed[];
-}
-
-function normalizeExternalActorProfiles(value: unknown): WorkflowExternalActorProfileSeed[] {
-  return normalizeActorProfiles(value) as WorkflowExternalActorProfileSeed[];
-}
-
-function normalizeExternalActorMemberships(value: unknown): WorkflowExternalActorMembershipSeed[] {
-  return normalizeActorMemberships(value) as WorkflowExternalActorMembershipSeed[];
-}
-
-function normalizeExternalAudienceSelector(value: unknown): WorkflowExternalAudienceSelectorSeed | undefined {
-  return normalizeAudienceSelector(value) as WorkflowExternalAudienceSelectorSeed | undefined;
-}
-
-function normalizeExternalDeliverySpec(value: unknown): WorkflowExternalDeliverySpecSeed | undefined {
-  return normalizeDeliverySpec(value) as WorkflowExternalDeliverySpecSeed | undefined;
-}
-
-function normalizeExternalDeliveryTargets(value: unknown): WorkflowExternalDeliveryTargetSeed[] {
-  return normalizeDeliveryTargets(value) as WorkflowExternalDeliveryTargetSeed[];
-}
-
-function normalizeExternalLedgerResult(value: unknown): WorkflowExternalLedgerResult {
-  if (!isRecord(value)) return {};
-  return {
-    artifacts: normalizeExternalArtifacts(value.artifacts),
-    actorProfiles: normalizeExternalActorProfiles(value.actorProfiles),
-    actorMemberships: normalizeExternalActorMemberships(value.actorMemberships),
-    audienceSelector: normalizeExternalAudienceSelector(value.audienceSelector),
-    deliverySpec: normalizeExternalDeliverySpec(value.deliverySpec),
-    deliveryTargets: normalizeExternalDeliveryTargets(value.deliveryTargets),
   };
 }
 
@@ -645,8 +514,6 @@ function getConnectorActionSnapshots(value: unknown): Record<string, ConnectorAc
 export class WorkflowRuntimeService {
   private readonly store: RuntimeStore;
 
-  private readonly compatExecutorClient: CompatExecutorClient;
-
   private readonly connectorRuntimeClient: ConnectorRuntimeClient;
 
   private readonly externalBridgeClient: ExternalBridgeClient;
@@ -661,7 +528,6 @@ export class WorkflowRuntimeService {
 
   constructor(deps: RuntimeServiceDeps) {
     this.store = deps.store;
-    this.compatExecutorClient = deps.compatExecutorClient;
     this.connectorRuntimeClient = deps.connectorRuntimeClient;
     this.externalBridgeClient = deps.externalBridgeClient;
     this.now = deps.now;
@@ -1449,7 +1315,7 @@ export class WorkflowRuntimeService {
     return isRecord(firstInput) ? firstInput : undefined;
   }
 
-  private buildWorkflowEnvelope(state: InternalRunState, node: WorkflowNodeSpec): WorkflowCompatContextEnvelope {
+  private buildWorkflowEnvelope(state: InternalRunState, node: WorkflowNodeSpec): WorkflowRuntimeContextEnvelope {
     return {
       nodeKey: node.nodeKey,
       nodeType: node.nodeType,
@@ -1826,14 +1692,11 @@ export class WorkflowRuntimeService {
       return [...events, ...nativeEvents];
     }
 
-    const compatEvents = fromResume
-      ? []
-      : await this.invokeExecutor(state, node, traceId, initialInput.text, initialInput.payload);
-    if (fromResume) {
-      return events;
-    }
-    const translated = await this.consumeCompatEvents(state, nodeRun, traceId, compatEvents, visited);
-    return [...events, ...translated];
+    throw new RuntimeRequestError(
+      409,
+      'EXECUTOR_NOT_SUPPORTED',
+      `executor ${node.executorId || node.nodeKey} is not available in pure v1 runtime`,
+    );
   }
 
   private async applyApprovalDecision(
@@ -1938,26 +1801,11 @@ export class WorkflowRuntimeService {
       nodeRun.attempt += 1;
       return await this.resumeNativePlatformNode(state, nodeRun, node, traceId, request);
     }
-    const compatEvents = await this.interactExecutor(state, nodeRun, node, traceId, request);
-    nodeRun.attempt += 1;
-    nodeRun.updatedAt = this.now();
-    const events = await this.consumeCompatEvents(state, nodeRun, traceId, compatEvents, new Set<string>([nodeRun.nodeKey]));
-    return [
-      {
-        schemaVersion: 'v1',
-        eventId: this.uuid(),
-        traceId,
-        runId: state.run.runId,
-        timestampMs: this.now(),
-        kind: 'interaction.responded',
-        payload: {
-          interactionRequestId: request.interactionRequestId,
-          nodeRunId: nodeRun.nodeRunId,
-          responsePayload: request.payload,
-        },
-      },
-      ...events,
-    ];
+    throw new RuntimeRequestError(
+      409,
+      'EXECUTOR_RESUME_UNSUPPORTED',
+      `executor ${node.executorId || node.nodeKey} does not support pure v1 resume`,
+    );
   }
 
   private getExternalRuntimeBridge(state: InternalRunState): ExternalRuntimeBridgeSnapshot | undefined {
@@ -2442,15 +2290,15 @@ export class WorkflowRuntimeService {
     node: WorkflowNodeSpec,
     traceId: string,
     externalSessionRef: string,
-    result: WorkflowExternalLedgerResult | undefined,
+    result: WorkflowLedgerResult | undefined,
   ): Promise<WorkflowFormalEvent[]> {
     const timestamp = this.now();
     nodeRun.status = 'completed';
     nodeRun.updatedAt = timestamp;
     this.cancelPendingApprovals(state, nodeRun.nodeRunId);
-    const externalResult = normalizeExternalLedgerResult(result);
-    const createdArtifacts = this.createArtifactsFromExternalResult(state, nodeRun, externalResult);
-    this.applyExternalLedgerResult(state, externalResult);
+    const ledgerResult = normalizeLedgerResult(result);
+    const createdArtifacts = this.createArtifactsFromLedgerResult(state, nodeRun, ledgerResult);
+    this.applyLedgerResult(state, ledgerResult);
     if (createdArtifacts.length === 0) {
       createdArtifacts.push(this.createArtifact(
         state,
@@ -2590,9 +2438,9 @@ export class WorkflowRuntimeService {
       nodeRun.status = 'completed';
       nodeRun.updatedAt = timestamp;
       this.cancelPendingApprovals(state, nodeRun.nodeRunId);
-      const externalResult = normalizeExternalLedgerResult(payload);
-      const createdArtifacts = this.createArtifactsFromExternalResult(state, nodeRun, externalResult);
-      this.applyExternalLedgerResult(state, externalResult);
+      const ledgerResult = normalizeLedgerResult(payload);
+      const createdArtifacts = this.createArtifactsFromLedgerResult(state, nodeRun, ledgerResult);
+      this.applyLedgerResult(state, ledgerResult);
       if (createdArtifacts.length === 0) {
         createdArtifacts.push(this.createArtifact(
           state,
@@ -2663,387 +2511,6 @@ export class WorkflowRuntimeService {
     ];
   }
 
-  private async invokeExecutor(
-    state: InternalRunState,
-    node: WorkflowNodeSpec,
-    traceId: string,
-    inputText?: string,
-    inputPayload?: Record<string, unknown>,
-  ): Promise<InteractionEvent[]> {
-    if (!node.executorId) {
-      throw new Error(`executor node missing executorId: ${node.nodeKey}`);
-    }
-    const executor = this.compatExecutorClient.getExecutorEntry(node.executorId);
-    if (!executor) {
-      throw new Error(`executor not found: ${node.executorId}`);
-    }
-
-    const rawPayload = {
-      ...(inputPayload || {}),
-      __workflow: this.buildWorkflowEnvelope(state, node),
-    };
-    const input: UnifiedUserInput = {
-      schemaVersion: 'v0',
-      traceId,
-      userId: state.run.userId,
-      sessionId: state.run.sessionId,
-      source: 'app',
-      text: inputText,
-      raw: rawPayload,
-      timestampMs: this.now(),
-    };
-    return this.compatExecutorClient.invoke({
-      executor,
-      input,
-      context: buildContextPackage(state.run),
-      runId: state.run.runId,
-    });
-  }
-
-  private async interactExecutor(
-    state: InternalRunState,
-    nodeRun: WorkflowNodeRunRecord,
-    node: WorkflowNodeSpec,
-    traceId: string,
-    request: WorkflowRuntimeResumeRunRequest,
-  ): Promise<InteractionEvent[]> {
-    const interactionRequest = state.interactionRequests.find((item) => item.interactionRequestId === request.interactionRequestId);
-    if (!interactionRequest || interactionRequest.nodeRunId !== nodeRun.nodeRunId) {
-      throw new RuntimeRequestError(404, 'INTERACTION_REQUEST_NOT_FOUND', 'interaction request not found for current node');
-    }
-    if (interactionRequest.status !== 'pending') {
-      throw new RuntimeRequestError(409, 'INTERACTION_REQUEST_NOT_PENDING', 'interaction request is not pending');
-    }
-    if (!node.executorId) {
-      throw new Error(`executor node missing executorId: ${node.nodeKey}`);
-    }
-    const executor = this.compatExecutorClient.getExecutorEntry(node.executorId);
-    if (!executor) {
-      throw new Error(`executor not found: ${node.executorId}`);
-    }
-
-    const compatInteraction = getCompatInteractionState(nodeRun)
-      || (isRecord(interactionRequest.metadataJson?.compatInteraction)
-        ? interactionRequest.metadataJson?.compatInteraction as CompatInteractionState
-        : undefined);
-    const actionId = resolveCompatInteractionActionId(compatInteraction);
-    const interactionPayload = {
-      ...(request.payload || {}),
-      __workflow: this.buildWorkflowEnvelope(state, node),
-    };
-    const executorAdapterProviderId = node.executorId || state.run.workflowKey || 'workflow-runtime';
-    const interaction: UserInteraction = {
-      schemaVersion: 'v0',
-      traceId,
-      sessionId: state.run.sessionId,
-      userId: state.run.userId,
-      providerId: executorAdapterProviderId,
-      runId: state.run.runId,
-      actionId,
-      payload: interactionPayload,
-      replyToken: compatInteraction?.replyToken,
-      inReplyTo: compatInteraction?.taskId
-        ? {
-            providerId: executorAdapterProviderId,
-            runId: state.run.runId,
-            taskId: compatInteraction.taskId,
-            questionId: compatInteraction.questionId,
-          }
-        : undefined,
-      timestampMs: this.now(),
-    };
-
-    const compatEvents = await this.compatExecutorClient.interact({
-      executor,
-      interaction,
-      context: buildContextPackage(state.run),
-    });
-    const timestamp = this.now();
-    interactionRequest.status = 'answered';
-    interactionRequest.responsePayloadJson = request.payload ? { ...request.payload } : {};
-    interactionRequest.respondedAt = timestamp;
-    interactionRequest.updatedAt = timestamp;
-    nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
-    nodeRun.waitKey = interactionRequest.interactionRequestId;
-    nodeRun.metadata = {
-      ...(nodeRun.metadata || {}),
-      compatInteraction: compatInteraction
-        ? {
-            ...compatInteraction,
-            state: actionId === 'execute_task' ? 'execute_requested' : 'answered',
-          }
-        : undefined,
-      lastInteractionResponseAt: timestamp,
-    };
-    return compatEvents;
-  }
-
-  private async consumeCompatEvents(
-    state: InternalRunState,
-    nodeRun: WorkflowNodeRunRecord,
-    traceId: string,
-    compatEvents: InteractionEvent[],
-    visited: Set<string>,
-  ): Promise<WorkflowFormalEvent[]> {
-    const events: WorkflowFormalEvent[] = [];
-    const node = findNode(state.version.spec, nodeRun.nodeKey);
-
-    for (const compatEvent of compatEvents) {
-      if (compatEvent.type !== 'provider_extension') {
-        continue;
-      }
-
-      if (compatEvent.extensionKind === 'task_question') {
-        const timestamp = this.now();
-        this.cancelPendingInteractionRequests(state, nodeRun.nodeRunId, timestamp);
-        const interactionRequest: WorkflowInteractionRequestRecord = {
-          interactionRequestId: this.uuid(),
-          runId: state.run.runId,
-          nodeRunId: nodeRun.nodeRunId,
-          status: 'pending',
-          prompt: compatEvent.payload.prompt,
-          answerSchemaJson: compatEvent.payload.answerSchema,
-          uiSchemaJson: compatEvent.payload.uiSchema,
-          payloadJson: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-          metadataJson: {
-            compatInteraction: {
-              taskId: compatEvent.payload.taskId,
-              questionId: compatEvent.payload.questionId,
-              replyToken: compatEvent.payload.replyToken,
-              state: 'collecting',
-              resumeActionId: 'answer_task_question',
-              prompt: compatEvent.payload.prompt,
-              metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-            },
-          },
-          createdAt: timestamp,
-          updatedAt: timestamp,
-        };
-        state.interactionRequests.push(interactionRequest);
-        nodeRun.status = 'waiting_interaction';
-        nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
-        nodeRun.waitKey = interactionRequest.interactionRequestId;
-        nodeRun.metadata = {
-          ...(nodeRun.metadata || {}),
-          compatInteraction: interactionRequest.metadataJson?.compatInteraction,
-        };
-        nodeRun.updatedAt = timestamp;
-        state.run.status = 'waiting_interaction';
-        state.run.updatedAt = timestamp;
-        events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
-        events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
-        events.push({
-          schemaVersion: 'v1',
-          eventId: this.uuid(),
-          traceId,
-          runId: state.run.runId,
-          timestampMs: timestamp,
-          kind: 'interaction.requested',
-          payload: {
-            interactionRequestId: interactionRequest.interactionRequestId,
-            nodeRunId: interactionRequest.nodeRunId || nodeRun.nodeRunId,
-            nodeKey: nodeRun.nodeKey,
-            prompt: compatEvent.payload.prompt,
-            answerSchema: compatEvent.payload.answerSchema,
-            uiSchema: compatEvent.payload.uiSchema,
-            metadata: compatEvent.payload.metadata,
-          },
-        });
-        continue;
-      }
-
-      if (compatEvent.extensionKind === 'task_state') {
-        const timestamp = this.now();
-        const currentInteractionRequest = nodeRun.interactionRequestId
-          ? state.interactionRequests.find((item) => item.interactionRequestId === nodeRun.interactionRequestId)
-          : undefined;
-        nodeRun.executionPolicy = compatEvent.payload.executionPolicy;
-        nodeRun.metadata = {
-          ...(nodeRun.metadata || {}),
-          compatInteraction: {
-            ...(getCompatInteractionState(nodeRun) || {}),
-            taskId: compatEvent.payload.taskId,
-            state: compatEvent.payload.state,
-            metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-          },
-        };
-        nodeRun.updatedAt = timestamp;
-
-        if (compatEvent.payload.state === 'collecting') {
-          nodeRun.status = 'waiting_interaction';
-          state.run.status = 'waiting_interaction';
-          state.run.updatedAt = timestamp;
-          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
-          events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
-        } else if (compatEvent.payload.state === 'ready') {
-          if (compatEvent.payload.executionPolicy === 'auto_execute') {
-            if (!node.executorId) {
-              throw new Error(`executor node missing executorId: ${node.nodeKey}`);
-            }
-            const executor = this.compatExecutorClient.getExecutorEntry(node.executorId);
-            if (!executor) {
-              throw new Error(`executor not found: ${node.executorId}`);
-            }
-            const compatInteraction = getCompatInteractionState(nodeRun);
-            const autoEvents = await this.compatExecutorClient.interact({
-              executor,
-              interaction: {
-                schemaVersion: 'v0',
-                traceId,
-                sessionId: state.run.sessionId,
-                userId: state.run.userId,
-                providerId: node.executorId || state.run.workflowKey || 'workflow-runtime',
-                runId: state.run.runId,
-                actionId: 'execute_task',
-                payload: {
-                  __workflow: this.buildWorkflowEnvelope(state, node),
-                },
-                replyToken: compatInteraction?.replyToken,
-                inReplyTo: compatInteraction?.taskId
-                  ? {
-                      providerId: node.executorId || state.run.workflowKey || 'workflow-runtime',
-                      runId: state.run.runId,
-                      taskId: compatInteraction.taskId,
-                      questionId: compatInteraction.questionId,
-                    }
-                  : undefined,
-                timestampMs: timestamp,
-              },
-              context: buildContextPackage(state.run),
-            });
-            if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
-              currentInteractionRequest.status = 'cancelled';
-              currentInteractionRequest.updatedAt = timestamp;
-            }
-            const translated = await this.consumeCompatEvents(state, nodeRun, traceId, autoEvents, visited);
-            events.push(...translated);
-            continue;
-          }
-          const confirmationPrompt = buildCompatConfirmationPrompt(
-            isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-          );
-          const interactionRequest: WorkflowInteractionRequestRecord = {
-            interactionRequestId: this.uuid(),
-            runId: state.run.runId,
-            nodeRunId: nodeRun.nodeRunId,
-            status: 'pending',
-            prompt: confirmationPrompt,
-            answerSchemaJson: COMPAT_CONFIRMATION_ANSWER_SCHEMA,
-            uiSchemaJson: COMPAT_CONFIRMATION_UI_SCHEMA,
-            payloadJson: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-            metadataJson: {
-              compatInteraction: {
-                ...(getCompatInteractionState(nodeRun) || {}),
-                taskId: compatEvent.payload.taskId,
-                state: 'ready',
-                resumeActionId: 'execute_task',
-                prompt: confirmationPrompt,
-                metadata: isRecord(compatEvent.payload.metadata) ? compatEvent.payload.metadata : undefined,
-              },
-            },
-            createdAt: timestamp,
-            updatedAt: timestamp,
-          };
-          state.interactionRequests.push(interactionRequest);
-          nodeRun.status = 'waiting_interaction';
-          nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
-          nodeRun.waitKey = interactionRequest.interactionRequestId;
-          nodeRun.metadata = {
-            ...(nodeRun.metadata || {}),
-            compatInteraction: interactionRequest.metadataJson?.compatInteraction,
-          };
-          state.run.status = 'waiting_interaction';
-          state.run.updatedAt = timestamp;
-          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'));
-          events.push(this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'));
-          events.push({
-            schemaVersion: 'v1',
-            eventId: this.uuid(),
-            traceId,
-            runId: state.run.runId,
-            timestampMs: timestamp,
-            kind: 'interaction.requested',
-            payload: {
-              interactionRequestId: interactionRequest.interactionRequestId,
-              nodeRunId: interactionRequest.nodeRunId || nodeRun.nodeRunId,
-              nodeKey: nodeRun.nodeKey,
-              prompt: confirmationPrompt,
-              answerSchema: COMPAT_CONFIRMATION_ANSWER_SCHEMA,
-              uiSchema: COMPAT_CONFIRMATION_UI_SCHEMA,
-              metadata: compatEvent.payload.metadata,
-            },
-          });
-        } else if (compatEvent.payload.state === 'executing') {
-          nodeRun.status = 'running';
-          state.run.status = 'running';
-          state.run.updatedAt = timestamp;
-          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'running'));
-          events.push(this.buildRunStateEvent(traceId, state.run, 'running'));
-        } else if (compatEvent.payload.state === 'completed') {
-          nodeRun.status = 'completed';
-          state.run.updatedAt = timestamp;
-          if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
-            currentInteractionRequest.status = 'cancelled';
-            currentInteractionRequest.updatedAt = timestamp;
-          }
-          const completionMetadata = normalizeCompatCompletionMetadata(compatEvent.payload.metadata);
-          const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
-          this.applyCompatCompanionMetadata(state, completionMetadata);
-          if (createdArtifacts.length === 0) {
-            createdArtifacts.push(this.createArtifact(state, nodeRun, 'executor_result', 'validated', {
-              taskId: compatEvent.payload.taskId,
-              nodeKey: nodeRun.nodeKey,
-              metadata: compatEvent.payload.metadata || {},
-            }));
-          }
-
-          const nextNode = node.transitions?.success;
-          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'completed'));
-          for (const artifact of createdArtifacts) {
-            events.push({
-              schemaVersion: 'v1',
-              eventId: this.uuid(),
-              traceId,
-              runId: state.run.runId,
-              timestampMs: this.now(),
-              kind: 'artifact.created',
-              payload: {
-                artifactId: artifact.artifactId,
-                artifactType: artifact.artifactType,
-                state: artifact.state,
-              },
-            });
-          }
-          if (nextNode) {
-            const tail = await this.advanceToNode(state, nextNode, traceId, {}, visited, false);
-            events.push(...tail);
-            continue;
-          }
-          state.run.status = 'completed';
-          state.run.completedAt = this.now();
-          events.push(this.buildRunStateEvent(traceId, state.run, 'completed'));
-          continue;
-        } else if (compatEvent.payload.state === 'failed') {
-          nodeRun.status = 'failed';
-          state.run.status = 'failed';
-          state.run.updatedAt = timestamp;
-          if (currentInteractionRequest && currentInteractionRequest.status === 'pending') {
-            currentInteractionRequest.status = 'cancelled';
-            currentInteractionRequest.updatedAt = timestamp;
-          }
-          events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'failed'));
-          events.push(this.buildRunStateEvent(traceId, state.run, 'failed'));
-        }
-      }
-    }
-
-    if (!events.some((event) => event.kind === 'node.lifecycle' && isWorkflowNodeTerminal(event.payload.status))) {
-      events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, nodeRun.status));
-    }
-
-    return events;
-  }
-
   private cancelPendingInteractionRequests(
     state: InternalRunState,
     nodeRunId?: string,
@@ -3092,31 +2559,10 @@ export class WorkflowRuntimeService {
     return approval;
   }
 
-  private createArtifactsFromCompatMetadata(
+  private createArtifactsFromLedgerResult(
     state: InternalRunState,
     nodeRun: WorkflowNodeRunRecord,
-    metadata: WorkflowCompatCompletionMetadata,
-  ): WorkflowArtifactRecord[] {
-    const artifacts: WorkflowArtifactRecord[] = [];
-    for (const seed of metadata.artifacts || []) {
-      artifacts.push(this.createArtifact(
-        state,
-        nodeRun,
-        seed.artifactType,
-        seed.state || 'validated',
-        seed.payload,
-        seed.metadata,
-        seed.schemaRef,
-      ));
-    }
-    this.resolveCompatArtifactReferences(artifacts);
-    return artifacts;
-  }
-
-  private createArtifactsFromExternalResult(
-    state: InternalRunState,
-    nodeRun: WorkflowNodeRunRecord,
-    result: WorkflowExternalLedgerResult,
+    result: WorkflowLedgerResult,
   ): WorkflowArtifactRecord[] {
     const artifacts: WorkflowArtifactRecord[] = [];
     for (const seed of result.artifacts || []) {
@@ -3130,11 +2576,11 @@ export class WorkflowRuntimeService {
         seed.schemaRef,
       ));
     }
-    this.resolveCompatArtifactReferences(artifacts);
+    this.resolveArtifactReferences(artifacts);
     return artifacts;
   }
 
-  private resolveCompatArtifactReferences(artifacts: WorkflowArtifactRecord[]): void {
+  private resolveArtifactReferences(artifacts: WorkflowArtifactRecord[]): void {
     for (const artifact of artifacts) {
       if (artifact.artifactType !== 'AnalysisRecipeCandidate') continue;
       const lineage = isRecord(artifact.metadataJson?.lineage) ? artifact.metadataJson.lineage : undefined;
@@ -3163,30 +2609,9 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private applyCompatCompanionMetadata(
+  private applyLedgerResult(
     state: InternalRunState,
-    metadata: WorkflowCompatCompletionMetadata,
-  ): void {
-    for (const seed of metadata.actorProfiles || []) {
-      this.upsertActorProfile(state, seed);
-    }
-    for (const seed of metadata.actorMemberships || []) {
-      this.upsertActorMembership(state, seed);
-    }
-    if (metadata.audienceSelector) {
-      this.upsertAudienceSelector(state, metadata.audienceSelector);
-    }
-    if (metadata.deliverySpec) {
-      this.upsertDeliverySpec(state, metadata.deliverySpec);
-    }
-    for (const seed of metadata.deliveryTargets || []) {
-      this.upsertDeliveryTarget(state, seed);
-    }
-  }
-
-  private applyExternalLedgerResult(
-    state: InternalRunState,
-    result: WorkflowExternalLedgerResult,
+    result: WorkflowLedgerResult,
   ): void {
     for (const seed of result.actorProfiles || []) {
       this.upsertActorProfile(state, seed);
@@ -3207,7 +2632,7 @@ export class WorkflowRuntimeService {
 
   private upsertActorProfile(
     state: InternalRunState,
-    seed: WorkflowCompatActorProfileSeed | WorkflowExternalActorProfileSeed,
+    seed: WorkflowActorProfileSeed,
   ): void {
     const existing = state.actorProfiles.find((item) => item.actorId === seed.actorId);
     const timestamp = this.now();
@@ -3231,7 +2656,7 @@ export class WorkflowRuntimeService {
 
   private upsertActorMembership(
     state: InternalRunState,
-    seed: WorkflowCompatActorMembershipSeed | WorkflowExternalActorMembershipSeed,
+    seed: WorkflowActorMembershipSeed,
   ): void {
     const existing = state.actorMemberships.find((item) => item.actorMembershipId === seed.actorMembershipId);
     const timestamp = this.now();
@@ -3256,7 +2681,7 @@ export class WorkflowRuntimeService {
 
   private upsertAudienceSelector(
     state: InternalRunState,
-    seed: WorkflowCompatAudienceSelectorSeed | WorkflowExternalAudienceSelectorSeed,
+    seed: WorkflowAudienceSelectorSeed,
   ): void {
     const existing = state.audienceSelectors.find((item) => item.audienceSelectorId === seed.audienceSelectorId);
     const timestamp = this.now();
@@ -3276,7 +2701,7 @@ export class WorkflowRuntimeService {
 
   private upsertDeliverySpec(
     state: InternalRunState,
-    seed: WorkflowCompatDeliverySpecSeed | WorkflowExternalDeliverySpecSeed,
+    seed: WorkflowDeliverySpecSeed,
   ): void {
     const existing = state.deliverySpecs.find((item) => item.deliverySpecId === seed.deliverySpecId);
     const timestamp = this.now();
@@ -3299,7 +2724,7 @@ export class WorkflowRuntimeService {
 
   private upsertDeliveryTarget(
     state: InternalRunState,
-    seed: WorkflowCompatDeliveryTargetSeed | WorkflowExternalDeliveryTargetSeed,
+    seed: WorkflowDeliveryTargetSeed,
   ): void {
     const existing = state.deliveryTargets.find((item) => item.deliveryTargetId === seed.deliveryTargetId);
     const timestamp = this.now();

@@ -10,7 +10,7 @@ import type {
   WorkflowNodeSpec,
   WorkflowRunSnapshot,
   WorkflowRunSummary,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import { type ReactNode } from 'react';
 
 export const NAV_ITEMS = [

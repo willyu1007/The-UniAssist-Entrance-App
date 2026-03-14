@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import { buildInternalAuthHeaders, createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
-import { loadConnectorAdapters, type ConnectorAdapter } from '@baseinterface/connector-sdk';
+import { buildInternalAuthHeaders, createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@uniassist/shared';
+import { loadConnectorAdapters, type ConnectorAdapter } from '@uniassist/connector-sdk';
 import type {
   ConnectorRuntimeInvokeRequest,
   ConnectorRuntimeInvokeResponse,
@@ -11,7 +11,7 @@ import type {
   EventSubscriptionDispatchRequest,
   WorkflowRuntimeConnectorActionSessionLookupResponse,
   WorkflowRuntimeConnectorCallbackRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import {
   CONNECTOR_REGISTRY,
   INTERNAL_AUTH_CONFIG,

@@ -32,7 +32,7 @@ import type {
   WorkflowDraftPublishRequest,
   WorkflowDraftSpecPatchRequest,
   WorkflowVersionRunStartRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import {
   buildConsoleStreamUrl,
   getActionBinding,

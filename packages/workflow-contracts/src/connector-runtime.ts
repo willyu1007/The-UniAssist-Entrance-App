@@ -1,4 +1,4 @@
-import type { WorkflowExternalLedgerResult, WorkflowSchemaVersion } from './types';
+import type { WorkflowLedgerResult, WorkflowSchemaVersion } from './types';
 
 export type ConnectorDefinitionStatus = 'draft' | 'active' | 'disabled' | 'archived';
 export type ConnectorBindingStatus = 'draft' | 'active' | 'disabled' | 'archived';
@@ -275,7 +275,7 @@ export type ConnectorRuntimeInvokeResponse =
       schemaVersion: WorkflowSchemaVersion;
       status: 'completed';
       externalSessionRef: string;
-      result?: WorkflowExternalLedgerResult;
+      result?: WorkflowLedgerResult;
       metadata?: Record<string, unknown>;
     }
   | {

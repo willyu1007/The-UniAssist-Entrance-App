@@ -202,7 +202,7 @@ export type RecipeDraftRecord = {
   updatedAt: number;
 };
 
-export type WorkflowCompatArtifactSeed = {
+export type WorkflowArtifactSeed = {
   artifactType: string;
   state?: ArtifactState;
   schemaRef?: string;
@@ -210,15 +210,7 @@ export type WorkflowCompatArtifactSeed = {
   metadata?: Record<string, unknown>;
 };
 
-export type WorkflowExternalArtifactSeed = {
-  artifactType: string;
-  state?: ArtifactState;
-  schemaRef?: string;
-  payload: Record<string, unknown>;
-  metadata?: Record<string, unknown>;
-};
-
-export type WorkflowCompatActorProfileSeed = {
+export type WorkflowActorProfileSeed = {
   actorId: string;
   workspaceId: string;
   status: ActorProfileRecord['status'];
@@ -227,16 +219,7 @@ export type WorkflowCompatActorProfileSeed = {
   payloadJson?: Record<string, unknown>;
 };
 
-export type WorkflowExternalActorProfileSeed = {
-  actorId: string;
-  workspaceId: string;
-  status: ActorProfileRecord['status'];
-  displayName: string;
-  actorType: ActorProfileRecord['actorType'];
-  payloadJson?: Record<string, unknown>;
-};
-
-export type WorkflowCompatActorMembershipSeed = {
+export type WorkflowActorMembershipSeed = {
   actorMembershipId: string;
   fromActorId: string;
   toActorId: string;
@@ -246,29 +229,13 @@ export type WorkflowCompatActorMembershipSeed = {
   payloadJson?: Record<string, unknown>;
 };
 
-export type WorkflowExternalActorMembershipSeed = {
-  actorMembershipId: string;
-  fromActorId: string;
-  toActorId: string;
-  relationType: string;
-  status: ActorMembershipStatus;
-  confirmedAt?: number;
-  payloadJson?: Record<string, unknown>;
-};
-
-export type WorkflowCompatAudienceSelectorSeed = {
+export type WorkflowAudienceSelectorSeed = {
   audienceSelectorId: string;
   status: AudienceSelectorState;
   selectorJson: Record<string, unknown>;
 };
 
-export type WorkflowExternalAudienceSelectorSeed = {
-  audienceSelectorId: string;
-  status: AudienceSelectorState;
-  selectorJson: Record<string, unknown>;
-};
-
-export type WorkflowCompatDeliverySpecSeed = {
+export type WorkflowDeliverySpecSeed = {
   deliverySpecId: string;
   audienceSelectorId: string;
   reviewRequired: boolean;
@@ -277,16 +244,7 @@ export type WorkflowCompatDeliverySpecSeed = {
   configJson?: Record<string, unknown>;
 };
 
-export type WorkflowExternalDeliverySpecSeed = {
-  deliverySpecId: string;
-  audienceSelectorId: string;
-  reviewRequired: boolean;
-  deliveryMode: DeliveryMode;
-  status: DeliverySpecStatus;
-  configJson?: Record<string, unknown>;
-};
-
-export type WorkflowCompatDeliveryTargetSeed = {
+export type WorkflowDeliveryTargetSeed = {
   deliveryTargetId: string;
   deliverySpecId: string;
   targetActorId?: string;
@@ -294,33 +252,16 @@ export type WorkflowCompatDeliveryTargetSeed = {
   payloadJson?: Record<string, unknown>;
 };
 
-export type WorkflowExternalDeliveryTargetSeed = {
-  deliveryTargetId: string;
-  deliverySpecId: string;
-  targetActorId?: string;
-  status: DeliveryTargetStatus;
-  payloadJson?: Record<string, unknown>;
+export type WorkflowLedgerResult = {
+  artifacts?: WorkflowArtifactSeed[];
+  actorProfiles?: WorkflowActorProfileSeed[];
+  actorMemberships?: WorkflowActorMembershipSeed[];
+  audienceSelector?: WorkflowAudienceSelectorSeed;
+  deliverySpec?: WorkflowDeliverySpecSeed;
+  deliveryTargets?: WorkflowDeliveryTargetSeed[];
 };
 
-export type WorkflowCompatCompletionMetadata = {
-  artifacts?: WorkflowCompatArtifactSeed[];
-  actorProfiles?: WorkflowCompatActorProfileSeed[];
-  actorMemberships?: WorkflowCompatActorMembershipSeed[];
-  audienceSelector?: WorkflowCompatAudienceSelectorSeed;
-  deliverySpec?: WorkflowCompatDeliverySpecSeed;
-  deliveryTargets?: WorkflowCompatDeliveryTargetSeed[];
-};
-
-export type WorkflowExternalLedgerResult = {
-  artifacts?: WorkflowExternalArtifactSeed[];
-  actorProfiles?: WorkflowExternalActorProfileSeed[];
-  actorMemberships?: WorkflowExternalActorMembershipSeed[];
-  audienceSelector?: WorkflowExternalAudienceSelectorSeed;
-  deliverySpec?: WorkflowExternalDeliverySpecSeed;
-  deliveryTargets?: WorkflowExternalDeliveryTargetSeed[];
-};
-
-export type WorkflowCompatContextEnvelope = {
+export type WorkflowRuntimeContextEnvelope = {
   nodeKey: string;
   nodeType: WorkflowNodeType;
   nodeConfig?: Record<string, unknown>;

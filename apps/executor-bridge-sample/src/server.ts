@@ -8,7 +8,7 @@ import {
   createMemoryNonceStore,
   loadInternalAuthConfigFromEnv,
   verifyInternalAuthRequest,
-} from '@baseinterface/shared';
+} from '@uniassist/shared';
 import type {
   BridgeHealth,
   BridgeManifest,
@@ -19,7 +19,7 @@ import type {
   ExternalRuntimeBridgeResumeRequest,
   ExternalRuntimeBridgeResumeResponse,
   WorkflowRuntimeBridgeCallbackRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 const PORT = Number(process.env.PORT || 8894);
 const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'executor-bridge-sample';
@@ -64,7 +64,7 @@ const manifest: BridgeManifest = {
   supportsCancel: true,
   capabilities: [
     {
-      capabilityId: 'compat-sample',
+      capabilityId: 'bridge.sample',
       name: 'Vendor-neutral sample capability',
       description: 'Produces checkpoint, approval, and result callbacks for B6 validation.',
       supportsResume: true,

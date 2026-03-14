@@ -1,10 +1,10 @@
-import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
+import { buildInternalAuthHeaders, type InternalAuthConfig } from '@uniassist/shared';
 import type {
   DueScheduleTriggerListResponse,
   TriggerDispatchRequest,
   TriggerDispatchResponse,
   WebhookTriggerRuntimeConfigResponse,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 export class PlatformClientError extends Error {
   readonly code: string;

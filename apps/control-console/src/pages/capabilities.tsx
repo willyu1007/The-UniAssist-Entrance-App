@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { ConnectorCatalog } from '@baseinterface/workflow-contracts';
+import type { ConnectorCatalog } from '@uniassist/workflow-contracts';
 import {
   EmptyPanel,
   ErrorPanel,

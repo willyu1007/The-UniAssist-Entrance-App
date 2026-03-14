@@ -103,15 +103,15 @@ import type {
   WorkflowTemplateSpec,
   WorkflowTemplateVersionRecord,
   WorkflowVersionRunStartRequest,
-} from '@baseinterface/workflow-contracts';
-import { isWorkflowDraftTerminal } from '@baseinterface/workflow-contracts';
-import type { ExternalBridgeClient } from '@baseinterface/executor-sdk';
+} from '@uniassist/workflow-contracts';
+import { isWorkflowDraftTerminal } from '@uniassist/workflow-contracts';
+import type { ExternalBridgeClient } from '@uniassist/executor-sdk';
 import {
   canApplyApprovedChange,
   isSecretUsable,
   isTriggerRunnable,
   requiresGovernanceApproval,
-} from '@baseinterface/policy-sdk';
+} from '@uniassist/policy-sdk';
 import type { RuntimeClient } from './runtime-client';
 import type { GovernanceRepository } from './governance-repository';
 import {

@@ -1,4 +1,4 @@
-import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
+import { buildInternalAuthHeaders, type InternalAuthConfig } from '@uniassist/shared';
 import type {
   BridgeHealth,
   BridgeManifest,
@@ -9,8 +9,8 @@ import type {
   ExternalRuntimeBridgeInvokeResponse,
   ExternalRuntimeBridgeResumeRequest,
   ExternalRuntimeBridgeResumeResponse,
-} from '@baseinterface/workflow-contracts';
-import { parseBridgeHealth, parseBridgeManifest } from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
+import { parseBridgeHealth, parseBridgeManifest } from '@uniassist/workflow-contracts';
 import type { ExternalBridgeClient } from './types';
 
 type CreateExternalBridgeClientDeps = {

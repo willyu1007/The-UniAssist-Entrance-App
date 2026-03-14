@@ -1,5 +1,5 @@
-import { parseConnectorRegistryFromEnv } from '@baseinterface/connector-sdk';
-import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
+import { parseConnectorRegistryFromEnv } from '@uniassist/connector-sdk';
+import { loadInternalAuthConfigFromEnv } from '@uniassist/shared';
 
 export const PORT = Number(process.env.PORT || 8895);
 export const INTERNAL_AUTH_DEFAULT_SERVICE_ID = 'connector-runtime';

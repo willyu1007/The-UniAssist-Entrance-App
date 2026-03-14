@@ -1,8 +1,8 @@
 import type { Request, Response } from 'express';
 import express from 'express';
 
-import { createExternalBridgeClient } from '@baseinterface/executor-sdk';
-import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
+import { createExternalBridgeClient } from '@uniassist/executor-sdk';
+import { createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@uniassist/shared';
 import {
   CONNECTOR_RUNTIME_SERVICE_ID,
   DATABASE_URL,

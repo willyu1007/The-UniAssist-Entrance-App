@@ -1,4 +1,4 @@
-import type { WorkflowConsoleStreamEvent } from '@baseinterface/workflow-contracts';
+import type { WorkflowConsoleStreamEvent } from '@uniassist/workflow-contracts';
 
 type Subscriber = (event: WorkflowConsoleStreamEvent) => void;
 

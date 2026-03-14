@@ -1,4 +1,4 @@
-import type { ConnectorAdapter } from '@baseinterface/connector-sdk';
+import type { ConnectorAdapter } from '@uniassist/connector-sdk';
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value) && typeof value === 'object' && Array.isArray(value) === false;

@@ -8,7 +8,7 @@ import type {
   ScopeGrantRecord,
   SecretRefRecord,
   TriggerBindingStatus,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 const GOVERNED_ACTIONS = new Set<GovernanceRequestKind>([
   'agent_activate',

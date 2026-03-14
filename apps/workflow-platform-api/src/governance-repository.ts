@@ -15,7 +15,7 @@ import type {
   SecretRefRecord,
   TriggerBindingRecord,
   TriggerDispatchRecord,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 function toMs(value: unknown): number {
   return new Date(String(value)).getTime();

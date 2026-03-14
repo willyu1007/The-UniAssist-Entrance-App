@@ -61,7 +61,7 @@ import type {
   WorkflowRunQueryResponse,
   WorkflowTemplateListResponse,
   WorkflowVersionRunStartRequest,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import { CONTROL_CONSOLE_API_BASE_URL } from './config';
 
 export class ControlConsoleApiError extends Error {

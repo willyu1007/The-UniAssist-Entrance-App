@@ -1,6 +1,6 @@
 import { ConvexClient, ConvexHttpClient, type ConnectionState } from 'convex/browser';
 import { api } from '../convex/_generated/api.js';
-import type { WorkflowRunSnapshot, WorkflowRunSummary } from '@baseinterface/workflow-contracts';
+import type { WorkflowRunSnapshot, WorkflowRunSummary } from '@uniassist/workflow-contracts';
 
 export const RUNBOARD_PROJECTION_WINDOW = 40;
 

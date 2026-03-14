@@ -17,7 +17,7 @@ import type {
   WorkflowRunSnapshot,
   WorkflowTemplateRecord,
   WorkflowTemplateVersionRecord,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 
 export type InternalRunState = {
   template: WorkflowTemplateRecord;

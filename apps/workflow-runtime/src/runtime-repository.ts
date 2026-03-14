@@ -18,7 +18,7 @@ import type {
   WorkflowRunRecord,
   WorkflowTemplateRecord,
   WorkflowTemplateVersionRecord,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import type { InternalRunState } from './store';
 
 function toMs(value: unknown): number {

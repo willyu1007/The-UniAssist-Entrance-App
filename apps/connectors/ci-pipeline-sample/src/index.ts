@@ -1,4 +1,4 @@
-import type { ConnectorAdapter } from '@baseinterface/connector-sdk';
+import type { ConnectorAdapter } from '@uniassist/connector-sdk';
 
 function asNumber(value: unknown, fallback: number): number {
   return typeof value === 'number' && Number.isFinite(value) ? value : fallback;

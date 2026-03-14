@@ -1,13 +1,13 @@
 import crypto from 'node:crypto';
 
-import { createLogger } from '@baseinterface/shared';
+import { createLogger } from '@uniassist/shared';
 import {
   buildRunboardProjectionSummary,
   ConvexRunboardProjectionClient,
   RUNBOARD_PROJECTION_WINDOW,
   type RunboardProjectionChange,
-} from '@baseinterface/convex-projection-experiment';
-import type { WorkflowConsoleStreamEvent, WorkflowRunListResponse, WorkflowRunSnapshot, WorkflowRunSummary } from '@baseinterface/workflow-contracts';
+} from '@uniassist/convex-projection-experiment';
+import type { WorkflowConsoleStreamEvent, WorkflowRunListResponse, WorkflowRunSnapshot, WorkflowRunSummary } from '@uniassist/workflow-contracts';
 import type { ControlConsoleStreamBroker } from './control-console-stream';
 import type { RuntimeClient } from './runtime-client';
 
