@@ -1,6 +1,6 @@
 # Convex Projection Experiment
 
-This directory holds the Convex-side schema and functions for the optional runboard projection used by `@baseinterface/convex-projection-experiment`.
+This directory holds the Convex-side schema and functions for the optional runboard projection used by `@uniassist/convex-projection-experiment`.
 
 ## Rules
 

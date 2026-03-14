@@ -3,10 +3,10 @@
 ## Planned checks
 - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
 - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
-- `pnpm --filter @baseinterface/workflow-contracts typecheck`
-- `pnpm --filter @baseinterface/workflow-platform-api test`
-- `pnpm --filter @baseinterface/workflow-runtime test`
-- `pnpm --filter @baseinterface/connector-runtime test`
+- `pnpm --filter @uniassist/workflow-contracts typecheck`
+- `pnpm --filter @uniassist/workflow-platform-api test`
+- `pnpm --filter @uniassist/workflow-runtime test`
+- `pnpm --filter @uniassist/connector-runtime test`
 - `pnpm prisma validate`
 - `pnpm db:sync-context`
 
@@ -17,22 +17,22 @@
 - `2026-03-12` `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - Result: passed
   - Notes: 在 `sync` 完成后复跑 lint，无 warning。
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-contracts typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-contracts typecheck`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-platform-api typecheck`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-runtime typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-runtime typecheck`
   - Result: passed
 - `2026-03-12` `pnpm install`
   - Result: passed
   - Notes: 为新增 workspace packages 建立依赖链接；仅有既有 peer warning（`apps/control-console` 的 `@types/react-dom`）。
-- `2026-03-12` `pnpm --filter @baseinterface/connector-sdk typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/connector-sdk typecheck`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/connector-issue-tracker-sample typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/connector-issue-tracker-sample typecheck`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/connector-ci-pipeline-sample typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/connector-ci-pipeline-sample typecheck`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/connector-runtime typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/connector-runtime typecheck`
   - Result: passed
 - `2026-03-12` `DATABASE_URL=postgresql://localhost:5432/uniassist pnpm prisma validate`
   - Result: passed
@@ -53,16 +53,16 @@
 - `2026-03-12` `node --test tests/external-runtime-bridge.test.mjs`
   - Workdir: `apps/workflow-runtime`
   - Result: passed
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-contracts typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-contracts typecheck`
   - Result: passed
   - Notes: review-driven hardening 后复跑，新增 connector callback lookup contract 类型通过编译。
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-platform-api typecheck`
   - Result: passed
   - Notes: 覆盖 connector secret scope enforcement 与 event-subscription dispatch key namespacing。
-- `2026-03-12` `pnpm --filter @baseinterface/workflow-runtime typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/workflow-runtime typecheck`
   - Result: passed
   - Notes: 覆盖 `publicCallbackKey` lookup internal API 与 runtime repository 查询扩展。
-- `2026-03-12` `pnpm --filter @baseinterface/connector-runtime typecheck`
+- `2026-03-12` `pnpm --filter @uniassist/connector-runtime typecheck`
   - Result: passed
   - Notes: 覆盖 callback miss fallback 到 workflow-runtime lookup 的修复。
 - `2026-03-12` `node --test tests/connector-runtime-governance.test.mjs`

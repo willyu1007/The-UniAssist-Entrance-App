@@ -49,10 +49,10 @@
 - Automated checks:
   - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
   - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
-  - `pnpm --filter @baseinterface/workflow-contracts typecheck`
-  - `pnpm --filter @baseinterface/executor-sdk typecheck`
-  - `pnpm --filter @baseinterface/workflow-runtime test`
-  - `pnpm --filter @baseinterface/workflow-platform-api test`
+  - `pnpm --filter @uniassist/workflow-contracts typecheck`
+  - `pnpm --filter @uniassist/executor-sdk typecheck`
+  - `pnpm --filter @uniassist/workflow-runtime test`
+  - `pnpm --filter @uniassist/workflow-platform-api test`
 - Manual checks:
   - external-runtime agent 可以经 `POST /v1/agents/:agentId/runs` 启动
   - bridge callback 可以产出 checkpoint / approval_requested / result / error

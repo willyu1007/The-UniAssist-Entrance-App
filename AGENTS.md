@@ -4,9 +4,9 @@ Use this file for repository-level collaboration rules only. Do not treat it as 
 
 ## Repository Semantics
 
-- The repository's current center is the workflow platform, with `/v0` retained as a compatibility ingress.
-- Historical sample scenarios and `/v0` surfaces must not be described as the current product direction.
-- `apps/frontend` is the `/v0` runtime UI; `apps/control-console` is the `/v1` control UI.
+- The repository's current center is the pure `v1` workflow platform.
+- Historical sample scenarios and archived migration bundles must not be described as the current product direction.
+- `apps/control-console` is the current operator UI.
 - Postgres/Prisma is the database SSOT. Convex remains a projection experiment and must not become an authoritative store by documentation drift.
 
 ## Navigation Order

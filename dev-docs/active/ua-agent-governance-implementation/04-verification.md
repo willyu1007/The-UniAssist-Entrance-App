@@ -2,11 +2,11 @@
 
 - `pnpm install`
   - result: ok
-- `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+- `pnpm --filter @uniassist/workflow-platform-api typecheck`
   - result: ok
-- `pnpm --filter @baseinterface/workflow-contracts typecheck`
+- `pnpm --filter @uniassist/workflow-contracts typecheck`
   - result: ok
-- `pnpm --filter @baseinterface/trigger-scheduler typecheck`
+- `pnpm --filter @uniassist/trigger-scheduler typecheck`
   - result: ok
 - `pnpm -r --if-present typecheck`
   - result: ok across all 15 workspace projects
@@ -16,10 +16,10 @@
   - result: ok
 - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
   - result: ok; refreshed `docs/context/db/schema.json`
-- `pnpm --filter @baseinterface/trigger-scheduler test`
+- `pnpm --filter @uniassist/trigger-scheduler test`
   - result: ok
   - coverage note: verified scheduler polling, internal schedule fire route, webhook signature validation, replay rejection
-- `pnpm --filter @baseinterface/workflow-platform-api test`
+- `pnpm --filter @uniassist/workflow-platform-api test`
   - result: ok
   - coverage note: existing B3/B4 integration test passed; new B5 governance integration test passed, including cron schedule enable/dispatch/nextTriggerAt rollover
 - DB apply / migration rollout
@@ -30,13 +30,13 @@
 - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - result: ok
   - note: also cleaned pre-existing invalid `State` warnings in `T-024` and `T-025`
-- `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+- `pnpm --filter @uniassist/workflow-platform-api typecheck`
   - result: ok
-- `pnpm --filter @baseinterface/trigger-scheduler typecheck`
+- `pnpm --filter @uniassist/trigger-scheduler typecheck`
   - result: ok
-- `pnpm --filter @baseinterface/workflow-platform-api test`
+- `pnpm --filter @uniassist/workflow-platform-api test`
   - result: ok
   - coverage note: added regression coverage for trigger workspace mismatch, governance request pre-validation, suspend/resume/retire schedule behavior
-- `pnpm --filter @baseinterface/trigger-scheduler test`
+- `pnpm --filter @uniassist/trigger-scheduler test`
   - result: ok
   - coverage note: added regression coverage for invalid JSON webhook payload -> `400 INVALID_WEBHOOK_PAYLOAD`

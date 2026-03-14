@@ -41,18 +41,18 @@ tasks:
     updated: 2026-03-13
   - id: T-002
     slug: ua-staging-release-baseline
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-staging-release-baseline
-    updated: 2026-02-23
+    dev_docs_path: dev-docs/archive/ua-staging-release-baseline
+    updated: 2026-03-14
   - id: T-003
     slug: ua-observability-alerting
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-observability-alerting
-    updated: 2026-02-23
+    dev_docs_path: dev-docs/archive/ua-observability-alerting
+    updated: 2026-03-14
   - id: T-004
     slug: ua-worker-reliability-hardening
     status: in-progress
@@ -62,81 +62,81 @@ tasks:
     updated: 2026-02-23
   - id: T-005
     slug: ua-frontend-transport-unification
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-frontend-transport-unification
-    updated: 2026-02-24
+    dev_docs_path: dev-docs/archive/ua-frontend-transport-unification
+    updated: 2026-03-14
   - id: T-006
     slug: ua-v1-internal-security
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-v1-internal-security
-    updated: 2026-03-04
+    dev_docs_path: dev-docs/archive/ua-v1-internal-security
+    updated: 2026-03-14
   - id: T-007
     slug: ua-second-provider-integration
-    status: blocked
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-second-provider-integration
-    updated: 2026-03-06
+    dev_docs_path: dev-docs/archive/ua-second-provider-integration
+    updated: 2026-03-14
   - id: T-008
     slug: ua-k8s-staging-foundation
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-k8s-staging-foundation
-    updated: 2026-03-04
+    dev_docs_path: dev-docs/archive/ua-k8s-staging-foundation
+    updated: 2026-03-14
   - id: T-009
     slug: ua-multi-provider-task-orchestration
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-multi-provider-task-orchestration
-    updated: 2026-03-06
+    dev_docs_path: dev-docs/archive/ua-multi-provider-task-orchestration
+    updated: 2026-03-14
   - id: T-010
     slug: split-monolith-gateway-frontend
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/split-monolith-gateway-frontend
-    updated: 2026-03-06
+    dev_docs_path: dev-docs/archive/split-monolith-gateway-frontend
+    updated: 2026-03-14
   - id: T-011
     slug: ua-openclaw-collab-platform
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-openclaw-collab-platform
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-openclaw-collab-platform
+    updated: 2026-03-14
   - id: T-012
     slug: ua-workflow-core-skeleton-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-workflow-core-skeleton-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-workflow-core-skeleton-design
+    updated: 2026-03-14
   - id: T-013
     slug: ua-builder-draft-sot-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-builder-draft-sot-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-builder-draft-sot-design
+    updated: 2026-03-14
   - id: T-014
     slug: ua-connector-action-layer-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-connector-action-layer-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-connector-action-layer-design
+    updated: 2026-03-14
   - id: T-015
     slug: ua-control-console-foundation-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-control-console-foundation-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-control-console-foundation-design
+    updated: 2026-03-14
   - id: T-016
     slug: ua-convex-projection-evaluation
     status: in-progress
@@ -153,32 +153,32 @@ tasks:
     updated: 2026-03-13
   - id: T-018
     slug: ua-workflow-data-plane-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-workflow-data-plane-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-workflow-data-plane-design
+    updated: 2026-03-14
   - id: T-019
     slug: ua-agent-lifecycle-and-trigger-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-agent-lifecycle-and-trigger-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-agent-lifecycle-and-trigger-design
+    updated: 2026-03-14
   - id: T-020
     slug: ua-external-runtime-bridge-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-external-runtime-bridge-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-external-runtime-bridge-design
+    updated: 2026-03-14
   - id: T-021
     slug: ua-policy-secret-scope-governance-design
-    status: in-progress
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-policy-secret-scope-governance-design
-    updated: 2026-03-11
+    dev_docs_path: dev-docs/archive/ua-policy-secret-scope-governance-design
+    updated: 2026-03-14
   - id: T-022
     slug: ua-rnd-collab-validation-scenario-design
     status: archived
@@ -195,11 +195,11 @@ tasks:
     updated: 2026-03-11
   - id: T-024
     slug: ua-builder-draft-publish-implementation
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-builder-draft-publish-implementation
-    updated: 2026-03-12
+    dev_docs_path: dev-docs/archive/ua-builder-draft-publish-implementation
+    updated: 2026-03-14
   - id: T-025
     slug: ua-teaching-validation-implementation
     status: archived
@@ -209,11 +209,11 @@ tasks:
     updated: 2026-03-13
   - id: T-026
     slug: ua-control-console-foundation-implementation
-    status: done
+    status: archived
     milestone_id: M-000
     feature_id: F-000
-    dev_docs_path: dev-docs/active/ua-control-console-foundation-implementation
-    updated: 2026-03-12
+    dev_docs_path: dev-docs/archive/ua-control-console-foundation-implementation
+    updated: 2026-03-14
   - id: T-027
     slug: ua-agent-governance-implementation
     status: done
@@ -251,43 +251,43 @@ tasks:
     updated: 2026-03-13
   - id: T-032
     slug: ua-pure-v1-platform-rewrite
-    status: in-progress
+    status: archived
     milestone_id: M-001
     feature_id: F-001
-    dev_docs_path: dev-docs/active/ua-pure-v1-platform-rewrite
-    updated: 2026-03-13
+    dev_docs_path: dev-docs/archive/ua-pure-v1-platform-rewrite
+    updated: 2026-03-14
   - id: T-033
     slug: ua-pure-v1-contract-reset
-    status: planned
+    status: archived
     milestone_id: M-001
     feature_id: F-001
-    dev_docs_path: dev-docs/active/ua-pure-v1-contract-reset
-    updated: 2026-03-13
+    dev_docs_path: dev-docs/archive/ua-pure-v1-contract-reset
+    updated: 2026-03-14
   - id: T-034
     slug: ua-pure-v1-runtime-cutover
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
-    dev_docs_path: dev-docs/active/ua-pure-v1-runtime-cutover
+    dev_docs_path: dev-docs/archive/ua-pure-v1-runtime-cutover
     updated: 2026-03-14
   - id: T-035
     slug: ua-pure-v1-studio-and-agent-ops
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
-    dev_docs_path: dev-docs/active/ua-pure-v1-studio-and-agent-ops
+    dev_docs_path: dev-docs/archive/ua-pure-v1-studio-and-agent-ops
     updated: 2026-03-14
   - id: T-036
     slug: ua-pure-v1-connector-bridge-convergence
-    status: done
+    status: archived
     milestone_id: M-001
     feature_id: F-001
-    dev_docs_path: dev-docs/active/ua-pure-v1-connector-bridge-convergence
+    dev_docs_path: dev-docs/archive/ua-pure-v1-connector-bridge-convergence
     updated: 2026-03-14
   - id: T-037
     slug: ua-pure-v1-legacy-removal-and-identity-cleanup
-    status: planned
+    status: in-progress
     milestone_id: M-001
     feature_id: F-001
     dev_docs_path: dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup
-    updated: 2026-03-13
+    updated: 2026-03-14

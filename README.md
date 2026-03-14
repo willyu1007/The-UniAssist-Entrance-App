@@ -2,8 +2,8 @@
 
 ## Current Position
 
-- The repository now operates as a workflow platform with a retained `/v0` compatibility ingress.
-- `/v0` is still supported for chat/timeline intake and legacy contract compatibility, but it is no longer the product center.
+- The repository now operates as a pure `v1` workflow platform for agent-driven custom workflows.
+- `apps/control-console` is the default operator surface and `workflow-platform-api` / `workflow-runtime` / `connector-runtime` / `trigger-scheduler` / `worker` form the default service topology.
 - Scenario bundles under `docs/scenarios/` are validation fixtures, not product vertical definitions.
 - Postgres/Prisma remains the authoritative data plane. Convex exists only as an optional, default-off projection experiment.
 
@@ -33,11 +33,10 @@ Use root scripts or `pnpm --filter <workspace> <script>` as the canonical way to
 
 ## Non-obvious Runtime Notes
 
-- `DATABASE_URL` enables Postgres-backed persistence for gateway and pure-v1 workflow services; without it, several local development paths fall back to in-memory state.
+- `DATABASE_URL` enables Postgres-backed persistence for workflow platform services; without it, several local development paths fall back to in-memory state.
 - `REDIS_URL` enables outbox delivery, worker consumption, and stream-backed dispatch paths.
 - Internal service auth supports `off`, `audit`, and `enforce`; prefer `audit` before `enforce`.
-- The UI split is intentional: `apps/frontend` remains the `/v0` ingress surface, while `apps/control-console` is the `/v1` operator surface.
-- Contract ownership is split: `packages/contracts` remains `/v0` compatibility-only, and `packages/workflow-contracts` is the platform mainline contract package.
+- `packages/workflow-contracts` is the platform contract package; sibling SDK packages (`connector-sdk`, `executor-sdk`, `policy-sdk`) all hang off the same pure `v1` model.
 
 ## Documentation Policy
 

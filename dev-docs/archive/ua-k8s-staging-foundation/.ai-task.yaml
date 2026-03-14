@@ -1,0 +1,6 @@
+version: 1
+task_id: T-008
+project: main
+slug: ua-k8s-staging-foundation
+status: archived
+updated: "2026-03-14"

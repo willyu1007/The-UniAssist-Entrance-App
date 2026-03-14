@@ -13,7 +13,7 @@
 - Fix/workaround:
   - 为 connector 相关 package 补 `types: ["node"]`
   - 为需要 `fetch/AbortController` 的 package 补 `lib: ["ES2022", "DOM"]`
-  - 为 `apps/workflow-runtime/tsconfig.json` 显式补 `@baseinterface/connector-sdk` path
+  - 为 `apps/workflow-runtime/tsconfig.json` 显式补 `@uniassist/connector-sdk` path
   - 重新执行 `pnpm install`
 - Prevention note: monorepo 新增 package 时，不要只改 root `tsconfig.json`；要同时检查子 package 是否覆写了 `paths/types/lib`。
 

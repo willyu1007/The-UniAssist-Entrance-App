@@ -8,30 +8,30 @@ Project: `main`
 <!-- AUTO-GENERATED:START dashboard -->
 ## Summary
 
-- Tasks: 37 (planned: 2, in-progress: 17, blocked: 1, done: 11, archived: 6)
+- Tasks: 37 (planned: 0, in-progress: 4, blocked: 0, done: 3, archived: 30)
 
 ## Recent tasks
 
 | Task | Status | Feature | Dev Docs |
 | --- | --- | --- | --- |
-| T-034 ua-pure-v1-runtime-cutover | done | F-001 | dev-docs/active/ua-pure-v1-runtime-cutover |
-| T-035 ua-pure-v1-studio-and-agent-ops | done | F-001 | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
-| T-036 ua-pure-v1-connector-bridge-convergence | done | F-001 | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
-| T-001 uniassist-entrance-engine-v0 | archived | F-000 | dev-docs/archive/uniassist-entrance-engine-v0 |
-| T-017 ua-teaching-assessment-scenario-design | archived | F-000 | dev-docs/archive/ua-teaching-assessment-scenario-design |
-| T-022 ua-rnd-collab-validation-scenario-design | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
-| T-025 ua-teaching-validation-implementation | archived | F-000 | dev-docs/archive/ua-teaching-validation-implementation |
-| T-030 ua-rnd-collab-validation-implementation | archived | F-000 | dev-docs/archive/ua-rnd-collab-validation-implementation |
-| T-031 ua-convex-projection-experiment | in-progress | F-000 | dev-docs/active/ua-convex-projection-experiment |
-| T-032 ua-pure-v1-platform-rewrite | in-progress | F-001 | dev-docs/active/ua-pure-v1-platform-rewrite |
-| T-033 ua-pure-v1-contract-reset | planned | F-001 | dev-docs/active/ua-pure-v1-contract-reset |
-| T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | F-001 | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
-| T-024 ua-builder-draft-publish-implementation | done | F-000 | dev-docs/active/ua-builder-draft-publish-implementation |
-| T-026 ua-control-console-foundation-implementation | done | F-000 | dev-docs/active/ua-control-console-foundation-implementation |
-| T-027 ua-agent-governance-implementation | done | F-000 | dev-docs/active/ua-agent-governance-implementation |
-| T-028 ua-external-runtime-bridge-implementation | done | F-000 | dev-docs/active/ua-external-runtime-bridge-implementation |
-| T-029 ua-connector-runtime-and-first-capabilities-implementation | done | F-000 | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
-| T-011 ua-openclaw-collab-platform | in-progress | F-000 | dev-docs/active/ua-openclaw-collab-platform |
-| T-012 ua-workflow-core-skeleton-design | in-progress | F-000 | dev-docs/active/ua-workflow-core-skeleton-design |
-| T-013 ua-builder-draft-sot-design | in-progress | F-000 | dev-docs/active/ua-builder-draft-sot-design |
+| T-002 ua-staging-release-baseline | archived | F-000 | dev-docs/archive/ua-staging-release-baseline |
+| T-003 ua-observability-alerting | archived | F-000 | dev-docs/archive/ua-observability-alerting |
+| T-005 ua-frontend-transport-unification | archived | F-000 | dev-docs/archive/ua-frontend-transport-unification |
+| T-006 ua-v1-internal-security | archived | F-000 | dev-docs/archive/ua-v1-internal-security |
+| T-007 ua-second-provider-integration | archived | F-000 | dev-docs/archive/ua-second-provider-integration |
+| T-008 ua-k8s-staging-foundation | archived | F-000 | dev-docs/archive/ua-k8s-staging-foundation |
+| T-009 ua-multi-provider-task-orchestration | archived | F-000 | dev-docs/archive/ua-multi-provider-task-orchestration |
+| T-010 split-monolith-gateway-frontend | archived | F-000 | dev-docs/archive/split-monolith-gateway-frontend |
+| T-011 ua-openclaw-collab-platform | archived | F-000 | dev-docs/archive/ua-openclaw-collab-platform |
+| T-012 ua-workflow-core-skeleton-design | archived | F-000 | dev-docs/archive/ua-workflow-core-skeleton-design |
+| T-013 ua-builder-draft-sot-design | archived | F-000 | dev-docs/archive/ua-builder-draft-sot-design |
+| T-014 ua-connector-action-layer-design | archived | F-000 | dev-docs/archive/ua-connector-action-layer-design |
+| T-015 ua-control-console-foundation-design | archived | F-000 | dev-docs/archive/ua-control-console-foundation-design |
+| T-018 ua-workflow-data-plane-design | archived | F-000 | dev-docs/archive/ua-workflow-data-plane-design |
+| T-019 ua-agent-lifecycle-and-trigger-design | archived | F-000 | dev-docs/archive/ua-agent-lifecycle-and-trigger-design |
+| T-020 ua-external-runtime-bridge-design | archived | F-000 | dev-docs/archive/ua-external-runtime-bridge-design |
+| T-021 ua-policy-secret-scope-governance-design | archived | F-000 | dev-docs/archive/ua-policy-secret-scope-governance-design |
+| T-024 ua-builder-draft-publish-implementation | archived | F-000 | dev-docs/archive/ua-builder-draft-publish-implementation |
+| T-026 ua-control-console-foundation-implementation | archived | F-000 | dev-docs/archive/ua-control-console-foundation-implementation |
+| T-032 ua-pure-v1-platform-rewrite | archived | F-001 | dev-docs/archive/ua-pure-v1-platform-rewrite |
 <!-- AUTO-GENERATED:END dashboard -->

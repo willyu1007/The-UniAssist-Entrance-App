@@ -13,31 +13,31 @@ Project: `main`
 | Task | Status | Dev Docs |
 | --- | --- | --- |
 | T-001 uniassist-entrance-engine-v0 | archived | dev-docs/archive/uniassist-entrance-engine-v0 |
-| T-002 ua-staging-release-baseline | in-progress | dev-docs/active/ua-staging-release-baseline |
-| T-003 ua-observability-alerting | in-progress | dev-docs/active/ua-observability-alerting |
+| T-002 ua-staging-release-baseline | archived | dev-docs/archive/ua-staging-release-baseline |
+| T-003 ua-observability-alerting | archived | dev-docs/archive/ua-observability-alerting |
 | T-004 ua-worker-reliability-hardening | in-progress | dev-docs/active/ua-worker-reliability-hardening |
-| T-005 ua-frontend-transport-unification | in-progress | dev-docs/active/ua-frontend-transport-unification |
-| T-006 ua-v1-internal-security | in-progress | dev-docs/active/ua-v1-internal-security |
-| T-007 ua-second-provider-integration | blocked | dev-docs/active/ua-second-provider-integration |
-| T-008 ua-k8s-staging-foundation | done | dev-docs/active/ua-k8s-staging-foundation |
-| T-009 ua-multi-provider-task-orchestration | done | dev-docs/active/ua-multi-provider-task-orchestration |
-| T-010 split-monolith-gateway-frontend | done | dev-docs/active/split-monolith-gateway-frontend |
-| T-011 ua-openclaw-collab-platform | in-progress | dev-docs/active/ua-openclaw-collab-platform |
-| T-012 ua-workflow-core-skeleton-design | in-progress | dev-docs/active/ua-workflow-core-skeleton-design |
-| T-013 ua-builder-draft-sot-design | in-progress | dev-docs/active/ua-builder-draft-sot-design |
-| T-014 ua-connector-action-layer-design | in-progress | dev-docs/active/ua-connector-action-layer-design |
-| T-015 ua-control-console-foundation-design | in-progress | dev-docs/active/ua-control-console-foundation-design |
+| T-005 ua-frontend-transport-unification | archived | dev-docs/archive/ua-frontend-transport-unification |
+| T-006 ua-v1-internal-security | archived | dev-docs/archive/ua-v1-internal-security |
+| T-007 ua-second-provider-integration | archived | dev-docs/archive/ua-second-provider-integration |
+| T-008 ua-k8s-staging-foundation | archived | dev-docs/archive/ua-k8s-staging-foundation |
+| T-009 ua-multi-provider-task-orchestration | archived | dev-docs/archive/ua-multi-provider-task-orchestration |
+| T-010 split-monolith-gateway-frontend | archived | dev-docs/archive/split-monolith-gateway-frontend |
+| T-011 ua-openclaw-collab-platform | archived | dev-docs/archive/ua-openclaw-collab-platform |
+| T-012 ua-workflow-core-skeleton-design | archived | dev-docs/archive/ua-workflow-core-skeleton-design |
+| T-013 ua-builder-draft-sot-design | archived | dev-docs/archive/ua-builder-draft-sot-design |
+| T-014 ua-connector-action-layer-design | archived | dev-docs/archive/ua-connector-action-layer-design |
+| T-015 ua-control-console-foundation-design | archived | dev-docs/archive/ua-control-console-foundation-design |
 | T-016 ua-convex-projection-evaluation | in-progress | dev-docs/active/ua-convex-projection-evaluation |
 | T-017 ua-teaching-assessment-scenario-design | archived | dev-docs/archive/ua-teaching-assessment-scenario-design |
-| T-018 ua-workflow-data-plane-design | in-progress | dev-docs/active/ua-workflow-data-plane-design |
-| T-019 ua-agent-lifecycle-and-trigger-design | in-progress | dev-docs/active/ua-agent-lifecycle-and-trigger-design |
-| T-020 ua-external-runtime-bridge-design | in-progress | dev-docs/active/ua-external-runtime-bridge-design |
-| T-021 ua-policy-secret-scope-governance-design | in-progress | dev-docs/active/ua-policy-secret-scope-governance-design |
+| T-018 ua-workflow-data-plane-design | archived | dev-docs/archive/ua-workflow-data-plane-design |
+| T-019 ua-agent-lifecycle-and-trigger-design | archived | dev-docs/archive/ua-agent-lifecycle-and-trigger-design |
+| T-020 ua-external-runtime-bridge-design | archived | dev-docs/archive/ua-external-runtime-bridge-design |
+| T-021 ua-policy-secret-scope-governance-design | archived | dev-docs/archive/ua-policy-secret-scope-governance-design |
 | T-022 ua-rnd-collab-validation-scenario-design | archived | dev-docs/archive/ua-rnd-collab-validation-scenario-design |
 | T-023 ua-platform-foundation-implementation | archived | dev-docs/archive/ua-platform-foundation-implementation |
-| T-024 ua-builder-draft-publish-implementation | done | dev-docs/active/ua-builder-draft-publish-implementation |
+| T-024 ua-builder-draft-publish-implementation | archived | dev-docs/archive/ua-builder-draft-publish-implementation |
 | T-025 ua-teaching-validation-implementation | archived | dev-docs/archive/ua-teaching-validation-implementation |
-| T-026 ua-control-console-foundation-implementation | done | dev-docs/active/ua-control-console-foundation-implementation |
+| T-026 ua-control-console-foundation-implementation | archived | dev-docs/archive/ua-control-console-foundation-implementation |
 | T-027 ua-agent-governance-implementation | done | dev-docs/active/ua-agent-governance-implementation |
 | T-028 ua-external-runtime-bridge-implementation | done | dev-docs/active/ua-external-runtime-bridge-implementation |
 | T-029 ua-connector-runtime-and-first-capabilities-implementation | done | dev-docs/active/ua-connector-runtime-and-first-capabilities-implementation |
@@ -48,10 +48,10 @@ Project: `main`
 
 | Task | Status | Dev Docs |
 | --- | --- | --- |
-| T-032 ua-pure-v1-platform-rewrite | in-progress | dev-docs/active/ua-pure-v1-platform-rewrite |
-| T-033 ua-pure-v1-contract-reset | planned | dev-docs/active/ua-pure-v1-contract-reset |
-| T-034 ua-pure-v1-runtime-cutover | done | dev-docs/active/ua-pure-v1-runtime-cutover |
-| T-035 ua-pure-v1-studio-and-agent-ops | done | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
-| T-036 ua-pure-v1-connector-bridge-convergence | done | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
-| T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
+| T-032 ua-pure-v1-platform-rewrite | archived | dev-docs/archive/ua-pure-v1-platform-rewrite |
+| T-033 ua-pure-v1-contract-reset | archived | dev-docs/archive/ua-pure-v1-contract-reset |
+| T-034 ua-pure-v1-runtime-cutover | archived | dev-docs/archive/ua-pure-v1-runtime-cutover |
+| T-035 ua-pure-v1-studio-and-agent-ops | archived | dev-docs/archive/ua-pure-v1-studio-and-agent-ops |
+| T-036 ua-pure-v1-connector-bridge-convergence | archived | dev-docs/archive/ua-pure-v1-connector-bridge-convergence |
+| T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | in-progress | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
 <!-- AUTO-GENERATED:END feature-map -->

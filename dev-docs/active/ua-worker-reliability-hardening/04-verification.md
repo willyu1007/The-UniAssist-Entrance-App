@@ -2,11 +2,13 @@
 
 ## Automated checks
 - Executed (2026-02-23):
-  - `pnpm --filter @baseinterface/worker typecheck` -> PASS
+  - `pnpm --filter @uniassist/worker typecheck` -> PASS
   - `pnpm typecheck:workspaces` -> PASS
-  - `DATABASE_URL=postgres://localhost:5432/uniassist_gateway REDIS_URL=redis://127.0.0.1:6379 pnpm smoke:redis:e2e` -> PASS
   - `WORKER_DRILL_MODE=simulate pnpm worker:drill:staging` -> PASS
-  - `WORKER_DRILL_MODE=live ... pnpm worker:drill:staging`（本地 gateway+worker 联动）-> PASS
+
+## Historical note
+- T-037 retired the legacy `/v0` gateway-coupled worker smoke path.
+- Any pre-cutover evidence that referenced `smoke:redis:e2e` or a local gateway+worker live drill is historical only and must not be used as a current acceptance command.
 
 ## Manual smoke checks
 - Executed (2026-02-23):

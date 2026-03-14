@@ -4,20 +4,20 @@
   - result: passed
 - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
   - result: passed
-- `pnpm --filter @baseinterface/workflow-contracts typecheck`
+- `pnpm --filter @uniassist/workflow-contracts typecheck`
   - result: passed
-- `pnpm --filter @baseinterface/executor-sdk typecheck`
+- `pnpm --filter @uniassist/executor-sdk typecheck`
   - result: passed
-- `pnpm --filter @baseinterface/workflow-runtime typecheck`
+- `pnpm --filter @uniassist/workflow-runtime typecheck`
   - result: passed
-- `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+- `pnpm --filter @uniassist/workflow-platform-api typecheck`
   - result: passed
-- `pnpm --filter @baseinterface/executor-bridge-sample typecheck`
+- `pnpm --filter @uniassist/executor-bridge-sample typecheck`
   - result: passed
-- `pnpm --filter @baseinterface/workflow-runtime test`
+- `pnpm --filter @uniassist/workflow-runtime test`
   - result: passed
   - coverage note: exercised external runtime bridge end-to-end (`invoke -> checkpoint -> approval_requested -> resume -> result`), duplicate/out-of-order callback guard, and run cancel.
-- `pnpm --filter @baseinterface/workflow-platform-api test`
+- `pnpm --filter @uniassist/workflow-platform-api test`
   - result: passed
   - coverage note: exercised bridge registration lifecycle, agent bridge binding constraints, agent run start with external runtime snapshot injection, run cancel pass-through, and suspended bridge rejection.
 - `pnpm exec prisma format --schema prisma/schema.prisma`
