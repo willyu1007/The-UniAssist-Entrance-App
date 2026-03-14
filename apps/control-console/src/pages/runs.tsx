@@ -161,10 +161,13 @@ export function RunsWorkspace(props: { selectedRunId?: string }) {
                               <div data-ui="toolbar" data-align="between" data-wrap="wrap">
                                 <div data-slot="start">
                                   <span data-ui="text" data-variant="caption" data-tone="secondary">
-                                    Inspect typed payload and lineage via `/v1/artifacts/:artifactId`.
+                                    Open the artifact deep link to inspect typed payload and lineage.
                                   </span>
                                 </div>
                                 <div data-slot="end">
+                                  <Link to="/artifacts/$artifactId" params={{ artifactId: artifact.artifactId }} data-ui="link">
+                                    Open artifact
+                                  </Link>
                                   <button
                                     type="button"
                                     data-ui="button"

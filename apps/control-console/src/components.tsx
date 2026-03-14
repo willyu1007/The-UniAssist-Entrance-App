@@ -14,10 +14,12 @@ import type {
 import { type ReactNode } from 'react';
 
 export const NAV_ITEMS = [
-  { to: '/runs', label: 'Runboard' },
-  { to: '/approvals', label: 'Approval Inbox' },
-  { to: '/drafts', label: 'Draft Inspector' },
-  { to: '/studio', label: 'Workflow Studio' },
+  { to: '/templates', label: 'Templates' },
+  { to: '/studio', label: 'Studio' },
+  { to: '/agents', label: 'Agents' },
+  { to: '/capabilities', label: 'Capabilities' },
+  { to: '/governance', label: 'Governance' },
+  { to: '/runs', label: 'Runs' },
 ] as const;
 
 export function AppShell(props: {
@@ -36,7 +38,7 @@ export function AppShell(props: {
                 <div data-ui="stack" data-direction="col" data-gap="1">
                   <h1 data-ui="text" data-variant="h1" data-tone="primary">UniAssist Control Console</h1>
                   <p data-ui="text" data-variant="body" data-tone="secondary">
-                    B4 foundation for runs, approvals, drafts, and workflow authoring.
+                    Pure-v1 operator surface for templates, agents, governance, and runtime investigation.
                   </p>
                 </div>
               </div>

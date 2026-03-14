@@ -7,30 +7,91 @@ import {
   useQueryClient,
 } from '@tanstack/react-query';
 import type {
+  ActionBindingCreateRequest,
+  AgentDefinitionCreateRequest,
+  AgentDefinitionLifecycleRequest,
+  AgentDefinitionResponse,
+  AgentRunStartRequest,
+  BridgeRegistrationCreateRequest,
+  BridgeRegistrationLifecycleRequest,
+  BridgeRegistrationResponse,
+  ConnectorBindingCreateRequest,
+  ConnectorDefinitionCreateRequest,
+  EventSubscriptionCreateRequest,
+  GovernanceChangeDecisionRequest,
+  GovernanceChangeDecisionResponse,
+  GovernanceChangeRequestCreateRequest,
+  PolicyBindingCreateRequest,
+  SecretRefCreateRequest,
+  TriggerBindingCreateRequest,
+  TriggerBindingLifecycleRequest,
+  TriggerBindingResponse,
   WorkflowDraftCreateRequest,
   WorkflowDraftFocusRequest,
   WorkflowDraftIntakeRequest,
   WorkflowDraftPublishRequest,
   WorkflowDraftSpecPatchRequest,
+  WorkflowVersionRunStartRequest,
 } from '@baseinterface/workflow-contracts';
 import {
   buildConsoleStreamUrl,
-  getArtifact,
+  getActionBinding,
+  getActionBindings,
+  getAgent,
+  getAgents,
   getApprovalDetail,
   getApprovalQueue,
+  getArtifact,
+  getBridge,
+  getBridges,
+  getConnectorBinding,
+  getConnectorBindings,
+  getConnectorDefinition,
+  getConnectorDefinitions,
   getDraft,
   getDrafts,
+  getEventSubscription,
+  getEventSubscriptions,
+  getGovernanceRequest,
+  getGovernanceRequests,
+  getPolicyBindings,
   getRun,
   getRuns,
+  getScopeGrants,
+  getSecretRefs,
+  getTemplate,
+  getTemplates,
+  getTriggerBindings,
   parseConsoleStreamEnvelope,
   patchDraftSpec,
+  postActivateAgent,
+  postActivateBridge,
   postApprovalDecision,
+  postApproveGovernanceRequest,
+  postCreateActionBinding,
+  postCreateAgent,
+  postCreateBridge,
+  postCreateConnectorBinding,
+  postCreateConnectorDefinition,
   postCreateDraft,
+  postCreateEventSubscription,
+  postCreateGovernanceRequest,
+  postCreatePolicyBinding,
+  postCreateSecretRef,
+  postCreateTriggerBinding,
+  postDisableTriggerBinding,
   postDraftIntake,
   postDraftPublish,
   postDraftSynthesize,
   postDraftValidate,
+  postEnableTriggerBinding,
   postFocusDraft,
+  postRejectGovernanceRequest,
+  postRetireAgent,
+  postStartAgentRun,
+  postStartDebugRun,
+  postSuspendAgent,
+  postSuspendBridge,
   queryKeys,
 } from './api';
 import {
@@ -96,11 +157,28 @@ function invalidateForStreamEvent(queryClient: QueryClient, rawMessage: string):
   }
   if (event.kind === 'artifact.updated') {
     void queryClient.invalidateQueries({ queryKey: queryKeys.runs });
+    if (event.artifactId) {
+      void queryClient.invalidateQueries({ queryKey: queryKeys.artifact(event.artifactId) });
+    }
   }
 }
 
 function defaultEventSourceFactory(url: string): EventSourceLike {
   return new EventSource(url);
+}
+
+async function invalidateConsoleData(queryClient: QueryClient, keys: ReadonlyArray<readonly unknown[]>): Promise<void> {
+  await Promise.all(keys.map(async (queryKey) => {
+    await queryClient.invalidateQueries({ queryKey });
+  }));
+}
+
+function useActorIdentity() {
+  const { identity } = useControlConsoleEnvironment();
+  return {
+    sessionId: identity.sessionId,
+    userId: identity.userId,
+  };
 }
 
 export function ControlConsoleProviders(
@@ -207,6 +285,40 @@ export function useAdaptivePollingInterval(key: ControlConsolePollKey): number |
   return streamMode === 'polling' ? CONTROL_CONSOLE_POLLING_MS[key] : false;
 }
 
+export function useTemplatesQuery() {
+  return useQuery({
+    queryKey: queryKeys.templates,
+    queryFn: getTemplates,
+  });
+}
+
+export function useTemplateDetailQuery(workflowId?: string) {
+  return useQuery({
+    queryKey: workflowId ? queryKeys.template(workflowId) : ['templates', 'detail', 'empty'],
+    queryFn: () => getTemplate(String(workflowId)),
+    enabled: Boolean(workflowId),
+  });
+}
+
+export function useStartDebugRunMutation() {
+  const queryClient = useQueryClient();
+  const { sessionId, userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<WorkflowVersionRunStartRequest, 'schemaVersion' | 'traceId' | 'sessionId' | 'userId'>) => (
+      await postStartDebugRun({
+        schemaVersion: 'v1',
+        traceId: createTraceId(),
+        sessionId,
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async () => {
+      await invalidateConsoleData(queryClient, [queryKeys.runs, queryKeys.templates]);
+    },
+  });
+}
+
 export function useRunsQuery(limit = 30) {
   const refetchInterval = useAdaptivePollingInterval('runs');
   return useQuery({
@@ -230,7 +342,7 @@ export function useApprovalQueueQuery() {
   const refetchInterval = useAdaptivePollingInterval('approvals');
   return useQuery({
     queryKey: queryKeys.approvals,
-    queryFn: () => getApprovalQueue(),
+    queryFn: getApprovalQueue,
     refetchInterval,
   });
 }
@@ -255,6 +367,25 @@ export function useArtifactDetailQuery(artifactId?: string, enabled = true) {
   });
 }
 
+export function useApprovalDecisionMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { approvalRequestId: string; decision: 'approved' | 'rejected'; comment?: string }) => (
+      await postApprovalDecision(input.approvalRequestId, {
+        schemaVersion: 'v1',
+        traceId: createTraceId(),
+        userId,
+        decision: input.decision,
+        comment: input.comment,
+      })
+    ),
+    onSuccess: async () => {
+      await invalidateConsoleData(queryClient, [queryKeys.approvals, queryKeys.runs]);
+    },
+  });
+}
+
 export function useDraftListQuery(scope: 'all' | string) {
   const refetchInterval = useAdaptivePollingInterval('drafts');
   return useQuery({
@@ -274,144 +405,610 @@ export function useDraftDetailQuery(draftId: string | undefined, scope: 'all' | 
   });
 }
 
-export function useApprovalDecisionMutation() {
-  const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
-  return useMutation({
-    mutationFn: async (input: { approvalRequestId: string; decision: 'approved' | 'rejected'; comment?: string }) => (
-      await postApprovalDecision(input.approvalRequestId, {
-        schemaVersion: 'v1',
-        traceId: createTraceId(),
-        userId: identity.userId,
-        decision: input.decision,
-        comment: input.comment,
-      })
-    ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: queryKeys.approvals });
-      await queryClient.invalidateQueries({ queryKey: queryKeys.runs });
-    },
-  });
-}
-
 export function useCreateDraftMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (input: Omit<WorkflowDraftCreateRequest, 'schemaVersion' | 'sessionId' | 'userId'>) => (
       await postCreateDraft({
         schemaVersion: 'v1',
-        sessionId: identity.sessionId,
-        userId: identity.userId,
+        sessionId,
+        userId,
         ...input,
       })
     ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      await invalidateConsoleData(queryClient, [queryKeys.drafts('all'), queryKeys.drafts(sessionId)]);
     },
   });
 }
 
 export function useFocusDraftMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (input: { draftId: string; body?: Partial<WorkflowDraftFocusRequest> }) => (
       await postFocusDraft(input.draftId, {
         schemaVersion: 'v1',
-        sessionId: input.body?.sessionId || identity.sessionId,
-        userId: input.body?.userId || identity.userId,
+        sessionId: input.body?.sessionId || sessionId,
+        userId: input.body?.userId || userId,
       })
     ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      await invalidateConsoleData(queryClient, [queryKeys.drafts('all'), queryKeys.drafts(sessionId)]);
     },
   });
 }
 
 export function useDraftIntakeMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (input: { draftId: string; text: string }) => (
       await postDraftIntake(input.draftId, {
         schemaVersion: 'v1',
-        sessionId: identity.sessionId,
-        userId: identity.userId,
+        sessionId,
+        userId,
         text: input.text,
       })
     ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    onSuccess: async (_response, input) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.drafts('all'),
+        queryKeys.drafts(sessionId),
+        queryKeys.draft(input.draftId, sessionId),
+      ]);
     },
   });
 }
 
 export function useDraftSynthesizeMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (draftId: string) => (
       await postDraftSynthesize(draftId, {
         schemaVersion: 'v1',
-        sessionId: identity.sessionId,
-        userId: identity.userId,
+        sessionId,
+        userId,
       })
     ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    onSuccess: async (_response, draftId) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.drafts('all'),
+        queryKeys.drafts(sessionId),
+        queryKeys.draft(draftId, sessionId),
+      ]);
     },
   });
 }
 
 export function useDraftValidateMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (draftId: string) => (
       await postDraftValidate(draftId, {
         schemaVersion: 'v1',
-        sessionId: identity.sessionId,
-        userId: identity.userId,
+        sessionId,
+        userId,
       })
     ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    onSuccess: async (_response, draftId) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.drafts('all'),
+        queryKeys.drafts(sessionId),
+        queryKeys.draft(draftId, sessionId),
+      ]);
     },
   });
 }
 
 export function useDraftPatchMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (input: { draftId: string; body: Omit<WorkflowDraftSpecPatchRequest, 'schemaVersion' | 'sessionId' | 'userId'> }) => (
       await patchDraftSpec(input.draftId, {
         schemaVersion: 'v1',
-        sessionId: identity.sessionId,
-        userId: identity.userId,
+        sessionId,
+        userId,
         ...input.body,
       })
     ),
-    onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+    onSuccess: async (_response, input) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.drafts('all'),
+        queryKeys.drafts(sessionId),
+        queryKeys.draft(input.draftId, sessionId),
+      ]);
     },
   });
 }
 
 export function useDraftPublishMutation() {
   const queryClient = useQueryClient();
-  const { identity } = useControlConsoleEnvironment();
+  const { sessionId, userId } = useActorIdentity();
   return useMutation({
     mutationFn: async (input: { draftId: string; body?: Partial<WorkflowDraftPublishRequest> }) => (
       await postDraftPublish(input.draftId, {
         schemaVersion: 'v1',
-        sessionId: input.body?.sessionId || identity.sessionId,
-        userId: input.body?.userId || identity.userId,
+        sessionId: input.body?.sessionId || sessionId,
+        userId: input.body?.userId || userId,
+      })
+    ),
+    onSuccess: async (_response, input) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.drafts('all'),
+        queryKeys.drafts(sessionId),
+        queryKeys.draft(input.draftId, sessionId),
+        queryKeys.templates,
+      ]);
+    },
+  });
+}
+
+export function useAgentsQuery() {
+  return useQuery({
+    queryKey: queryKeys.agents,
+    queryFn: getAgents,
+  });
+}
+
+export function useAgentQuery(agentId?: string) {
+  return useQuery({
+    queryKey: agentId ? queryKeys.agent(agentId) : ['agents', 'detail', 'empty'],
+    queryFn: () => getAgent(String(agentId)),
+    enabled: Boolean(agentId),
+  });
+}
+
+export function useTriggerBindingsQuery(agentId?: string) {
+  return useQuery({
+    queryKey: agentId ? queryKeys.triggerBindings(agentId) : ['agents', 'trigger-bindings', 'empty'],
+    queryFn: () => getTriggerBindings(String(agentId)),
+    enabled: Boolean(agentId),
+  });
+}
+
+export function useActionBindingsQuery(agentId?: string) {
+  return useQuery({
+    queryKey: agentId ? queryKeys.actionBindings(agentId) : ['agents', 'action-bindings', 'empty'],
+    queryFn: () => getActionBindings(String(agentId)),
+    enabled: Boolean(agentId),
+  });
+}
+
+export function useActionBindingQuery(actionBindingId?: string) {
+  return useQuery({
+    queryKey: actionBindingId ? ['action-bindings', actionBindingId] : ['action-bindings', 'empty'],
+    queryFn: () => getActionBinding(String(actionBindingId)),
+    enabled: Boolean(actionBindingId),
+  });
+}
+
+export function useCreateAgentMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<AgentDefinitionCreateRequest, 'schemaVersion' | 'createdBy'>) => (
+      await postCreateAgent({
+        schemaVersion: 'v1',
+        createdBy: userId,
+        ...input,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [queryKeys.agents, queryKeys.agent(response.agent.agentId)]);
+    },
+  });
+}
+
+function useAgentLifecycleMutation(
+  action: (agentId: string, body: AgentDefinitionLifecycleRequest) => Promise<AgentDefinitionResponse>,
+) {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { agentId: string; summary?: string; justification?: string }) => (
+      await action(input.agentId, {
+        schemaVersion: 'v1',
+        userId,
+        summary: input.summary,
+        justification: input.justification,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.agents,
+        queryKeys.agent(response.agent.agentId),
+        queryKeys.governanceRequests,
+      ]);
+    },
+  });
+}
+
+export function useActivateAgentMutation() {
+  return useAgentLifecycleMutation(postActivateAgent);
+}
+
+export function useSuspendAgentMutation() {
+  return useAgentLifecycleMutation(postSuspendAgent);
+}
+
+export function useRetireAgentMutation() {
+  return useAgentLifecycleMutation(postRetireAgent);
+}
+
+export function useStartAgentRunMutation() {
+  const queryClient = useQueryClient();
+  const { sessionId, userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { agentId: string; body: Omit<AgentRunStartRequest, 'schemaVersion' | 'traceId' | 'sessionId' | 'userId'> }) => (
+      await postStartAgentRun(input.agentId, {
+        schemaVersion: 'v1',
+        traceId: createTraceId(),
+        sessionId,
+        userId,
+        ...input.body,
       })
     ),
     onSuccess: async () => {
-      await queryClient.invalidateQueries({ queryKey: ['drafts'] });
+      await invalidateConsoleData(queryClient, [queryKeys.runs, queryKeys.agents]);
     },
   });
+}
+
+export function useCreateTriggerBindingMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { agentId: string; body: Omit<TriggerBindingCreateRequest, 'schemaVersion' | 'userId'> }) => (
+      await postCreateTriggerBinding(input.agentId, {
+        schemaVersion: 'v1',
+        userId,
+        ...input.body,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.triggerBindings(response.triggerBinding.agentId),
+        queryKeys.governanceRequests,
+      ]);
+    },
+  });
+}
+
+function useTriggerLifecycleMutation(
+  action: (triggerBindingId: string, body: TriggerBindingLifecycleRequest) => Promise<TriggerBindingResponse>,
+) {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { triggerBindingId: string; agentId: string; summary?: string; justification?: string }) => (
+      await action(input.triggerBindingId, {
+        schemaVersion: 'v1',
+        userId,
+        summary: input.summary,
+        justification: input.justification,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.triggerBindings(response.triggerBinding.agentId),
+        queryKeys.governanceRequests,
+      ]);
+    },
+  });
+}
+
+export function useEnableTriggerBindingMutation() {
+  return useTriggerLifecycleMutation(postEnableTriggerBinding);
+}
+
+export function useDisableTriggerBindingMutation() {
+  return useTriggerLifecycleMutation(postDisableTriggerBinding);
+}
+
+export function useCreateActionBindingMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { agentId: string; body: Omit<ActionBindingCreateRequest, 'schemaVersion' | 'userId'> }) => (
+      await postCreateActionBinding(input.agentId, {
+        schemaVersion: 'v1',
+        userId,
+        ...input.body,
+      })
+    ),
+    onSuccess: async (_response, input) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.actionBindings(input.agentId),
+        queryKeys.connectorBindings,
+      ]);
+    },
+  });
+}
+
+export function useConnectorDefinitionsQuery() {
+  return useQuery({
+    queryKey: queryKeys.connectorDefinitions,
+    queryFn: getConnectorDefinitions,
+  });
+}
+
+export function useConnectorDefinitionQuery(connectorDefinitionId?: string) {
+  return useQuery({
+    queryKey: connectorDefinitionId
+      ? queryKeys.connectorDefinition(connectorDefinitionId)
+      : ['capabilities', 'connector-definitions', 'empty'],
+    queryFn: () => getConnectorDefinition(String(connectorDefinitionId)),
+    enabled: Boolean(connectorDefinitionId),
+  });
+}
+
+export function useConnectorBindingsQuery() {
+  return useQuery({
+    queryKey: queryKeys.connectorBindings,
+    queryFn: getConnectorBindings,
+  });
+}
+
+export function useConnectorBindingQuery(connectorBindingId?: string) {
+  return useQuery({
+    queryKey: connectorBindingId
+      ? queryKeys.connectorBinding(connectorBindingId)
+      : ['capabilities', 'connector-bindings', 'empty'],
+    queryFn: () => getConnectorBinding(String(connectorBindingId)),
+    enabled: Boolean(connectorBindingId),
+  });
+}
+
+export function useEventSubscriptionsQuery() {
+  return useQuery({
+    queryKey: queryKeys.eventSubscriptions,
+    queryFn: getEventSubscriptions,
+  });
+}
+
+export function useEventSubscriptionQuery(eventSubscriptionId?: string) {
+  return useQuery({
+    queryKey: eventSubscriptionId
+      ? queryKeys.eventSubscription(eventSubscriptionId)
+      : ['capabilities', 'event-subscriptions', 'empty'],
+    queryFn: () => getEventSubscription(String(eventSubscriptionId)),
+    enabled: Boolean(eventSubscriptionId),
+  });
+}
+
+export function useBridgesQuery() {
+  return useQuery({
+    queryKey: queryKeys.bridges,
+    queryFn: getBridges,
+  });
+}
+
+export function useBridgeQuery(bridgeId?: string) {
+  return useQuery({
+    queryKey: bridgeId ? queryKeys.bridge(bridgeId) : ['capabilities', 'bridges', 'empty'],
+    queryFn: () => getBridge(String(bridgeId)),
+    enabled: Boolean(bridgeId),
+  });
+}
+
+export function useCreateConnectorDefinitionMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<ConnectorDefinitionCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreateConnectorDefinition({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.connectorDefinitions,
+        queryKeys.connectorDefinition(response.connectorDefinition.connectorDefinitionId),
+      ]);
+    },
+  });
+}
+
+export function useCreateConnectorBindingMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<ConnectorBindingCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreateConnectorBinding({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.connectorBindings,
+        queryKeys.connectorBinding(response.connectorBinding.connectorBindingId),
+      ]);
+    },
+  });
+}
+
+export function useCreateEventSubscriptionMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<EventSubscriptionCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreateEventSubscription({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.eventSubscriptions,
+        queryKeys.eventSubscription(response.eventSubscription.eventSubscriptionId),
+      ]);
+    },
+  });
+}
+
+export function useCreateBridgeMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<BridgeRegistrationCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreateBridge({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [queryKeys.bridges, queryKeys.bridge(response.bridge.bridgeId)]);
+    },
+  });
+}
+
+function useBridgeLifecycleMutation(
+  action: (bridgeId: string, body: BridgeRegistrationLifecycleRequest) => Promise<BridgeRegistrationResponse>,
+) {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: { bridgeId: string; summary?: string; justification?: string }) => (
+      await action(input.bridgeId, {
+        schemaVersion: 'v1',
+        userId,
+        summary: input.summary,
+        justification: input.justification,
+      })
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [queryKeys.bridges, queryKeys.bridge(response.bridge.bridgeId)]);
+    },
+  });
+}
+
+export function useActivateBridgeMutation() {
+  return useBridgeLifecycleMutation(postActivateBridge);
+}
+
+export function useSuspendBridgeMutation() {
+  return useBridgeLifecycleMutation(postSuspendBridge);
+}
+
+export function usePolicyBindingsQuery() {
+  return useQuery({
+    queryKey: queryKeys.policyBindings,
+    queryFn: getPolicyBindings,
+  });
+}
+
+export function useSecretRefsQuery() {
+  return useQuery({
+    queryKey: queryKeys.secretRefs,
+    queryFn: getSecretRefs,
+  });
+}
+
+export function useScopeGrantsQuery() {
+  return useQuery({
+    queryKey: queryKeys.scopeGrants,
+    queryFn: getScopeGrants,
+  });
+}
+
+export function useGovernanceRequestsQuery() {
+  return useQuery({
+    queryKey: queryKeys.governanceRequests,
+    queryFn: getGovernanceRequests,
+  });
+}
+
+export function useGovernanceRequestQuery(requestId?: string) {
+  return useQuery({
+    queryKey: requestId ? queryKeys.governanceRequest(requestId) : ['governance', 'requests', 'empty'],
+    queryFn: () => getGovernanceRequest(String(requestId)),
+    enabled: Boolean(requestId),
+  });
+}
+
+export function useCreatePolicyBindingMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<PolicyBindingCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreatePolicyBinding({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async () => {
+      await invalidateConsoleData(queryClient, [queryKeys.policyBindings]);
+    },
+  });
+}
+
+export function useCreateSecretRefMutation() {
+  const queryClient = useQueryClient();
+  const { userId } = useActorIdentity();
+  return useMutation({
+    mutationFn: async (input: Omit<SecretRefCreateRequest, 'schemaVersion' | 'userId'>) => (
+      await postCreateSecretRef({
+        schemaVersion: 'v1',
+        userId,
+        ...input,
+      })
+    ),
+    onSuccess: async () => {
+      await invalidateConsoleData(queryClient, [queryKeys.secretRefs]);
+    },
+  });
+}
+
+export function useCreateGovernanceRequestMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: GovernanceChangeRequestCreateRequest) => await postCreateGovernanceRequest(input),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.governanceRequests,
+        queryKeys.governanceRequest(response.request.requestId),
+      ]);
+    },
+  });
+}
+
+function useGovernanceDecisionMutation(
+  action: (requestId: string, body: GovernanceChangeDecisionRequest) => Promise<GovernanceChangeDecisionResponse>,
+) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: { requestId: string; body: GovernanceChangeDecisionRequest }) => (
+      await action(input.requestId, input.body)
+    ),
+    onSuccess: async (response) => {
+      await invalidateConsoleData(queryClient, [
+        queryKeys.governanceRequests,
+        queryKeys.governanceRequest(response.request.requestId),
+        queryKeys.agents,
+        queryKeys.connectorBindings,
+        queryKeys.policyBindings,
+        queryKeys.scopeGrants,
+      ]);
+    },
+  });
+}
+
+export function useApproveGovernanceRequestMutation() {
+  return useGovernanceDecisionMutation(postApproveGovernanceRequest);
+}
+
+export function useRejectGovernanceRequestMutation() {
+  return useGovernanceDecisionMutation(postRejectGovernanceRequest);
 }

@@ -182,7 +182,7 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
     <div data-ui="stack" data-direction="col" data-gap="4" className="console-route-layout">
       <PanelCard
         title="Workflow Studio"
-        description="Spec-first editing, chat intake, validation, publish, and read-only DAG preview."
+        description="Spec-first editing, validation, publish, helper input, and read-only DAG preview."
       >
         <div className="console-studio-layout">
           <div data-ui="stack" data-direction="col" data-gap="3">
@@ -209,7 +209,7 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
                   />
                 </div>
                 <div data-ui="field">
-                  <label data-slot="label" htmlFor="create-initial-text">Initial builder intake</label>
+                  <label data-slot="label" htmlFor="create-initial-text">Initial assistant input</label>
                   <textarea
                     id="create-initial-text"
                     data-ui="textarea"
@@ -279,7 +279,32 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
                     { label: 'Session links', value: detailQuery.data.sessionLinks.length },
                   ]}
                 />
-                <PanelCard title="Metadata patch" description="Structured section patch for workflow key, name, provider, and entry node.">
+                {publishMutation.data ? (
+                  <PanelCard title="Publish output" description="Use the published version for templates browse or agent promotion.">
+                    <div data-ui="stack" data-direction="col" data-gap="2">
+                      <span data-ui="text" data-variant="body" data-tone="primary">
+                        Published template {publishMutation.data.workflow.name} as version {publishMutation.data.version.version}.
+                      </span>
+                      <div data-ui="toolbar" data-align="start" data-wrap="wrap">
+                        <Link
+                          to="/templates/$workflowId"
+                          params={{ workflowId: publishMutation.data.workflow.workflowId }}
+                          data-ui="link"
+                        >
+                          Open template
+                        </Link>
+                        <Link
+                          to="/agents/from-template/$templateVersionRef"
+                          params={{ templateVersionRef: publishMutation.data.version.templateVersionId }}
+                          data-ui="link"
+                        >
+                          Create agent from version
+                        </Link>
+                      </div>
+                    </div>
+                  </PanelCard>
+                ) : null}
+                <PanelCard title="Metadata patch" description="Structured section patch for workflow key, name, and entry node.">
                   <div data-ui="form" data-layout="vertical">
                     <div className="console-two-up">
                       <div data-ui="field">
@@ -397,10 +422,10 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
                     </div>
                   </div>
                 </PanelCard>
-                <PanelCard title="Conversational intake" description="Append builder requirements through the existing intake endpoint.">
+                <PanelCard title="Authoring helper input" description="Append helper text through the existing intake endpoint without turning Studio into a chat ingress.">
                   <div data-ui="form" data-layout="vertical">
                     <div data-ui="field">
-                      <label data-slot="label" htmlFor="intake-text">Intake text</label>
+                      <label data-slot="label" htmlFor="intake-text">Helper input</label>
                       <textarea
                         id="intake-text"
                         data-ui="textarea"
@@ -418,12 +443,12 @@ export function StudioWorkspace(props: { selectedDraftId?: string }) {
                         disabled={intakeMutation.isPending}
                         onClick={() => void submitIntake()}
                       >
-                        Append intake
+                        Append helper input
                       </button>
                     </div>
                   </div>
                 </PanelCard>
-                <PanelCard title="Validate and publish" description="Reuses existing draft validate/publish commands.">
+                <PanelCard title="Validate and publish" description="Spec-first publish flow with synthesize kept as an optional authoring helper.">
                   <div data-ui="stack" data-direction="col" data-gap="3">
                     <DraftValidationPanel
                       summary={detailQuery.data.draft.latestValidationSummary}
