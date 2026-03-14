@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 
+import { getEnabledConnectorRegistryKeys, parseConnectorRegistryFromEnv } from '@baseinterface/connector-sdk';
 import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
 
 export const PORT = Number(process.env.PORT || 8791);
@@ -19,6 +20,8 @@ export const TRIGGER_SCHEDULER_SERVICE_ID = process.env.UNIASSIST_TRIGGER_SCHEDU
 export const DATABASE_URL = process.env.DATABASE_URL || '';
 export const UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT = process.env.UNIASSIST_ENABLE_CONVEX_RUNBOARD_EXPERIMENT === 'true';
 export const UNIASSIST_CONVEX_URL = (process.env.UNIASSIST_CONVEX_URL || '').replace(/\/$/, '');
+export const CONNECTOR_REGISTRY = parseConnectorRegistryFromEnv(process.env);
+export const ENABLED_CONNECTOR_KEYS = getEnabledConnectorRegistryKeys(CONNECTOR_REGISTRY);
 
 export function now(): number {
   return Date.now();

@@ -25,3 +25,7 @@ variables:
     type: string
     required: false
     description: Convex deployment URL consumed by the B9 runboard projection experiment.
+  UNIASSIST_CONNECTOR_REGISTRY_JSON:
+    type: string
+    required: false
+    description: JSON deployment manifest for connector-runtime and workflow-platform-api, listing connectorKey/packageName/exportName/enabled entries that this deployment may load.

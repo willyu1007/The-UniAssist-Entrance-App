@@ -210,7 +210,24 @@ export type WorkflowCompatArtifactSeed = {
   metadata?: Record<string, unknown>;
 };
 
+export type WorkflowExternalArtifactSeed = {
+  artifactType: string;
+  state?: ArtifactState;
+  schemaRef?: string;
+  payload: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+};
+
 export type WorkflowCompatActorProfileSeed = {
+  actorId: string;
+  workspaceId: string;
+  status: ActorProfileRecord['status'];
+  displayName: string;
+  actorType: ActorProfileRecord['actorType'];
+  payloadJson?: Record<string, unknown>;
+};
+
+export type WorkflowExternalActorProfileSeed = {
   actorId: string;
   workspaceId: string;
   status: ActorProfileRecord['status'];
@@ -229,13 +246,38 @@ export type WorkflowCompatActorMembershipSeed = {
   payloadJson?: Record<string, unknown>;
 };
 
+export type WorkflowExternalActorMembershipSeed = {
+  actorMembershipId: string;
+  fromActorId: string;
+  toActorId: string;
+  relationType: string;
+  status: ActorMembershipStatus;
+  confirmedAt?: number;
+  payloadJson?: Record<string, unknown>;
+};
+
 export type WorkflowCompatAudienceSelectorSeed = {
   audienceSelectorId: string;
   status: AudienceSelectorState;
   selectorJson: Record<string, unknown>;
 };
 
+export type WorkflowExternalAudienceSelectorSeed = {
+  audienceSelectorId: string;
+  status: AudienceSelectorState;
+  selectorJson: Record<string, unknown>;
+};
+
 export type WorkflowCompatDeliverySpecSeed = {
+  deliverySpecId: string;
+  audienceSelectorId: string;
+  reviewRequired: boolean;
+  deliveryMode: DeliveryMode;
+  status: DeliverySpecStatus;
+  configJson?: Record<string, unknown>;
+};
+
+export type WorkflowExternalDeliverySpecSeed = {
   deliverySpecId: string;
   audienceSelectorId: string;
   reviewRequired: boolean;
@@ -252,6 +294,14 @@ export type WorkflowCompatDeliveryTargetSeed = {
   payloadJson?: Record<string, unknown>;
 };
 
+export type WorkflowExternalDeliveryTargetSeed = {
+  deliveryTargetId: string;
+  deliverySpecId: string;
+  targetActorId?: string;
+  status: DeliveryTargetStatus;
+  payloadJson?: Record<string, unknown>;
+};
+
 export type WorkflowCompatCompletionMetadata = {
   artifacts?: WorkflowCompatArtifactSeed[];
   actorProfiles?: WorkflowCompatActorProfileSeed[];
@@ -259,6 +309,15 @@ export type WorkflowCompatCompletionMetadata = {
   audienceSelector?: WorkflowCompatAudienceSelectorSeed;
   deliverySpec?: WorkflowCompatDeliverySpecSeed;
   deliveryTargets?: WorkflowCompatDeliveryTargetSeed[];
+};
+
+export type WorkflowExternalLedgerResult = {
+  artifacts?: WorkflowExternalArtifactSeed[];
+  actorProfiles?: WorkflowExternalActorProfileSeed[];
+  actorMemberships?: WorkflowExternalActorMembershipSeed[];
+  audienceSelector?: WorkflowExternalAudienceSelectorSeed;
+  deliverySpec?: WorkflowExternalDeliverySpecSeed;
+  deliveryTargets?: WorkflowExternalDeliveryTargetSeed[];
 };
 
 export type WorkflowCompatContextEnvelope = {
@@ -594,10 +653,13 @@ export type WorkflowFormalEvent =
       payload: {
         nodeRunId?: string;
         bridgeId?: string;
+        bridgeSessionId?: string;
         connectorActionSessionId?: string;
         connectorEventReceiptId?: string;
+        eventSubscriptionId?: string;
+        receiptSourceKind?: 'bridge_callback' | 'connector_action_callback' | 'event_subscription';
         callbackKind: string;
-        externalSessionRef: string;
+        externalSessionRef?: string;
         metadata?: Record<string, unknown>;
       };
     });

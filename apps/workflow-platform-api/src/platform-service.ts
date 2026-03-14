@@ -124,6 +124,7 @@ import {
   normalizeString,
   normalizeStringArray,
 } from './governance-utils';
+import { ENABLED_CONNECTOR_KEYS } from './config';
 import { PlatformError } from './platform-errors';
 import type { PlatformRepository, WorkflowDetail } from './platform-repository';
 
@@ -1398,7 +1399,14 @@ export class PlatformService {
       throw new PlatformError(409, 'TRIGGER_NOT_RUNNABLE', 'trigger is not runnable');
     }
     const connectorBinding = await this.requireConnectorBinding(eventSubscription.connectorBindingId);
+    if (connectorBinding.status !== 'active') {
+      throw new PlatformError(409, 'CONNECTOR_BINDING_NOT_ACTIVE', 'connector binding must be active');
+    }
     const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+    if (connectorDefinition.status !== 'active') {
+      throw new PlatformError(409, 'CONNECTOR_DEFINITION_NOT_ACTIVE', 'connector definition must be active');
+    }
+    this.assertConnectorDeployed(connectorDefinition.connectorKey);
     const secretRef = await this.requireUsableConnectorSecret(
       connectorBinding.secretRefId,
       await this.collectScopeGrantsForTargets(this.governanceRepository, [
@@ -1440,7 +1448,26 @@ export class PlatformService {
     if (!eventSubscription) {
       throw new PlatformError(404, 'EVENT_SUBSCRIPTION_NOT_FOUND', 'event subscription not found');
     }
+    if (eventSubscription.status !== 'active') {
+      throw new PlatformError(409, 'EVENT_SUBSCRIPTION_NOT_ACTIVE', 'event subscription must be active');
+    }
     const triggerBinding = await this.requireTriggerBinding(eventSubscription.triggerBindingId);
+    if (triggerBinding.triggerKind !== 'event_subscription') {
+      throw new PlatformError(409, 'TRIGGER_KIND_INVALID', 'event subscription trigger binding is invalid');
+    }
+    const agent = await this.requireAgent(triggerBinding.agentId);
+    if (await this.isTriggerBindingRunnable(agent, triggerBinding) === false) {
+      throw new PlatformError(409, 'TRIGGER_NOT_RUNNABLE', 'trigger is not runnable');
+    }
+    const connectorBinding = await this.requireConnectorBinding(eventSubscription.connectorBindingId);
+    if (connectorBinding.status !== 'active') {
+      throw new PlatformError(409, 'CONNECTOR_BINDING_NOT_ACTIVE', 'connector binding must be active');
+    }
+    const connectorDefinition = await this.requireConnectorDefinition(connectorBinding.connectorDefinitionId);
+    if (connectorDefinition.status !== 'active') {
+      throw new PlatformError(409, 'CONNECTOR_DEFINITION_NOT_ACTIVE', 'connector definition must be active');
+    }
+    this.assertConnectorDeployed(connectorDefinition.connectorKey);
     const scopedDispatchKey = `${eventSubscription.eventSubscriptionId}:${input.dispatchKey}`;
     try {
       const dispatch = await this.dispatchTrigger('event_subscription', triggerBinding.triggerBindingId, {
@@ -1456,6 +1483,24 @@ export class PlatformService {
           lastEventAt: input.firedAt,
           lastError: undefined,
           updatedAt: this.now(),
+        });
+      }
+      if (dispatch.runId) {
+        await this.runtimeClient.recordEventSubscriptionReceipt({
+          schemaVersion: 'v1',
+          traceId: this.uuid(),
+          receiptKey: scopedDispatchKey,
+          runId: dispatch.runId,
+          triggerBindingId: triggerBinding.triggerBindingId,
+          eventSubscriptionId: eventSubscription.eventSubscriptionId,
+          eventType: eventSubscription.eventType,
+          status: dispatch.duplicate ? 'duplicate' : 'accepted',
+          receivedAt: input.firedAt,
+          metadata: {
+            dispatchKey: input.dispatchKey,
+            triggerBindingId: triggerBinding.triggerBindingId,
+            duplicate: dispatch.duplicate,
+          },
         });
       }
       return {
@@ -2223,6 +2268,7 @@ export class PlatformService {
       if (connectorDefinition.status !== 'active') {
         throw new PlatformError(409, 'CONNECTOR_DEFINITION_NOT_ACTIVE', 'connector definition must be active before starting a run');
       }
+      this.assertConnectorDeployed(connectorDefinition.connectorKey);
       const capability = connectorDefinition.catalogJson.actions.find(
         (item: ConnectorCatalog['actions'][number]) => item.capabilityId === actionBinding.capabilityId,
       );
@@ -2326,6 +2372,17 @@ export class PlatformService {
     if (expectedWorkspaceId !== actualWorkspaceId) {
       throw new PlatformError(409, code, message);
     }
+  }
+
+  private assertConnectorDeployed(connectorKey: string): void {
+    if (ENABLED_CONNECTOR_KEYS.has(connectorKey)) {
+      return;
+    }
+    throw new PlatformError(
+      409,
+      'CONNECTOR_NOT_DEPLOYED',
+      `connector ${connectorKey} is not deployed in this runtime environment`,
+    );
   }
 
   private assertGovernanceTargetType(

@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "updatedAt": "2026-03-13T15:24:12.831Z",
+  "updatedAt": "2026-03-14T04:48:40.675Z",
   "ssot": {
     "mode": "repo-prisma",
     "source": {
@@ -2242,6 +2242,17 @@
           "unique": false
         },
         {
+          "name": "runId",
+          "type": "String",
+          "nullable": true,
+          "list": false,
+          "dbName": "run_id",
+          "dbType": null,
+          "default": null,
+          "primaryKey": false,
+          "unique": false
+        },
+        {
           "name": "sequence",
           "type": "Int",
           "nullable": true,
@@ -2294,6 +2305,15 @@
           ],
           "name": null,
           "map": "idx_connector_event_receipts_subscription_received_at"
+        },
+        {
+          "type": "index",
+          "fields": [
+            "runId",
+            "receivedAt"
+          ],
+          "name": null,
+          "map": "idx_connector_event_receipts_run_received_at"
         }
       ]
     },

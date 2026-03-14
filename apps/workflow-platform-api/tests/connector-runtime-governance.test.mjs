@@ -23,6 +23,7 @@ function startService(name, args, env = {}) {
       ...process.env,
       ...env,
     },
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -34,6 +35,42 @@ function startService(name, args, env = {}) {
   });
 
   return child;
+}
+
+function killServiceTree(child, signal) {
+  if (!child?.pid) {
+    return;
+  }
+  if (process.platform !== 'win32') {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // fall back to the direct child signal below
+    }
+  }
+  child.kill(signal);
+}
+
+async function stopService(child) {
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+  const exited = new Promise((resolvePromise) => {
+    child.once('exit', resolvePromise);
+  });
+  killServiceTree(child, 'SIGTERM');
+  await Promise.race([
+    exited,
+    sleep(3_000).then(() => {
+      if (child.exitCode === null) {
+        killServiceTree(child, 'SIGKILL');
+      }
+    }),
+  ]);
+  if (child.exitCode === null) {
+    await exited;
+  }
 }
 
 async function waitForHealth(url, timeoutMs = 20_000) {
@@ -123,6 +160,8 @@ function buildRuntimeRunResponse(body, runId) {
 
 test('workflow platform api manages B7 connector governance and event subscription dispatch', async (t) => {
   const runtimeStartRequests = [];
+  const runtimeReceiptRequests = [];
+  const recordedReceiptKeys = new Set();
   let runtimeCounter = 0;
 
   const runtimeServer = createServer((req, res) => {
@@ -142,6 +181,29 @@ test('workflow platform api manages B7 connector governance and event subscripti
         return;
       }
 
+      if (req.url === '/internal/runtime/event-subscription-receipts' && req.method === 'POST') {
+        runtimeReceiptRequests.push(body);
+        const duplicate = recordedReceiptKeys.has(body.receiptKey);
+        recordedReceiptKeys.add(body.receiptKey);
+        res.writeHead(200, { 'content-type': 'application/json' });
+        res.end(JSON.stringify({
+          schemaVersion: 'v1',
+          accepted: true,
+          duplicate,
+          receipt: {
+            connectorEventReceiptId: `receipt-${runtimeReceiptRequests.length}`,
+            receiptKey: body.receiptKey,
+            sourceKind: 'event_subscription',
+            runId: body.runId,
+            eventSubscriptionId: body.eventSubscriptionId,
+            eventType: body.eventType,
+            status: body.status,
+            receivedAt: body.receivedAt,
+          },
+        }));
+        return;
+      }
+
       res.writeHead(404, { 'content-type': 'application/json' });
       res.end(JSON.stringify({ error: 'not found', code: 'NOT_FOUND' }));
     });
@@ -155,8 +217,8 @@ test('workflow platform api manages B7 connector governance and event subscripti
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
   });
 
-  t.after(() => {
-    platform.kill('SIGTERM');
+  t.after(async () => {
+    await stopService(platform);
     runtimeServer.close();
   });
 
@@ -442,7 +504,7 @@ test('workflow platform api manages B7 connector governance and event subscripti
   assert.equal(approveExternalWrite.status, 200);
   assert.equal(approveExternalWrite.json.policyBinding.status, 'active');
 
-  const { publicSubscriptionKey } = await createEnabledEventSubscription();
+  const { publicSubscriptionKey, triggerBindingId } = await createEnabledEventSubscription();
 
   const runtimeConfigWithoutScope = await httpGet(
     `http://127.0.0.1:${ports.platform}/internal/event-subscriptions/${publicSubscriptionKey}/runtime-config`,
@@ -535,6 +597,12 @@ test('workflow platform api manages B7 connector governance and event subscripti
   assert.equal(runtimeStartRequests.length, 2);
   assert.equal(runtimeStartRequests[1].sourceType, 'event_subscription');
   assert.equal(runtimeStartRequests[1].connectorActions.pipeline_start.connectorKey, 'ci_pipeline');
+  assert.equal(runtimeReceiptRequests.length, 1);
+  assert.equal(runtimeReceiptRequests[0].runId, dispatchEvent.json.runId);
+  assert.equal(runtimeReceiptRequests[0].triggerBindingId, triggerBindingId);
+  assert.equal(runtimeReceiptRequests[0].eventSubscriptionId, dispatchEvent.json.eventSubscription.eventSubscriptionId);
+  assert.equal(runtimeReceiptRequests[0].status, 'accepted');
+  assert.ok(runtimeReceiptRequests[0].receiptKey.includes(dispatchEvent.json.eventSubscription.eventSubscriptionId));
 
   const duplicateDispatch = await httpPost(
     `http://127.0.0.1:${ports.platform}/internal/event-subscriptions/${publicSubscriptionKey}/dispatch`,
@@ -554,6 +622,11 @@ test('workflow platform api manages B7 connector governance and event subscripti
   assert.equal(duplicateDispatch.status, 202);
   assert.equal(duplicateDispatch.json.duplicate, true);
   assert.equal(runtimeStartRequests.length, 2);
+  assert.equal(runtimeReceiptRequests.length, 2);
+  assert.equal(runtimeReceiptRequests[1].runId, dispatchEvent.json.runId);
+  assert.equal(runtimeReceiptRequests[1].triggerBindingId, triggerBindingId);
+  assert.equal(runtimeReceiptRequests[1].status, 'duplicate');
+  assert.equal(runtimeReceiptRequests[1].receiptKey, runtimeReceiptRequests[0].receiptKey);
 
   const secondDispatch = await httpPost(
     `http://127.0.0.1:${ports.platform}/internal/event-subscriptions/${secondSubscription.publicSubscriptionKey}/dispatch`,
@@ -574,4 +647,9 @@ test('workflow platform api manages B7 connector governance and event subscripti
   assert.equal(secondDispatch.json.duplicate, false);
   assert.equal(runtimeStartRequests.length, 3);
   assert.equal(runtimeStartRequests[2].sourceType, 'event_subscription');
+  assert.equal(runtimeReceiptRequests.length, 3);
+  assert.equal(runtimeReceiptRequests[2].runId, secondDispatch.json.runId);
+  assert.equal(runtimeReceiptRequests[2].triggerBindingId, secondSubscription.triggerBindingId);
+  assert.equal(runtimeReceiptRequests[2].status, 'accepted');
+  assert.notEqual(runtimeReceiptRequests[2].receiptKey, runtimeReceiptRequests[0].receiptKey);
 });

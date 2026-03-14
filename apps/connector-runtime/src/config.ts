@@ -1,3 +1,4 @@
+import { parseConnectorRegistryFromEnv } from '@baseinterface/connector-sdk';
 import { loadInternalAuthConfigFromEnv } from '@baseinterface/shared';
 
 export const PORT = Number(process.env.PORT || 8895);
@@ -13,4 +14,5 @@ export const WORKFLOW_RUNTIME_BASE_URL = (process.env.UNIASSIST_WORKFLOW_RUNTIME
 export const WORKFLOW_RUNTIME_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID || 'workflow-runtime';
 export const WORKFLOW_PLATFORM_BASE_URL = (process.env.UNIASSIST_WORKFLOW_PLATFORM_API_BASE_URL || 'http://127.0.0.1:8891').replace(/\/$/, '');
 export const WORKFLOW_PLATFORM_SERVICE_ID = process.env.UNIASSIST_WORKFLOW_PLATFORM_SERVICE_ID || 'workflow-platform-api';
+export const CONNECTOR_REGISTRY = parseConnectorRegistryFromEnv(process.env);
 export const now = (): number => Date.now();

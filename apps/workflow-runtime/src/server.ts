@@ -19,6 +19,8 @@ import type {
   WorkflowRuntimeConnectorActionSessionLookupResponse,
   WorkflowRuntimeConnectorCallbackRequest,
   WorkflowRuntimeConnectorCallbackResponse,
+  WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
+  WorkflowRuntimeRecordEventSubscriptionReceiptResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
 } from '@baseinterface/workflow-contracts';
@@ -208,6 +210,28 @@ app.post('/internal/runtime/connector-callback', async (req: RawBodyRequest, res
   try {
     const payload = req.body as WorkflowRuntimeConnectorCallbackRequest;
     const response: WorkflowRuntimeConnectorCallbackResponse = await runtimeService.handleConnectorCallback(payload);
+    res.json(response);
+  } catch (error) {
+    if (error && typeof error === 'object' && 'status' in error) {
+      const runtimeError = error as { status: number; code?: unknown };
+      res.status(Number((error as { status: number }).status) || 400).json({
+        error: error instanceof Error ? error.message : String(error),
+        code: typeof runtimeError.code === 'string' ? runtimeError.code : 'RUNTIME_REQUEST_FAILED',
+      });
+      return;
+    }
+    res.status(400).json({ error: error instanceof Error ? error.message : String(error) });
+  }
+});
+
+app.post('/internal/runtime/event-subscription-receipts', async (req: RawBodyRequest, res) => {
+  const authorized = await guardInternalAuth(req, res, INTERNAL_AUTH_CONFIG.serviceId);
+  if (!authorized) return;
+  try {
+    const payload = req.body as WorkflowRuntimeRecordEventSubscriptionReceiptRequest;
+    const response: WorkflowRuntimeRecordEventSubscriptionReceiptResponse = await runtimeService.recordEventSubscriptionReceipt(
+      payload,
+    );
     res.json(response);
   } catch (error) {
     if (error && typeof error === 'object' && 'status' in error) {

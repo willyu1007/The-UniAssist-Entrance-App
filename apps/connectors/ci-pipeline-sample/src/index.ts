@@ -72,10 +72,13 @@ export const ciPipelineSampleConnector: ConnectorAdapter = {
   },
   parseActionCallback: ({ body }) => {
     const eventId = typeof body.eventId === 'string' ? body.eventId : `callback-${Date.now()}`;
+    const receiptKey = typeof body.receiptKey === 'string' && body.receiptKey
+      ? body.receiptKey
+      : `ci-action:${eventId}`;
     const sequence = asNumber(body.sequence, 1);
     const status = typeof body.status === 'string' ? body.status : 'passed';
     return {
-      receiptKey: `ci-action:${eventId}`,
+      receiptKey,
       callbackId: eventId,
       sequence,
       externalSessionRef: typeof body.externalSessionRef === 'string' ? body.externalSessionRef : 'pipeline:unknown',

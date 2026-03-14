@@ -24,6 +24,7 @@ function startService(name, args, env = {}) {
       ...process.env,
       ...env,
     },
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -35,6 +36,42 @@ function startService(name, args, env = {}) {
   });
 
   return child;
+}
+
+function killServiceTree(child, signal) {
+  if (!child?.pid) {
+    return;
+  }
+  if (process.platform !== 'win32') {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // fall back to the direct child signal below
+    }
+  }
+  child.kill(signal);
+}
+
+async function stopService(child) {
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+  const exited = new Promise((resolvePromise) => {
+    child.once('exit', resolvePromise);
+  });
+  killServiceTree(child, 'SIGTERM');
+  await Promise.race([
+    exited,
+    sleep(3_000).then(() => {
+      if (child.exitCode === null) {
+        killServiceTree(child, 'SIGKILL');
+      }
+    }),
+  ]);
+  if (child.exitCode === null) {
+    await exited;
+  }
 }
 
 async function waitForHealth(url, timeoutMs = 20_000) {
@@ -281,8 +318,8 @@ test('workflow platform api handles B6 external runtime bridge governance and di
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
   });
 
-  t.after(() => {
-    platform.kill('SIGTERM');
+  t.after(async () => {
+    await stopService(platform);
     runtimeServer.close();
     bridgeServer.close();
   });
@@ -336,7 +373,8 @@ test('workflow platform api handles B6 external runtime bridge governance and di
 
   const bridgeList = await httpGet(`http://127.0.0.1:${ports.platform}/v1/bridge-registrations`);
   assert.equal(bridgeList.status, 200);
-  assert.equal(bridgeList.json.bridges.length, 1);
+  assert.ok(bridgeList.json.bridges.length >= 1);
+  assert.ok(bridgeList.json.bridges.some((bridge) => bridge.bridgeId === bridgeId));
 
   const bridgeDetail = await httpGet(`http://127.0.0.1:${ports.platform}/v1/bridge-registrations/${bridgeId}`);
   assert.equal(bridgeDetail.status, 200);

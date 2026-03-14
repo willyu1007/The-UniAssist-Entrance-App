@@ -4,7 +4,7 @@
     "prod",
     "staging"
   ],
-  "generated_at_utc": "2026-03-12T22:30:59Z",
+  "generated_at_utc": "2026-03-14T04:48:34Z",
   "ssot_mode": "repo-env-contract",
   "variables": {
     "APP_ENV": {
@@ -52,6 +52,23 @@
       "migration": null,
       "replacement": null,
       "required": true,
+      "scopes": null,
+      "secret": false,
+      "secret_ref": null,
+      "state": "active",
+      "type": "string"
+    },
+    "UNIASSIST_CONNECTOR_REGISTRY_JSON": {
+      "default": null,
+      "deprecate_after": null,
+      "description": "JSON deployment manifest for connector-runtime and workflow-platform-api, listing connectorKey/packageName/exportName/enabled entries that this deployment may load.",
+      "legacy": {
+        "deprecated": false,
+        "replaced_by": null
+      },
+      "migration": null,
+      "replacement": null,
+      "required": false,
       "scopes": null,
       "secret": false,
       "secret_ref": null,

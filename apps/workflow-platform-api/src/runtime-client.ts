@@ -1,6 +1,8 @@
 import { buildInternalAuthHeaders, type InternalAuthConfig } from '@baseinterface/shared';
 import type {
   WorkflowRuntimeCancelRunRequest,
+  WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
+  WorkflowRuntimeRecordEventSubscriptionReceiptResponse,
   WorkflowApprovalDecisionRequest,
   WorkflowApprovalDecisionResponse,
   WorkflowApprovalDetailResponse,
@@ -89,6 +91,12 @@ export class RuntimeClient {
 
   async getArtifact(artifactId: string): Promise<WorkflowArtifactDetailResponse> {
     return this.get(`/internal/runtime/artifacts/${encodeURIComponent(artifactId)}`, this.runtimeServiceId);
+  }
+
+  async recordEventSubscriptionReceipt(
+    body: WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
+  ): Promise<WorkflowRuntimeRecordEventSubscriptionReceiptResponse> {
+    return this.post('/internal/runtime/event-subscription-receipts', body, this.runtimeServiceId);
   }
 
   private getSignablePath(path: string): string {

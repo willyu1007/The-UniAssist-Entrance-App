@@ -36,6 +36,13 @@ import type {
   WorkflowCompatDeliverySpecSeed,
   WorkflowCompatDeliveryTargetSeed,
   WorkflowCompatArtifactSeed,
+  WorkflowExternalActorMembershipSeed,
+  WorkflowExternalActorProfileSeed,
+  WorkflowExternalAudienceSelectorSeed,
+  WorkflowExternalDeliverySpecSeed,
+  WorkflowExternalDeliveryTargetSeed,
+  WorkflowExternalArtifactSeed,
+  WorkflowExternalLedgerResult,
   WorkflowFormalEvent,
   WorkflowInteractionRequestRecord,
   WorkflowNodeRunRecord,
@@ -50,6 +57,8 @@ import type {
   WorkflowRuntimeConnectorActionSessionLookupResponse,
   WorkflowRuntimeConnectorCallbackRequest,
   WorkflowRuntimeConnectorCallbackResponse,
+  WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
+  WorkflowRuntimeRecordEventSubscriptionReceiptResponse,
   WorkflowRuntimeResumeRunRequest,
   WorkflowRuntimeStartRunRequest,
   WorkflowTemplateSpec,
@@ -325,9 +334,35 @@ function findNode(spec: WorkflowTemplateSpec, nodeKey: string): WorkflowNodeSpec
   return node;
 }
 
-function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
+function buildConnectorRuntimeProjection(state: InternalRunState): Record<string, unknown> | undefined {
+  if (state.connectorActionSessions.length === 0 && state.connectorEventReceipts.length === 0) {
+    return undefined;
+  }
   return {
-    run: { ...state.run, metadata: state.run.metadata ? { ...state.run.metadata } : undefined },
+    actionSessions: state.connectorActionSessions.map((item) => ({
+      ...item,
+      metadataJson: item.metadataJson ? { ...item.metadataJson } : undefined,
+    })),
+    eventReceipts: state.connectorEventReceipts.map((item) => ({ ...item })),
+  };
+}
+
+function cloneSnapshot(state: InternalRunState): WorkflowRunSnapshot {
+  const connectorRuntimeProjection = buildConnectorRuntimeProjection(state);
+  const runMetadata = (
+    state.run.metadata
+    || connectorRuntimeProjection
+  )
+    ? {
+        ...(state.run.metadata ? { ...state.run.metadata } : {}),
+        ...(connectorRuntimeProjection ? { connectorRuntime: connectorRuntimeProjection } : {}),
+      }
+    : undefined;
+  return {
+    run: {
+      ...state.run,
+      metadata: runMetadata,
+    },
     nodeRuns: state.nodeRuns.map((item) => ({
       ...item,
       inputJson: item.inputJson ? { ...item.inputJson } : undefined,
@@ -548,6 +583,42 @@ function normalizeCompatCompletionMetadata(value: unknown): WorkflowCompatComple
     audienceSelector: normalizeAudienceSelector(value.audienceSelector),
     deliverySpec: normalizeDeliverySpec(value.deliverySpec),
     deliveryTargets: normalizeDeliveryTargets(value.deliveryTargets),
+  };
+}
+
+function normalizeExternalArtifacts(value: unknown): WorkflowExternalArtifactSeed[] {
+  return normalizeCompatArtifacts(value) as WorkflowExternalArtifactSeed[];
+}
+
+function normalizeExternalActorProfiles(value: unknown): WorkflowExternalActorProfileSeed[] {
+  return normalizeActorProfiles(value) as WorkflowExternalActorProfileSeed[];
+}
+
+function normalizeExternalActorMemberships(value: unknown): WorkflowExternalActorMembershipSeed[] {
+  return normalizeActorMemberships(value) as WorkflowExternalActorMembershipSeed[];
+}
+
+function normalizeExternalAudienceSelector(value: unknown): WorkflowExternalAudienceSelectorSeed | undefined {
+  return normalizeAudienceSelector(value) as WorkflowExternalAudienceSelectorSeed | undefined;
+}
+
+function normalizeExternalDeliverySpec(value: unknown): WorkflowExternalDeliverySpecSeed | undefined {
+  return normalizeDeliverySpec(value) as WorkflowExternalDeliverySpecSeed | undefined;
+}
+
+function normalizeExternalDeliveryTargets(value: unknown): WorkflowExternalDeliveryTargetSeed[] {
+  return normalizeDeliveryTargets(value) as WorkflowExternalDeliveryTargetSeed[];
+}
+
+function normalizeExternalLedgerResult(value: unknown): WorkflowExternalLedgerResult {
+  if (!isRecord(value)) return {};
+  return {
+    artifacts: normalizeExternalArtifacts(value.artifacts),
+    actorProfiles: normalizeExternalActorProfiles(value.actorProfiles),
+    actorMemberships: normalizeExternalActorMemberships(value.actorMemberships),
+    audienceSelector: normalizeExternalAudienceSelector(value.audienceSelector),
+    deliverySpec: normalizeExternalDeliverySpec(value.deliverySpec),
+    deliveryTargets: normalizeExternalDeliveryTargets(value.deliveryTargets),
   };
 }
 
@@ -815,14 +886,40 @@ export class WorkflowRuntimeService {
     if (isBridgeSessionTerminal(bridgeSession.status)) {
       receipt.status = 'rejected';
       receipt.errorMessage = 'bridge session is already terminal';
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: bridgeSession.nodeRunId,
+        bridgeId: bridgeSession.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        callbackKind: request.kind,
+        externalSessionRef: bridgeSession.externalSessionRef,
+        receiptSourceKind: 'bridge_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw new RuntimeRequestError(409, 'BRIDGE_SESSION_TERMINAL', receipt.errorMessage);
     }
 
     if (request.sequence !== bridgeSession.lastSequence + 1) {
       receipt.status = 'rejected';
       receipt.errorMessage = `callback sequence out of order: expected ${bridgeSession.lastSequence + 1}, got ${request.sequence}`;
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: bridgeSession.nodeRunId,
+        bridgeId: bridgeSession.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        callbackKind: request.kind,
+        externalSessionRef: bridgeSession.externalSessionRef,
+        receiptSourceKind: 'bridge_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw new RuntimeRequestError(409, 'BRIDGE_CALLBACK_OUT_OF_ORDER', receipt.errorMessage);
     }
 
@@ -836,9 +933,39 @@ export class WorkflowRuntimeService {
       bridgeSession.lastSequence = previousSequence;
       receipt.status = 'rejected';
       receipt.errorMessage = error instanceof Error ? error.message : 'bridge callback rejected';
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: bridgeSession.nodeRunId,
+        bridgeId: bridgeSession.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        callbackKind: request.kind,
+        externalSessionRef: bridgeSession.externalSessionRef,
+        receiptSourceKind: 'bridge_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw error;
     }
+    events = [
+      this.buildExternalReceiptEvent(request.traceId, state.run.runId, {
+        nodeRunId: bridgeSession.nodeRunId,
+        bridgeId: bridgeSession.bridgeId,
+        bridgeSessionId: bridgeSession.bridgeSessionId,
+        connectorEventReceiptId: undefined,
+        callbackKind: request.kind,
+        externalSessionRef: bridgeSession.externalSessionRef,
+        receiptSourceKind: 'bridge_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+        },
+      }),
+      ...events,
+    ];
     await this.persistState(state);
     await this.enqueueFormalEvents(request.traceId, state, events);
     return {
@@ -861,7 +988,8 @@ export class WorkflowRuntimeService {
       throw new RuntimeRequestError(404, 'CONNECTOR_ACTION_SESSION_NOT_FOUND', 'connector action session not found for callback');
     }
 
-    const duplicateReceipt = state.connectorEventReceipts.find((item) => item.receiptKey === request.callbackId);
+    const receiptKey = request.receiptKey || request.callbackId;
+    const duplicateReceipt = state.connectorEventReceipts.find((item) => item.receiptKey === receiptKey);
     if (duplicateReceipt) {
       return {
         schemaVersion: 'v1',
@@ -874,7 +1002,7 @@ export class WorkflowRuntimeService {
     const timestamp = this.now();
     const receipt: ConnectorEventReceiptRecord = {
       connectorEventReceiptId: this.uuid(),
-      receiptKey: request.callbackId,
+      receiptKey,
       sourceKind: 'action_callback',
       connectorActionSessionId: session.connectorActionSessionId,
       sequence: request.sequence,
@@ -887,14 +1015,42 @@ export class WorkflowRuntimeService {
     if (session.status === 'completed' || session.status === 'failed' || session.status === 'cancelled') {
       receipt.status = 'rejected';
       receipt.errorMessage = 'connector action session is already terminal';
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: session.nodeRunId,
+        connectorActionSessionId: session.connectorActionSessionId,
+        connectorEventReceiptId: receipt.connectorEventReceiptId,
+        callbackKind: request.kind,
+        externalSessionRef: session.externalSessionRef,
+        receiptSourceKind: 'connector_action_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          receiptKey,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw new RuntimeRequestError(409, 'CONNECTOR_ACTION_SESSION_TERMINAL', receipt.errorMessage);
     }
 
     if (request.sequence !== session.lastSequence + 1) {
       receipt.status = 'rejected';
       receipt.errorMessage = `callback sequence out of order: expected ${session.lastSequence + 1}, got ${request.sequence}`;
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: session.nodeRunId,
+        connectorActionSessionId: session.connectorActionSessionId,
+        connectorEventReceiptId: receipt.connectorEventReceiptId,
+        callbackKind: request.kind,
+        externalSessionRef: session.externalSessionRef,
+        receiptSourceKind: 'connector_action_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          receiptKey,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw new RuntimeRequestError(409, 'CONNECTOR_CALLBACK_OUT_OF_ORDER', receipt.errorMessage);
     }
 
@@ -902,6 +1058,7 @@ export class WorkflowRuntimeService {
     session.lastSequence = request.sequence;
     session.updatedAt = timestamp;
 
+    let events: WorkflowFormalEvent[] = [];
     try {
       if (request.kind === 'checkpoint') {
         session.metadataJson = {
@@ -917,7 +1074,7 @@ export class WorkflowRuntimeService {
         const node = findNode(state.version.spec, nodeRun.nodeKey);
         session.status = 'completed';
         session.updatedAt = timestamp;
-        const events = await this.applyConnectorResult(
+        events = await this.applyConnectorResult(
           state,
           nodeRun,
           node,
@@ -925,8 +1082,6 @@ export class WorkflowRuntimeService {
           session.externalSessionRef,
           isRecord(request.payload) ? request.payload : undefined,
         );
-        await this.persistState(state);
-        await this.enqueueFormalEvents(request.traceId, state, events);
       } else {
         const nodeRun = state.nodeRuns.find((item) => item.nodeRunId === session.nodeRunId);
         if (!nodeRun) {
@@ -947,22 +1102,121 @@ export class WorkflowRuntimeService {
         this.cancelPendingApprovals(state, nodeRun.nodeRunId);
         state.run.status = 'failed';
         state.run.updatedAt = timestamp;
-        const events = [
+        events = [
           this.buildNodeStateEvent(request.traceId, state.run, nodeRun, 'failed'),
           this.buildRunStateEvent(request.traceId, state.run, 'failed'),
         ];
-        await this.persistState(state);
-        await this.enqueueFormalEvents(request.traceId, state, events);
       }
     } catch (error) {
       session.lastSequence = previousSequence;
       receipt.status = 'rejected';
       receipt.errorMessage = error instanceof Error ? error.message : 'connector callback rejected';
-      await this.persistState(state);
+      await this.persistExternalReceiptEvent(request.traceId, state, {
+        nodeRunId: session.nodeRunId,
+        connectorActionSessionId: session.connectorActionSessionId,
+        connectorEventReceiptId: receipt.connectorEventReceiptId,
+        callbackKind: request.kind,
+        externalSessionRef: session.externalSessionRef,
+        receiptSourceKind: 'connector_action_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          receiptKey,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+          errorMessage: receipt.errorMessage,
+        },
+      });
       throw error;
     }
 
+    events = [
+      this.buildExternalReceiptEvent(request.traceId, state.run.runId, {
+        nodeRunId: session.nodeRunId,
+        connectorActionSessionId: session.connectorActionSessionId,
+        connectorEventReceiptId: receipt.connectorEventReceiptId,
+        callbackKind: request.kind,
+        externalSessionRef: session.externalSessionRef,
+        receiptSourceKind: 'connector_action_callback',
+        metadata: {
+          callbackId: request.callbackId,
+          receiptKey,
+          sequence: request.sequence,
+          receiptStatus: receipt.status,
+        },
+      }),
+      ...events,
+    ];
     await this.persistState(state);
+    await this.enqueueFormalEvents(request.traceId, state, events);
+    return {
+      schemaVersion: 'v1',
+      accepted: true,
+      receipt: { ...receipt },
+    };
+  }
+
+  async recordEventSubscriptionReceipt(
+    request: WorkflowRuntimeRecordEventSubscriptionReceiptRequest,
+  ): Promise<WorkflowRuntimeRecordEventSubscriptionReceiptResponse> {
+    const state = await this.requireRunState(request.runId);
+    const sourceType = typeof state.run.metadata?.sourceType === 'string'
+      ? state.run.metadata.sourceType
+      : undefined;
+    const sourceRef = typeof state.run.metadata?.sourceRef === 'string'
+      ? state.run.metadata.sourceRef
+      : undefined;
+    const runtimeTriggerBindingId = isRecord(state.run.metadata?.runtimeMetadata)
+      && typeof state.run.metadata.runtimeMetadata.triggerBindingId === 'string'
+      ? state.run.metadata.runtimeMetadata.triggerBindingId
+      : undefined;
+    if (
+      sourceType !== 'event_subscription'
+      || sourceRef !== request.triggerBindingId
+      || (runtimeTriggerBindingId && runtimeTriggerBindingId !== request.triggerBindingId)
+    ) {
+      throw new RuntimeRequestError(
+        409,
+        'EVENT_SUBSCRIPTION_RUN_MISMATCH',
+        'event subscription receipt does not match the run source',
+      );
+    }
+    const duplicateReceipt = state.connectorEventReceipts.find((item) => item.receiptKey === request.receiptKey);
+    if (duplicateReceipt) {
+      return {
+        schemaVersion: 'v1',
+        accepted: true,
+        duplicate: true,
+        receipt: { ...duplicateReceipt },
+      };
+    }
+
+    const receipt: ConnectorEventReceiptRecord = {
+      connectorEventReceiptId: this.uuid(),
+      receiptKey: request.receiptKey,
+      sourceKind: 'event_subscription',
+      runId: request.runId,
+      eventSubscriptionId: request.eventSubscriptionId,
+      eventType: request.eventType,
+      status: request.status,
+      receivedAt: request.receivedAt,
+    };
+    state.connectorEventReceipts.push(receipt);
+    const events = [
+      this.buildExternalReceiptEvent(request.traceId, state.run.runId, {
+        connectorEventReceiptId: receipt.connectorEventReceiptId,
+        eventSubscriptionId: request.eventSubscriptionId,
+        callbackKind: request.eventType,
+        receiptSourceKind: 'event_subscription',
+        metadata: {
+          receiptKey: request.receiptKey,
+          triggerBindingId: request.triggerBindingId,
+          receiptStatus: request.status,
+          ...(request.metadata ? { eventSubscription: request.metadata } : {}),
+        },
+      }),
+    ];
+    await this.persistState(state);
+    await this.enqueueFormalEvents(request.traceId, state, events);
     return {
       schemaVersion: 'v1',
       accepted: true,
@@ -1137,8 +1391,8 @@ export class WorkflowRuntimeService {
   }
 
   async getRun(runId: string): Promise<WorkflowRunSnapshot | undefined> {
-    const inMemory = this.store.snapshot(runId);
-    if (inMemory) return inMemory;
+    const inMemory = this.store.getRun(runId);
+    if (inMemory) return cloneSnapshot(inMemory);
     const loaded = await this.repository?.loadRunState(runId);
     if (!loaded) return undefined;
     this.store.createRun(loaded);
@@ -1173,21 +1427,16 @@ export class WorkflowRuntimeService {
     return record ? structuredClone(record) : undefined;
   }
 
-  private syncConnectorRuntimeMetadata(state: InternalRunState): void {
-    state.run.metadata = {
-      ...(state.run.metadata || {}),
-      connectorRuntime: {
-        actionSessions: state.connectorActionSessions.map((item) => ({
-          ...item,
-          metadataJson: item.metadataJson ? { ...item.metadataJson } : undefined,
-        })),
-        eventReceipts: state.connectorEventReceipts.map((item) => ({ ...item })),
-      },
-    };
+  private stripConnectorRuntimeMetadata(state: InternalRunState): void {
+    if (!state.run.metadata || !('connectorRuntime' in state.run.metadata)) {
+      return;
+    }
+    const { connectorRuntime: _connectorRuntime, ...rest } = state.run.metadata;
+    state.run.metadata = Object.keys(rest).length > 0 ? rest : undefined;
   }
 
   private async persistState(state: InternalRunState): Promise<void> {
-    this.syncConnectorRuntimeMetadata(state);
+    this.stripConnectorRuntimeMetadata(state);
     this.store.saveRun(state);
     await this.repository?.saveState(state);
   }
@@ -1947,7 +2196,7 @@ export class WorkflowRuntimeService {
           node,
           traceId,
           response.externalSessionRef,
-          response.completion,
+          response.result,
         );
       }
 
@@ -2193,15 +2442,15 @@ export class WorkflowRuntimeService {
     node: WorkflowNodeSpec,
     traceId: string,
     externalSessionRef: string,
-    completion: WorkflowCompatCompletionMetadata | undefined,
+    result: WorkflowExternalLedgerResult | undefined,
   ): Promise<WorkflowFormalEvent[]> {
     const timestamp = this.now();
     nodeRun.status = 'completed';
     nodeRun.updatedAt = timestamp;
     this.cancelPendingApprovals(state, nodeRun.nodeRunId);
-    const completionMetadata = normalizeCompatCompletionMetadata(completion);
-    const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
-    this.applyCompatCompanionMetadata(state, completionMetadata);
+    const externalResult = normalizeExternalLedgerResult(result);
+    const createdArtifacts = this.createArtifactsFromExternalResult(state, nodeRun, externalResult);
+    this.applyExternalLedgerResult(state, externalResult);
     if (createdArtifacts.length === 0) {
       createdArtifacts.push(this.createArtifact(
         state,
@@ -2271,25 +2520,7 @@ export class WorkflowRuntimeService {
         lastCheckpointAt: request.emittedAt,
       };
       bridgeSession.updatedAt = timestamp;
-      return [{
-        schemaVersion: 'v1',
-        eventId: this.uuid(),
-        traceId: request.traceId,
-        runId: state.run.runId,
-        timestampMs: timestamp,
-        kind: 'external.callback.received',
-        payload: {
-          nodeRunId: nodeRun.nodeRunId,
-          bridgeId: bridgeSession.bridgeId,
-          callbackKind: request.kind,
-          externalSessionRef: bridgeSession.externalSessionRef,
-          metadata: {
-            sequence: request.sequence,
-            nodeKey: nodeRun.nodeKey,
-            payload,
-          },
-        },
-      }];
+      return [];
     }
 
     if (request.kind === 'approval.requested') {
@@ -2359,9 +2590,9 @@ export class WorkflowRuntimeService {
       nodeRun.status = 'completed';
       nodeRun.updatedAt = timestamp;
       this.cancelPendingApprovals(state, nodeRun.nodeRunId);
-      const completionMetadata = normalizeCompatCompletionMetadata(payload);
-      const createdArtifacts = this.createArtifactsFromCompatMetadata(state, nodeRun, completionMetadata);
-      this.applyCompatCompanionMetadata(state, completionMetadata);
+      const externalResult = normalizeExternalLedgerResult(payload);
+      const createdArtifacts = this.createArtifactsFromExternalResult(state, nodeRun, externalResult);
+      this.applyExternalLedgerResult(state, externalResult);
       if (createdArtifacts.length === 0) {
         createdArtifacts.push(this.createArtifact(
           state,
@@ -2882,6 +3113,27 @@ export class WorkflowRuntimeService {
     return artifacts;
   }
 
+  private createArtifactsFromExternalResult(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    result: WorkflowExternalLedgerResult,
+  ): WorkflowArtifactRecord[] {
+    const artifacts: WorkflowArtifactRecord[] = [];
+    for (const seed of result.artifacts || []) {
+      artifacts.push(this.createArtifact(
+        state,
+        nodeRun,
+        seed.artifactType,
+        seed.state || 'validated',
+        seed.payload,
+        seed.metadata,
+        seed.schemaRef,
+      ));
+    }
+    this.resolveCompatArtifactReferences(artifacts);
+    return artifacts;
+  }
+
   private resolveCompatArtifactReferences(artifacts: WorkflowArtifactRecord[]): void {
     for (const artifact of artifacts) {
       if (artifact.artifactType !== 'AnalysisRecipeCandidate') continue;
@@ -2932,7 +3184,31 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private upsertActorProfile(state: InternalRunState, seed: WorkflowCompatActorProfileSeed): void {
+  private applyExternalLedgerResult(
+    state: InternalRunState,
+    result: WorkflowExternalLedgerResult,
+  ): void {
+    for (const seed of result.actorProfiles || []) {
+      this.upsertActorProfile(state, seed);
+    }
+    for (const seed of result.actorMemberships || []) {
+      this.upsertActorMembership(state, seed);
+    }
+    if (result.audienceSelector) {
+      this.upsertAudienceSelector(state, result.audienceSelector);
+    }
+    if (result.deliverySpec) {
+      this.upsertDeliverySpec(state, result.deliverySpec);
+    }
+    for (const seed of result.deliveryTargets || []) {
+      this.upsertDeliveryTarget(state, seed);
+    }
+  }
+
+  private upsertActorProfile(
+    state: InternalRunState,
+    seed: WorkflowCompatActorProfileSeed | WorkflowExternalActorProfileSeed,
+  ): void {
     const existing = state.actorProfiles.find((item) => item.actorId === seed.actorId);
     const timestamp = this.now();
     const next: ActorProfileRecord = {
@@ -2953,7 +3229,10 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private upsertActorMembership(state: InternalRunState, seed: WorkflowCompatActorMembershipSeed): void {
+  private upsertActorMembership(
+    state: InternalRunState,
+    seed: WorkflowCompatActorMembershipSeed | WorkflowExternalActorMembershipSeed,
+  ): void {
     const existing = state.actorMemberships.find((item) => item.actorMembershipId === seed.actorMembershipId);
     const timestamp = this.now();
     const next: ActorMembershipRecord = {
@@ -2975,7 +3254,10 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private upsertAudienceSelector(state: InternalRunState, seed: WorkflowCompatAudienceSelectorSeed): void {
+  private upsertAudienceSelector(
+    state: InternalRunState,
+    seed: WorkflowCompatAudienceSelectorSeed | WorkflowExternalAudienceSelectorSeed,
+  ): void {
     const existing = state.audienceSelectors.find((item) => item.audienceSelectorId === seed.audienceSelectorId);
     const timestamp = this.now();
     const next: AudienceSelectorRecord = {
@@ -2992,7 +3274,10 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private upsertDeliverySpec(state: InternalRunState, seed: WorkflowCompatDeliverySpecSeed): void {
+  private upsertDeliverySpec(
+    state: InternalRunState,
+    seed: WorkflowCompatDeliverySpecSeed | WorkflowExternalDeliverySpecSeed,
+  ): void {
     const existing = state.deliverySpecs.find((item) => item.deliverySpecId === seed.deliverySpecId);
     const timestamp = this.now();
     const next: DeliverySpecRecord = {
@@ -3012,7 +3297,10 @@ export class WorkflowRuntimeService {
     }
   }
 
-  private upsertDeliveryTarget(state: InternalRunState, seed: WorkflowCompatDeliveryTargetSeed): void {
+  private upsertDeliveryTarget(
+    state: InternalRunState,
+    seed: WorkflowCompatDeliveryTargetSeed | WorkflowExternalDeliveryTargetSeed,
+  ): void {
     const existing = state.deliveryTargets.find((item) => item.deliveryTargetId === seed.deliveryTargetId);
     const timestamp = this.now();
     const next: DeliveryTargetRecord = {
@@ -3057,6 +3345,66 @@ export class WorkflowRuntimeService {
     nodeRun.outputArtifactId = artifact.artifactId;
     nodeRun.updatedAt = this.now();
     return artifact;
+  }
+
+  private buildExternalReceiptEvent(
+    traceId: string,
+    runId: string,
+    params: {
+      nodeRunId?: string;
+      bridgeId?: string;
+      bridgeSessionId?: string;
+      connectorActionSessionId?: string;
+      connectorEventReceiptId?: string;
+      eventSubscriptionId?: string;
+      callbackKind: string;
+      externalSessionRef?: string;
+      receiptSourceKind: 'bridge_callback' | 'connector_action_callback' | 'event_subscription';
+      metadata?: Record<string, unknown>;
+    },
+  ): WorkflowFormalEvent {
+    return {
+      schemaVersion: 'v1',
+      eventId: this.uuid(),
+      traceId,
+      runId,
+      timestampMs: this.now(),
+      kind: 'external.callback.received',
+      payload: {
+        ...(params.nodeRunId ? { nodeRunId: params.nodeRunId } : {}),
+        ...(params.bridgeId ? { bridgeId: params.bridgeId } : {}),
+        ...(params.bridgeSessionId ? { bridgeSessionId: params.bridgeSessionId } : {}),
+        ...(params.connectorActionSessionId ? { connectorActionSessionId: params.connectorActionSessionId } : {}),
+        ...(params.connectorEventReceiptId ? { connectorEventReceiptId: params.connectorEventReceiptId } : {}),
+        ...(params.eventSubscriptionId ? { eventSubscriptionId: params.eventSubscriptionId } : {}),
+        callbackKind: params.callbackKind,
+        ...(params.externalSessionRef ? { externalSessionRef: params.externalSessionRef } : {}),
+        receiptSourceKind: params.receiptSourceKind,
+        ...(params.metadata ? { metadata: params.metadata } : {}),
+      },
+    };
+  }
+
+  private async persistExternalReceiptEvent(
+    traceId: string,
+    state: InternalRunState,
+    params: {
+      nodeRunId?: string;
+      bridgeId?: string;
+      bridgeSessionId?: string;
+      connectorActionSessionId?: string;
+      connectorEventReceiptId?: string;
+      eventSubscriptionId?: string;
+      callbackKind: string;
+      externalSessionRef?: string;
+      receiptSourceKind: 'bridge_callback' | 'connector_action_callback' | 'event_subscription';
+      metadata?: Record<string, unknown>;
+    },
+  ): Promise<void> {
+    await this.persistState(state);
+    await this.enqueueFormalEvents(traceId, state, [
+      this.buildExternalReceiptEvent(traceId, state.run.runId, params),
+    ]);
   }
 
   private buildRunStateEvent(

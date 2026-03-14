@@ -3,10 +3,7 @@ import type { Request, Response } from 'express';
 import express from 'express';
 
 import { buildInternalAuthHeaders, createLogger, createMemoryNonceStore, verifyInternalAuthRequest } from '@baseinterface/shared';
-import { ciPipelineSampleConnector } from '@baseinterface/connector-ci-pipeline-sample';
-import { issueTrackerSampleConnector } from '@baseinterface/connector-issue-tracker-sample';
-import { sourceControlSampleConnector } from '@baseinterface/connector-source-control-sample';
-import type { ConnectorAdapter } from '@baseinterface/connector-sdk';
+import { loadConnectorAdapters, type ConnectorAdapter } from '@baseinterface/connector-sdk';
 import type {
   ConnectorRuntimeInvokeRequest,
   ConnectorRuntimeInvokeResponse,
@@ -16,6 +13,7 @@ import type {
   WorkflowRuntimeConnectorCallbackRequest,
 } from '@baseinterface/workflow-contracts';
 import {
+  CONNECTOR_REGISTRY,
   INTERNAL_AUTH_CONFIG,
   PORT,
   WORKFLOW_PLATFORM_BASE_URL,
@@ -52,11 +50,10 @@ type ActionSession = {
 
 const logger = createLogger({ service: 'connector-runtime' });
 const internalNonceStore = createMemoryNonceStore();
-const adapters = new Map<string, ConnectorAdapter>([
-  [issueTrackerSampleConnector.connectorKey, issueTrackerSampleConnector],
-  [ciPipelineSampleConnector.connectorKey, ciPipelineSampleConnector],
-  [sourceControlSampleConnector.connectorKey, sourceControlSampleConnector],
-]);
+const adapters: Map<string, ConnectorAdapter> = await loadConnectorAdapters(
+  CONNECTOR_REGISTRY,
+  { loader: async (specifier) => await import(specifier) },
+);
 const actionSessions = new Map<string, ActionSession>();
 const app = express();
 
@@ -257,7 +254,7 @@ app.post('/internal/connectors/actions/invoke', async (req: RawBodyRequest, res)
       schemaVersion: 'v1',
       status: 'completed',
       externalSessionRef: result.externalSessionRef,
-      completion: result.completion,
+      result: result.result,
       metadata: result.metadata,
     } satisfies ConnectorRuntimeInvokeResponse);
   } catch (error) {
@@ -287,6 +284,7 @@ app.post('/hooks/connectors/action-callbacks/:publicCallbackKey', async (req: Ra
     const response = await postInternal<unknown>(WORKFLOW_RUNTIME_BASE_URL, WORKFLOW_RUNTIME_SERVICE_ID, '/internal/runtime/connector-callback', ['connector:callback'], {
       schemaVersion: 'v1',
       traceId: crypto.randomUUID(),
+      receiptKey: normalized.receiptKey,
       callbackId: normalized.callbackId,
       sequence: normalized.sequence,
       connectorActionSessionId: session.connectorActionSessionId,
@@ -352,5 +350,8 @@ app.post('/hooks/connectors/event-subscriptions/:publicSubscriptionKey', async (
 });
 
 app.listen(PORT, () => {
-  logger.info('connector runtime listening', { port: PORT });
+  logger.info('connector runtime listening', {
+    port: PORT,
+    connectors: [...adapters.keys()],
+  });
 });

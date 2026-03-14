@@ -78,6 +78,7 @@ function startService(name, args, env = {}) {
       ...process.env,
       ...env,
     },
+    detached: process.platform !== 'win32',
     stdio: ['ignore', 'pipe', 'pipe'],
   });
 
@@ -89,6 +90,42 @@ function startService(name, args, env = {}) {
   });
 
   return child;
+}
+
+function killServiceTree(child, signal) {
+  if (!child?.pid) {
+    return;
+  }
+  if (process.platform !== 'win32') {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // fall back to the direct child signal below
+    }
+  }
+  child.kill(signal);
+}
+
+async function stopService(child) {
+  if (!child || child.killed || child.exitCode !== null) {
+    return;
+  }
+  const exited = new Promise((resolvePromise) => {
+    child.once('exit', resolvePromise);
+  });
+  killServiceTree(child, 'SIGTERM');
+  await Promise.race([
+    exited,
+    sleep(3_000).then(() => {
+      if (child.exitCode === null) {
+        killServiceTree(child, 'SIGKILL');
+      }
+    }),
+  ]);
+  if (child.exitCode === null) {
+    await exited;
+  }
 }
 
 async function waitForHealth(url, timeoutMs = 20_000) {
@@ -246,9 +283,8 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
   });
 
   t.after(async () => {
-    bridge.kill('SIGTERM');
-    runtime.kill('SIGTERM');
-    await sleep(500);
+    await stopService(bridge);
+    await stopService(runtime);
   });
 
   await waitForHealth(`http://127.0.0.1:${ports.bridge}/health`);

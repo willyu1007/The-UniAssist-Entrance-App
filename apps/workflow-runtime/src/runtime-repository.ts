@@ -324,6 +324,41 @@ function toBridgeCallbackReceiptRecord(row: Record<string, unknown>): BridgeCall
   };
 }
 
+function toConnectorActionSessionRecord(row: Record<string, unknown>): ConnectorActionSessionRecord {
+  return {
+    connectorActionSessionId: String(row.connector_action_session_id),
+    runId: String(row.run_id),
+    nodeRunId: String(row.node_run_id),
+    actionBindingId: String(row.action_binding_id),
+    connectorBindingId: String(row.connector_binding_id),
+    capabilityId: String(row.capability_id),
+    externalSessionRef: String(row.external_session_ref),
+    publicCallbackKey: String(row.public_callback_key),
+    status: String(row.status) as ConnectorActionSessionRecord['status'],
+    lastSequence: Number(row.last_sequence),
+    cancelledAt: row.cancelled_at ? toMs(row.cancelled_at) : undefined,
+    metadataJson: parseJson(row.metadata_json, undefined),
+    createdAt: toMs(row.created_at),
+    updatedAt: toMs(row.updated_at),
+  };
+}
+
+function toConnectorEventReceiptRecord(row: Record<string, unknown>): ConnectorEventReceiptRecord {
+  return {
+    connectorEventReceiptId: String(row.connector_event_receipt_id),
+    receiptKey: String(row.receipt_key),
+    sourceKind: String(row.source_kind) as ConnectorEventReceiptRecord['sourceKind'],
+    runId: row.run_id ? String(row.run_id) : undefined,
+    connectorActionSessionId: row.connector_action_session_id ? String(row.connector_action_session_id) : undefined,
+    eventSubscriptionId: row.event_subscription_id ? String(row.event_subscription_id) : undefined,
+    sequence: typeof row.sequence === 'number' ? row.sequence : row.sequence != null ? Number(row.sequence) : undefined,
+    eventType: row.event_type ? String(row.event_type) : undefined,
+    status: String(row.status) as ConnectorEventReceiptRecord['status'],
+    errorMessage: row.error_message ? String(row.error_message) : undefined,
+    receivedAt: toMs(row.received_at),
+  };
+}
+
 export type RuntimeRepository = {
   close: () => Promise<void>;
   saveState: (state: InternalRunState) => Promise<void>;
@@ -389,6 +424,12 @@ class PgRuntimeRepository implements RuntimeRepository {
       }
       for (const callbackReceipt of state.bridgeCallbackReceipts) {
         await this.upsertBridgeCallbackReceipt(client, callbackReceipt);
+      }
+      for (const connectorActionSession of state.connectorActionSessions) {
+        await this.upsertConnectorActionSession(client, connectorActionSession);
+      }
+      for (const connectorEventReceipt of state.connectorEventReceipts) {
+        await this.upsertConnectorEventReceipt(client, connectorEventReceipt);
       }
       await client.query('COMMIT');
     } catch (error) {
@@ -545,9 +586,50 @@ class PgRuntimeRepository implements RuntimeRepository {
       bridgeCallbackReceipts = callbackReceiptsResult.rows.map((row) => toBridgeCallbackReceiptRecord(row as Record<string, unknown>));
     }
 
+    const connectorActionSessionsResult = await this.pool.query(`
+      SELECT *
+      FROM connector_action_sessions
+      WHERE run_id = $1
+      ORDER BY created_at ASC
+    `, [runId]);
+    let connectorActionSessions = connectorActionSessionsResult.rows.map((row) => (
+      toConnectorActionSessionRecord(row as Record<string, unknown>)
+    ));
+
+    let connectorEventReceipts: ConnectorEventReceiptRecord[] = [];
+    const connectorActionSessionIds = connectorActionSessions.map((item) => item.connectorActionSessionId);
+    if (connectorActionSessionIds.length > 0) {
+      const connectorEventReceiptsResult = await this.pool.query(`
+        SELECT *
+        FROM connector_event_receipts
+        WHERE run_id = $1
+           OR connector_action_session_id = ANY($2::text[])
+        ORDER BY received_at ASC
+      `, [runId, connectorActionSessionIds]);
+      connectorEventReceipts = connectorEventReceiptsResult.rows.map((row) => (
+        toConnectorEventReceiptRecord(row as Record<string, unknown>)
+      ));
+    } else {
+      const connectorEventReceiptsResult = await this.pool.query(`
+        SELECT *
+        FROM connector_event_receipts
+        WHERE run_id = $1
+        ORDER BY received_at ASC
+      `, [runId]);
+      connectorEventReceipts = connectorEventReceiptsResult.rows.map((row) => (
+        toConnectorEventReceiptRecord(row as Record<string, unknown>)
+      ));
+    }
+
     const connectorRuntime = isRecord(run.metadata?.connectorRuntime)
       ? run.metadata?.connectorRuntime as Record<string, unknown>
       : {};
+    if (connectorActionSessions.length === 0) {
+      connectorActionSessions = parseConnectorActionSessions(connectorRuntime.actionSessions);
+    }
+    if (connectorEventReceipts.length === 0) {
+      connectorEventReceipts = parseConnectorEventReceipts(connectorRuntime.eventReceipts);
+    }
 
     return {
       template,
@@ -565,12 +647,23 @@ class PgRuntimeRepository implements RuntimeRepository {
       deliveryTargets,
       bridgeInvokeSessions,
       bridgeCallbackReceipts,
-      connectorActionSessions: parseConnectorActionSessions(connectorRuntime.actionSessions),
-      connectorEventReceipts: parseConnectorEventReceipts(connectorRuntime.eventReceipts),
+      connectorActionSessions,
+      connectorEventReceipts,
     };
   }
 
   async findRunStateByConnectorPublicCallbackKey(publicCallbackKey: string): Promise<InternalRunState | undefined> {
+    const tableResult = await this.pool.query(`
+      SELECT run_id
+      FROM connector_action_sessions
+      WHERE public_callback_key = $1
+      ORDER BY updated_at DESC
+      LIMIT 1
+    `, [publicCallbackKey]);
+    if ((tableResult.rowCount || 0) > 0) {
+      return await this.loadRunState(String((tableResult.rows[0] as Record<string, unknown>).run_id));
+    }
+
     const result = await this.pool.query(`
       SELECT run_id
       FROM workflow_runs
@@ -702,6 +795,86 @@ class PgRuntimeRepository implements RuntimeRepository {
       record.bridgeSessionId,
       record.sequence,
       record.kind,
+      record.status,
+      record.errorMessage ?? null,
+      record.receivedAt,
+    ]);
+  }
+
+  private async upsertConnectorActionSession(client: PoolClient, record: ConnectorActionSessionRecord): Promise<void> {
+    await client.query(`
+      INSERT INTO connector_action_sessions (
+        connector_action_session_id,
+        run_id,
+        node_run_id,
+        action_binding_id,
+        connector_binding_id,
+        capability_id,
+        external_session_ref,
+        public_callback_key,
+        status,
+        last_sequence,
+        cancelled_at,
+        metadata_json,
+        created_at,
+        updated_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::jsonb,
+        to_timestamp($13 / 1000.0), to_timestamp($14 / 1000.0)
+      )
+      ON CONFLICT (connector_action_session_id) DO UPDATE
+      SET
+        status = EXCLUDED.status,
+        last_sequence = EXCLUDED.last_sequence,
+        cancelled_at = EXCLUDED.cancelled_at,
+        metadata_json = EXCLUDED.metadata_json,
+        updated_at = EXCLUDED.updated_at
+    `, [
+      record.connectorActionSessionId,
+      record.runId,
+      record.nodeRunId,
+      record.actionBindingId,
+      record.connectorBindingId,
+      record.capabilityId,
+      record.externalSessionRef,
+      record.publicCallbackKey,
+      record.status,
+      record.lastSequence,
+      record.cancelledAt ? new Date(record.cancelledAt) : null,
+      record.metadataJson ? JSON.stringify(record.metadataJson) : null,
+      record.createdAt,
+      record.updatedAt,
+    ]);
+  }
+
+  private async upsertConnectorEventReceipt(client: PoolClient, record: ConnectorEventReceiptRecord): Promise<void> {
+    await client.query(`
+      INSERT INTO connector_event_receipts (
+        connector_event_receipt_id,
+        receipt_key,
+        source_kind,
+        run_id,
+        connector_action_session_id,
+        event_subscription_id,
+        sequence,
+        event_type,
+        status,
+        error_message,
+        received_at
+      ) VALUES (
+        $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+        to_timestamp($11 / 1000.0)
+      )
+      ON CONFLICT (receipt_key) DO NOTHING
+    `, [
+      record.connectorEventReceiptId,
+      record.receiptKey,
+      record.sourceKind,
+      record.runId ?? null,
+      record.connectorActionSessionId ?? null,
+      record.eventSubscriptionId ?? null,
+      record.sequence ?? null,
+      record.eventType ?? null,
       record.status,
       record.errorMessage ?? null,
       record.receivedAt,

@@ -643,6 +643,7 @@ model ConnectorEventReceipt {
   connectorEventReceiptId String   @id @map("connector_event_receipt_id")
   receiptKey              String   @unique(map: "uq_connector_event_receipts_receipt_key") @map("receipt_key")
   sourceKind              String   @map("source_kind")
+  runId                   String?  @map("run_id")
   connectorActionSessionId String? @map("connector_action_session_id")
   eventSubscriptionId     String?  @map("event_subscription_id")
   sequence                Int?
@@ -651,6 +652,7 @@ model ConnectorEventReceipt {
   errorMessage            String?  @map("error_message")
   receivedAt              DateTime @default(now()) @map("received_at")
 
+  @@index([runId, receivedAt], map: "idx_connector_event_receipts_run_received_at")
   @@index([connectorActionSessionId, sequence], map: "idx_connector_event_receipts_action_session_sequence")
   @@index([eventSubscriptionId, receivedAt], map: "idx_connector_event_receipts_subscription_received_at")
   @@map("connector_event_receipts")

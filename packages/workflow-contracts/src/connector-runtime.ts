@@ -1,4 +1,4 @@
-import type { WorkflowCompatCompletionMetadata, WorkflowSchemaVersion } from './types';
+import type { WorkflowExternalLedgerResult, WorkflowSchemaVersion } from './types';
 
 export type ConnectorDefinitionStatus = 'draft' | 'active' | 'disabled' | 'archived';
 export type ConnectorBindingStatus = 'draft' | 'active' | 'disabled' | 'archived';
@@ -127,6 +127,7 @@ export type ConnectorEventReceiptRecord = {
   connectorEventReceiptId: string;
   receiptKey: string;
   sourceKind: ConnectorEventReceiptSourceKind;
+  runId?: string;
   connectorActionSessionId?: string;
   eventSubscriptionId?: string;
   sequence?: number;
@@ -274,7 +275,7 @@ export type ConnectorRuntimeInvokeResponse =
       schemaVersion: WorkflowSchemaVersion;
       status: 'completed';
       externalSessionRef: string;
-      completion?: WorkflowCompatCompletionMetadata;
+      result?: WorkflowExternalLedgerResult;
       metadata?: Record<string, unknown>;
     }
   | {
@@ -288,6 +289,7 @@ export type ConnectorRuntimeInvokeResponse =
 export type WorkflowRuntimeConnectorCallbackRequest = {
   schemaVersion: WorkflowSchemaVersion;
   traceId: string;
+  receiptKey?: string;
   callbackId: string;
   sequence: number;
   connectorActionSessionId: string;
@@ -317,6 +319,26 @@ export type WorkflowRuntimeConnectorActionSessionLookupResponse = {
     connectorKey: string;
     action: ConnectorActionExecutionSnapshot;
   };
+};
+
+export type WorkflowRuntimeRecordEventSubscriptionReceiptRequest = {
+  schemaVersion: WorkflowSchemaVersion;
+  traceId: string;
+  receiptKey: string;
+  runId: string;
+  triggerBindingId: string;
+  eventSubscriptionId: string;
+  eventType: string;
+  status: Extract<ConnectorEventReceiptStatus, 'accepted' | 'duplicate'>;
+  receivedAt: number;
+  metadata?: Record<string, unknown>;
+};
+
+export type WorkflowRuntimeRecordEventSubscriptionReceiptResponse = {
+  schemaVersion: WorkflowSchemaVersion;
+  accepted: boolean;
+  duplicate?: boolean;
+  receipt: ConnectorEventReceiptRecord;
 };
 
 export type EventSubscriptionRuntimeConfig = {

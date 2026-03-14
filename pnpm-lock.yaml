@@ -410,6 +410,9 @@ importers:
 
   apps/workflow-platform-api:
     dependencies:
+      '@baseinterface/connector-sdk':
+        specifier: workspace:*
+        version: link:../../packages/connector-sdk
       '@baseinterface/convex-projection-experiment':
         specifier: workspace:*
         version: link:../../packages/convex-projection-experiment

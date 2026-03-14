@@ -55,7 +55,7 @@ export const sourceControlSampleConnector: ConnectorAdapter = {
     return {
       status: 'completed',
       externalSessionRef: changeReviewRef,
-      completion: {
+      result: {
         artifacts: [
           {
             artifactType: 'ActionReceipt',

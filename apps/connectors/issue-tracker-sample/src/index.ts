@@ -55,7 +55,7 @@ export const issueTrackerSampleConnector: ConnectorAdapter = {
     return {
       status: 'completed',
       externalSessionRef: issueRef,
-      completion: {
+      result: {
         artifacts: [
           {
             artifactType: 'ActionReceipt',
