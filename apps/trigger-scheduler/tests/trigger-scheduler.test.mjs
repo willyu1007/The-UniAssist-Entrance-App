@@ -179,7 +179,7 @@ test('trigger scheduler polls due triggers and verifies direct webhooks', async 
 
   await new Promise((resolvePromise) => platformServer.listen(ports.platform, resolvePromise));
 
-  const scheduler = startService('scheduler-b5', ['--filter', '@baseinterface/trigger-scheduler', 'start'], {
+  const scheduler = startService('scheduler-b5', ['--filter', '@uniassist/trigger-scheduler', 'start'], {
     PORT: String(ports.scheduler),
     UNIASSIST_WORKFLOW_PLATFORM_BASE_URL: `http://127.0.0.1:${ports.platform}`,
     UNIASSIST_TRIGGER_SCHEDULER_POLL_INTERVAL_MS: '1000',

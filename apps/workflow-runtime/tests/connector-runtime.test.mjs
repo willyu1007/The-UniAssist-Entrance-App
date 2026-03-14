@@ -14,13 +14,13 @@ const ports = {
 const connectorRegistryJson = JSON.stringify([
   {
     connectorKey: 'issue_tracker',
-    packageName: '@baseinterface/connector-issue-tracker-sample',
+    packageName: '@uniassist/connector-issue-tracker-sample',
     exportName: 'issueTrackerSampleConnector',
     enabled: true,
   },
   {
     connectorKey: 'ci_pipeline',
-    packageName: '@baseinterface/connector-ci-pipeline-sample',
+    packageName: '@uniassist/connector-ci-pipeline-sample',
     exportName: 'ciPipelineSampleConnector',
     enabled: true,
   },
@@ -128,7 +128,6 @@ function buildTemplate(templateVersionId, spec) {
       workflowId: `wf-${templateVersionId}`,
       workflowKey: spec.workflowKey,
       name: spec.name,
-      compatProviderId: spec.compatProviderId,
       status: 'active',
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -157,7 +156,6 @@ function buildStartRunBody({
     schemaVersion: 'v1',
     workflowKey,
     name: workflowKey,
-    compatProviderId: 'sample',
     entryNode: 'connector_step',
     nodes: [
       {
@@ -208,13 +206,13 @@ function buildStartRunBody({
 }
 
 test('workflow runtime executes B7 connector sync and async actions with callback dedupe', async (t) => {
-  let connectorRuntime = startService('connector-runtime-b7', ['--filter', '@baseinterface/connector-runtime', 'start'], {
+  let connectorRuntime = startService('connector-runtime-b7', ['--filter', '@uniassist/connector-runtime', 'start'], {
     PORT: String(ports.connectorRuntime),
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
     UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: `http://127.0.0.1:${ports.runtime}`,
     UNIASSIST_CONNECTOR_REGISTRY_JSON: connectorRegistryJson,
   });
-  const runtime = startService('workflow-runtime-b7', ['--filter', '@baseinterface/workflow-runtime', 'start'], {
+  const runtime = startService('workflow-runtime-b7', ['--filter', '@uniassist/workflow-runtime', 'start'], {
     PORT: String(ports.runtime),
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
     UNIASSIST_CONNECTOR_RUNTIME_BASE_URL: `http://127.0.0.1:${ports.connectorRuntime}`,
@@ -280,7 +278,7 @@ test('workflow runtime executes B7 connector sync and async actions with callbac
 
   await stopService(connectorRuntime);
   await sleep(500);
-  connectorRuntime = startService('connector-runtime-b7-restarted', ['--filter', '@baseinterface/connector-runtime', 'start'], {
+  connectorRuntime = startService('connector-runtime-b7-restarted', ['--filter', '@uniassist/connector-runtime', 'start'], {
     PORT: String(ports.connectorRuntime),
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
     UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: `http://127.0.0.1:${ports.runtime}`,

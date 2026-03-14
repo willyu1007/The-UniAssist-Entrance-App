@@ -118,7 +118,6 @@ function buildRunSnapshot(body, runId, status = 'running') {
         workflowId: body.template?.workflowId || 'wf-bridge',
         workflowKey: body.template?.workflowKey || 'bridge-flow',
         templateVersionId: body.version?.templateVersionId || 'ver-bridge',
-        compatProviderId: body.template?.compatProviderId || 'sample',
         status,
         sessionId: body.sessionId || 'session-bridge',
         userId: body.userId || 'owner-bridge',
@@ -134,7 +133,7 @@ function buildRunSnapshot(body, runId, status = 'running') {
           nodeKey: body.version?.spec?.entryNode || 'collect',
           nodeType: 'executor',
           status,
-          executorId: 'compat-sample',
+          executorId: 'bridge.sample',
           createdAt: timestamp,
           updatedAt: timestamp,
         },
@@ -154,7 +153,6 @@ function buildRunSnapshot(body, runId, status = 'running') {
         eventId: `event-${runId}`,
         traceId: body.traceId || 'trace-bridge',
         runId,
-        compatProviderId: body.template?.compatProviderId || 'sample',
         timestampMs: timestamp,
         kind: 'run.lifecycle',
         payload: {
@@ -293,7 +291,7 @@ test('workflow platform api handles B6 external runtime bridge governance and di
         supportsCancel: true,
         capabilities: [
           {
-            capabilityId: 'compat-sample',
+            capabilityId: 'bridge.sample',
             name: 'Stub capability',
             supportsResume: true,
             supportsCancel: true,
@@ -311,7 +309,7 @@ test('workflow platform api handles B6 external runtime bridge governance and di
   await new Promise((resolvePromise) => runtimeServer.listen(ports.runtime, resolvePromise));
   await new Promise((resolvePromise) => bridgeServer.listen(ports.bridge, resolvePromise));
 
-  const platform = startService('platform-b6', ['--filter', '@baseinterface/workflow-platform-api', 'start'], {
+  const platform = startService('platform-b6', ['--filter', '@uniassist/workflow-platform-api', 'start'], {
     PORT: String(ports.platform),
     UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: `http://127.0.0.1:${ports.runtime}`,
     UNIASSIST_WORKFLOW_RUNTIME_PUBLIC_BASE_URL: `http://127.0.0.1:${ports.runtime}`,

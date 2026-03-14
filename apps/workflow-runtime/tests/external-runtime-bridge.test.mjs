@@ -191,7 +191,6 @@ function buildTemplate(versionId, spec) {
       workflowId: `wf-${versionId}`,
       workflowKey: spec.workflowKey,
       name: spec.name,
-      compatProviderId: spec.compatProviderId,
       status: 'active',
       createdAt: Date.now(),
       updatedAt: Date.now(),
@@ -247,7 +246,7 @@ function buildExternalRuntimeSnapshot(runtimeBaseUrl) {
       supportsCancel: true,
       capabilities: [
         {
-          capabilityId: 'compat-sample',
+          capabilityId: 'bridge.sample',
           name: 'Vendor-neutral sample capability',
           supportsResume: true,
           supportsCancel: true,
@@ -269,13 +268,13 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
     UNIASSIST_INTERNAL_AUTH_SIGNING_KID: internalAuth.kid,
   };
 
-  const bridge = startService('executor-bridge-sample', ['--filter', '@baseinterface/executor-bridge-sample', 'start'], {
+  const bridge = startService('executor-bridge-sample', ['--filter', '@uniassist/executor-bridge-sample', 'start'], {
     PORT: String(ports.bridge),
     UNIASSIST_SERVICE_ID: 'executor-bridge-sample',
     UNIASSIST_WORKFLOW_RUNTIME_SERVICE_ID: 'workflow-runtime',
     ...internalEnv,
   });
-  const runtime = startService('workflow-runtime-b6', ['--filter', '@baseinterface/workflow-runtime', 'start'], {
+  const runtime = startService('workflow-runtime-b6', ['--filter', '@uniassist/workflow-runtime', 'start'], {
     PORT: String(ports.runtime),
     UNIASSIST_SERVICE_ID: 'workflow-runtime',
     UNIASSIST_EXTERNAL_BRIDGE_ALLOWED_SUBJECTS: 'executor-bridge-sample',
@@ -296,13 +295,12 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
     schemaVersion: 'v1',
     workflowKey: 'sample-b6-external-bridge',
     name: 'External Bridge Sample',
-    compatProviderId: 'sample',
     entryNode: 'external_assessment',
     nodes: [
       {
         nodeKey: 'external_assessment',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'bridge.sample',
         transitions: {
           success: 'finish',
         },
@@ -446,13 +444,12 @@ test('workflow runtime handles B6 external runtime bridge flow end-to-end', asyn
     schemaVersion: 'v1',
     workflowKey: 'sample-b6-native-approval-cancel',
     name: 'External Bridge With Native Approval',
-    compatProviderId: 'sample',
     entryNode: 'external_assessment',
     nodes: [
       {
         nodeKey: 'external_assessment',
         nodeType: 'executor',
-        executorId: 'compat-sample',
+        executorId: 'bridge.sample',
         transitions: {
           success: 'manager_review',
         },

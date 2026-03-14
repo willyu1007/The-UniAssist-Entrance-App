@@ -4,7 +4,7 @@ import test from 'node:test';
 import type {
   WorkflowFormalEvent,
   WorkflowTemplateSpec,
-} from '@baseinterface/workflow-contracts';
+} from '@uniassist/workflow-contracts';
 import { WorkflowRuntimeService } from '../src/service.ts';
 import { RuntimeStore } from '../src/store.ts';
 
@@ -17,15 +17,6 @@ function createRuntimeService(options: {
   const capturedEvents: WorkflowFormalEvent[] = [];
   const service = new WorkflowRuntimeService({
     store: new RuntimeStore(),
-    compatExecutorClient: {
-      getExecutorEntry: () => undefined,
-      invoke: async () => {
-        throw new Error('compat executor should not be used');
-      },
-      interact: async () => {
-        throw new Error('compat executor should not be used');
-      },
-    },
     connectorRuntimeClient: {
       invoke: async () => {
         if (!options.connectorInvoke) {
@@ -81,7 +72,6 @@ function buildTemplateBundle(spec: WorkflowTemplateSpec, suffix: string) {
       workflowId: `workflow-${suffix}`,
       workflowKey: spec.workflowKey,
       name: spec.name,
-      compatProviderId: 'sample',
       status: 'active' as const,
       createdAt: timestamp,
       updatedAt: timestamp,
@@ -103,7 +93,6 @@ function buildConnectorSpec(): WorkflowTemplateSpec {
     schemaVersion: 'v1',
     workflowKey: 'receipt-regression-connector',
     name: 'Receipt Regression Connector',
-    compatProviderId: 'sample',
     entryNode: 'connector_step',
     nodes: [
       {
@@ -130,7 +119,6 @@ function buildBridgeSpec(): WorkflowTemplateSpec {
     schemaVersion: 'v1',
     workflowKey: 'receipt-regression-bridge',
     name: 'Receipt Regression Bridge',
-    compatProviderId: 'sample',
     entryNode: 'external_step',
     nodes: [
       {
@@ -154,7 +142,6 @@ function buildEndOnlySpec(workflowKey: string): WorkflowTemplateSpec {
     schemaVersion: 'v1',
     workflowKey,
     name: workflowKey,
-    compatProviderId: 'sample',
     entryNode: 'finish',
     nodes: [
       {

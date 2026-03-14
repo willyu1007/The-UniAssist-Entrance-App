@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { WorkflowTemplateSpec } from '@baseinterface/workflow-contracts';
+import type { WorkflowTemplateSpec } from '@uniassist/workflow-contracts';
 import { WorkflowRuntimeService } from '../src/service.ts';
 import { RuntimeStore } from '../src/store.ts';
 
@@ -11,15 +11,6 @@ function createRuntimeService(): WorkflowRuntimeService {
 
   return new WorkflowRuntimeService({
     store: new RuntimeStore(),
-    compatExecutorClient: {
-      getExecutorEntry: () => undefined,
-      invoke: async () => {
-        throw new Error('compat executor should not be used by native platform tests');
-      },
-      interact: async () => {
-        throw new Error('compat executor should not be used by native platform tests');
-      },
-    },
     connectorRuntimeClient: {
       invoke: async () => {
         throw new Error('connector runtime should not be used by native platform tests');

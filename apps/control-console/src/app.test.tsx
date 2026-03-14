@@ -299,7 +299,7 @@ const draftListPayload = {
           {
             nodeKey: 'collect',
             nodeType: 'executor',
-            executorId: 'compat-sample',
+            executorId: 'platform.request_interaction',
             transitions: { success: 'finish' },
           },
           {

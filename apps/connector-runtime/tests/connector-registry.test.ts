@@ -5,7 +5,7 @@ import {
   getEnabledConnectorRegistryKeys,
   loadConnectorAdapters,
   parseConnectorRegistryFromEnv,
-} from '@baseinterface/connector-sdk';
+} from '@uniassist/connector-sdk';
 
 test('connector registry parsing falls back to default samples when env is absent or invalid', () => {
   const defaults = parseConnectorRegistryFromEnv({});
@@ -28,13 +28,13 @@ test('connector registry filters enabled connectors and dynamically loads adapte
     UNIASSIST_CONNECTOR_REGISTRY_JSON: JSON.stringify([
       {
         connectorKey: 'ci_pipeline',
-        packageName: '@baseinterface/connector-ci-pipeline-sample',
+        packageName: '@uniassist/connector-ci-pipeline-sample',
         exportName: 'ciPipelineSampleConnector',
         enabled: true,
       },
       {
         connectorKey: 'issue_tracker',
-        packageName: '@baseinterface/connector-issue-tracker-sample',
+        packageName: '@uniassist/connector-issue-tracker-sample',
         exportName: 'issueTrackerSampleConnector',
         enabled: false,
       },
@@ -56,7 +56,7 @@ test('connector registry rejects bad exports deterministically', async () => {
     loadConnectorAdapters([
       {
         connectorKey: 'missing_connector',
-        packageName: '@baseinterface/connector-ci-pipeline-sample',
+        packageName: '@uniassist/connector-ci-pipeline-sample',
         exportName: 'missingConnectorExport',
         enabled: true,
       },

@@ -130,7 +130,6 @@ function buildRuntimeRunResponse(body, runId) {
         workflowId: body.template.workflowId,
         workflowKey: body.template.workflowKey,
         templateVersionId: body.version.templateVersionId,
-        compatProviderId: body.template.compatProviderId,
         status: 'running',
         sessionId: body.sessionId,
         userId: body.userId,
@@ -211,7 +210,7 @@ test('workflow platform api manages B7 connector governance and event subscripti
 
   await new Promise((resolvePromise) => runtimeServer.listen(ports.runtime, resolvePromise));
 
-  const platform = startService('platform-b7', ['--filter', '@baseinterface/workflow-platform-api', 'start'], {
+  const platform = startService('platform-b7', ['--filter', '@uniassist/workflow-platform-api', 'start'], {
     PORT: String(ports.platform),
     UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: `http://127.0.0.1:${ports.runtime}`,
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
@@ -242,26 +241,11 @@ test('workflow platform api manages B7 connector governance and event subscripti
   assert.equal(draftDetail.status, 200);
   const baseRevisionId = draftDetail.json.revisions.at(-1).revisionId;
 
-  const patchMetadata = await httpPatch(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${draftId}/spec`, {
-    schemaVersion: 'v1',
-    sessionId,
-    userId,
-    baseRevisionId,
-    changeSummary: 'Set compat provider metadata',
-    patch: {
-      section: 'metadata',
-      value: {
-        compatProviderId: 'sample',
-      },
-    },
-  });
-  assert.equal(patchMetadata.status, 200);
-
   const patchNodes = await httpPatch(`http://127.0.0.1:${ports.platform}/v1/workflow-drafts/${draftId}/spec`, {
     schemaVersion: 'v1',
     sessionId,
     userId,
-    baseRevisionId: patchMetadata.json.revision.revisionId,
+    baseRevisionId,
     changeSummary: 'Convert workflow to connector executor',
     patch: {
       section: 'nodes',

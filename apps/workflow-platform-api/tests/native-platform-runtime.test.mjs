@@ -155,11 +155,11 @@ function buildNativeNodes() {
 test('platform api drives pure v1 native kernel through webhook and schedule triggers', async (t) => {
   const runtimePort = await getAvailablePort();
   const platformPort = await getAvailablePort();
-  const runtime = startService('runtime-native', ['--filter', '@baseinterface/workflow-runtime', 'start'], {
+  const runtime = startService('runtime-native', ['--filter', '@uniassist/workflow-runtime', 'start'], {
     PORT: String(runtimePort),
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',
   });
-  const platform = startService('platform-native', ['--filter', '@baseinterface/workflow-platform-api', 'start'], {
+  const platform = startService('platform-native', ['--filter', '@uniassist/workflow-platform-api', 'start'], {
     PORT: String(platformPort),
     UNIASSIST_WORKFLOW_RUNTIME_BASE_URL: `http://127.0.0.1:${runtimePort}`,
     UNIASSIST_INTERNAL_AUTH_MODE: 'off',

@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import type { InternalAuthConfig } from '@baseinterface/shared';
+import type { InternalAuthConfig } from '@uniassist/shared';
 import { DeliveryWorker, type WorkerConfig } from '../src/worker.ts';
 
 const internalAuthConfig: InternalAuthConfig = {
@@ -33,14 +33,12 @@ function createConfig(overrides: Partial<WorkerConfig> = {}): WorkerConfig {
     outboxBackoffMaxMs: 300000,
     consumerBlockMs: 2000,
     consumerBatchSize: 100,
-    gatewayBaseUrl: undefined,
-    gatewayServiceId: 'gateway',
     internalAuthConfig,
     ...overrides,
   };
 }
 
-test('worker skips workflow formal event projection when gateway is not configured', async () => {
+test('worker acknowledges workflow formal events without legacy gateway projection', async () => {
   const worker = new DeliveryWorker(createConfig());
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
@@ -56,32 +54,4 @@ test('worker skips workflow formal event projection when gateway is not configur
   }
 
   assert.equal(fetchCalled, false);
-});
-
-test('worker treats gateway projection failures as non-fatal sidecar errors', async () => {
-  const worker = new DeliveryWorker(createConfig({
-    gatewayBaseUrl: 'http://127.0.0.1:8787',
-  }));
-  const originalFetch = globalThis.fetch;
-  let fetchCalls = 0;
-  globalThis.fetch = (async (input) => {
-    fetchCalls += 1;
-    assert.equal(String(input), 'http://127.0.0.1:8787/internal/workflow-events');
-    return new Response('projection down', {
-      status: 503,
-      headers: {
-        'content-type': 'text/plain',
-      },
-    });
-  }) as typeof fetch;
-
-  try {
-    await assert.doesNotReject(
-      async () => await (worker as any).forwardWorkflowFormalEvent({ runId: 'run-2' }),
-    );
-  } finally {
-    globalThis.fetch = originalFetch;
-  }
-
-  assert.equal(fetchCalls, 1);
 });
