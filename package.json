@@ -15,6 +15,7 @@
     "dev:control-console": "pnpm --filter @uniassist/control-console dev",
     "dev:worker": "pnpm --filter @uniassist/worker start",
     "smoke:pure-v1": "pnpm --filter @uniassist/workflow-runtime test && pnpm --filter @uniassist/workflow-platform-api test && pnpm --filter @uniassist/control-console test && pnpm --filter @uniassist/worker test",
+    "grep:pure-v1": "node scripts/check-pure-v1-grep-gate.mjs",
     "worker:replay:dead-letter": "pnpm --filter @uniassist/worker replay:dead-letter",
     "observability:alerts:validate": "node ops/observability/scripts/validate-alert-rules.mjs",
     "observability:drill:staging": "node ops/observability/scripts/staging-alert-drill.mjs",

@@ -514,7 +514,7 @@ export class DeliveryWorker {
   }
 
   private async forwardWorkflowFormalEvent(payload: Record<string, unknown>): Promise<void> {
-    logger.info('workflow formal event acknowledged without legacy projection', {
+    logger.info('workflow formal event acknowledged without projection fetch', {
       kind: toStringValue(payload.kind),
       runId: toStringValue(payload.runId),
     });

@@ -7,8 +7,8 @@
   - `WORKER_DRILL_MODE=simulate pnpm worker:drill:staging` -> PASS
 
 ## Historical note
-- T-037 retired the legacy `/v0` gateway-coupled worker smoke path.
-- Any pre-cutover evidence that referenced `smoke:redis:e2e` or a local gateway+worker live drill is historical only and must not be used as a current acceptance command.
+- T-037 retired the pre-cutover worker smoke path that depended on the old projection chain.
+- Any earlier evidence that referenced `smoke:redis:e2e` or a local pre-cutover live drill is historical only and must not be used as a current acceptance command.
 
 ## Manual smoke checks
 - Executed (2026-02-23):

@@ -2,6 +2,9 @@
 
 ## Automated checks
 
+- Additional archived evidence:
+  - `artifacts/t006-e2e-evidence-2026-03-04.md`
+
 ### 2026-03-04
 
 1. 类型检查

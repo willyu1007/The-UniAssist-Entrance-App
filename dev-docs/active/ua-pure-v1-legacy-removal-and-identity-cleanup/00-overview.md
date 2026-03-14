@@ -25,3 +25,4 @@
 - [x] active mainline 中不再存在 compat 语义、命名或 alias
 - [x] grep gate 能证明 `/v0`、compat/provider/gateway 旧语义已从 active code/docs/scripts/workspace metadata 移除
 - [x] 删除后的仓库仍能通过 governance 和主线验证
+- [ ] shared/live target 已完成环境所有者批准的同套备份与 destructive apply，或由环境所有者显式确认无需执行

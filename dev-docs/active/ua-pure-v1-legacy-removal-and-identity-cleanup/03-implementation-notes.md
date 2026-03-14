@@ -15,6 +15,8 @@
 - normalized `packages/workflow-contracts` and surviving runtime/platform/worker code to pure-`v1` type names
 - changed workspace identity from `@baseinterface/*` to `@uniassist/*`
 - switched root/dev entrypoints, packaging, deploy manifests, staging runbook, and alert drill to pure-`v1` services
+- rewrote remaining active-path residue in ops docs and worker checks to stop describing the current platform in gateway-era terms
+- moved the pre-cutover internal-security E2E report into the archived `T-006` task bundle so active ops report paths only carry current release/drill evidence
 - removed legacy Prisma SSOT models:
   - `sessions`
   - `timeline_events`
@@ -22,6 +24,7 @@
   - `task_threads`
   - `user_context_cache`
 - added repo-side migration `20260314130500_drop_legacy_v0_tables`
+- added an explicit repo-side `grep:pure-v1` gate for active code/docs/task bundles
 
 ## Responsibility contract
 - predecessor tasks must prove pure-`v1` replacement exists

@@ -17,6 +17,15 @@
     - `trigger-scheduler`
     - `worker`
 
+## Active-path residue cleanup
+- Status: passed
+- Evidence:
+  - `ops/observability/README.md` now documents the shared metrics surface in terms of the pure-`v1` service topology
+  - `apps/worker/src/worker.ts` and `apps/worker/tests/worker.test.ts` no longer describe the current runtime as a gateway-era projection path
+  - the pre-cutover internal-security E2E report was relocated from `ops/deploy/reports/t006-e2e-evidence-2026-03-04.md` to `dev-docs/archive/ua-v1-internal-security/artifacts/t006-e2e-evidence-2026-03-04.md`
+- Notes:
+  - `ops/deploy/reports/` remains reserved for current deployment/drill evidence such as staging verification output
+
 ## Prisma cutover
 - Status: passed (repo-side)
 - Evidence:
@@ -25,6 +34,7 @@
     - `prisma/migrations/20260314130500_drop_legacy_v0_tables/migration.sql`
 - Notes:
   - destructive apply against a shared/live target remains environment-owned; repo migration, schema refresh, and local backup evidence are complete
+  - the repository currently exposes only placeholder/staging DB coordinates, not shared/live credentials, so the final remote apply could not be executed from repo context alone
 
 ## Backup artifact ledger
 - Status: passed
@@ -62,6 +72,22 @@
     - `node .ai/scripts/ctl-db-ssot.mjs sync-to-context`
     - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
     - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+    - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`
   - deployment/grep gate:
     - `pnpm k8s:staging:validate`
-    - final forbidden-term grep against active paths returned clean
+    - `pnpm grep:pure-v1`
+    - grep scope excludes archive paths, `ops/deploy/reports/**`, migration history, and the active `T-037` working bundle that still records the removal ledger
+
+## 2026-03-14 repo-side residue cleanup revalidation
+- Status: passed
+- Evidence:
+  - `pnpm grep:pure-v1`
+  - `pnpm smoke:pure-v1`
+  - `pnpm k8s:staging:validate`
+  - `DATABASE_URL=postgresql://placeholder:placeholder@localhost:5432/uniassist pnpm prisma validate`
+  - `node .ai/skills/features/context-awareness/scripts/ctl-context.mjs verify --strict`
+  - `node .ai/scripts/ctl-project-governance.mjs sync --apply --project main`
+  - `node .ai/scripts/ctl-project-governance.mjs lint --check --project main`
+- Notes:
+  - all repo-side gates remained green after relocating the pre-cutover report and rewriting active-path wording
+  - shared/live destructive apply is still pending because the repository only carries placeholder or staging DB coordinates, not environment-owner credentials for the final target

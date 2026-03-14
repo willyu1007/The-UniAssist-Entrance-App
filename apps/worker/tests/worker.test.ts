@@ -38,7 +38,7 @@ function createConfig(overrides: Partial<WorkerConfig> = {}): WorkerConfig {
   };
 }
 
-test('worker acknowledges workflow formal events without legacy gateway projection', async () => {
+test('worker acknowledges workflow formal events without projection fetches', async () => {
   const worker = new DeliveryWorker(createConfig());
   const originalFetch = globalThis.fetch;
   let fetchCalled = false;
