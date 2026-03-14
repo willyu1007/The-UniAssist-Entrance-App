@@ -24,8 +24,31 @@
 - Notes:
   - `T-035` now has a bounded operator surface that depends on `T-034` kernel semantics without reopening them, while also covering the minimal connector/bridge/governance management needed to operate pure-`v1`.
 
-## Execution-stage verification to record later
-- control-console typecheck/build/test
-- route smoke tests
-- API integration tests for operator mutations
-- manual/debug run smoke tests
+## Execution-stage verification
+- `pnpm --filter @baseinterface/workflow-contracts typecheck`
+  - Status: passed
+  - Notes:
+    - shared template list/detail DTOs compile as part of the contracts package
+- `pnpm --filter @baseinterface/workflow-platform-api typecheck`
+  - Status: passed
+- `pnpm --filter @baseinterface/workflow-platform-api test`
+  - Status: passed
+  - Notes:
+    - existing integration coverage for `/v1/workflows` list/detail was updated with explicit assertions on shared template fields
+- `pnpm --filter @baseinterface/control-console typecheck`
+  - Status: passed
+- `pnpm --filter @baseinterface/control-console test`
+  - Status: passed
+  - Notes:
+    - route smoke now covers the 6 primary operator domains
+    - debug/manual run launch is covered from `Templates`
+    - agent create, activate, and production run start are covered from `Agents`
+    - capability create + bridge lifecycle actions are covered from `Capabilities`
+    - governance request create/approve/reject flows are covered from `Governance`
+    - existing run, approval, artifact, and studio tests remain green
+- `pnpm typecheck:workspaces`
+  - Status: passed
+  - Notes:
+    - workspace verification required a minimal compatibility fix in `apps/gateway`
+    - `ingest-route` and `interact-route` now source provider identity from gateway context instead of removed workflow run fields
+    - legacy draft intake source values were aligned to the current `DraftSource` enum

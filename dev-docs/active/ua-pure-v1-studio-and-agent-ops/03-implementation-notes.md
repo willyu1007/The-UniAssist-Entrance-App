@@ -29,6 +29,36 @@
   - projection adapters may exist
   - the console cannot depend on them as authoritative business truth
 
+## Implementation landing in this round
+- `packages/workflow-contracts` now publishes shared `/v1/workflows` list/detail DTOs so both `workflow-platform-api` and `control-console` consume the same template response contract.
+- `apps/workflow-platform-api/src/platform-repository.ts` now aliases workflow detail to the shared DTO instead of maintaining a controller-local shape.
+- `apps/control-console/src/api.ts` and `query.tsx` now cover:
+  - templates and debug/manual version start
+  - agents, trigger bindings, action bindings, and production agent-first run start
+  - connector definitions, connector bindings, event subscriptions, and bridge registrations
+  - policy bindings, secret refs, scope grants, and governance change requests
+  - run, approval, artifact, and draft queries/mutations already needed by studio and investigation flows
+- `apps/control-console/src/router.tsx` and `components.tsx` now implement the 6-domain IA:
+  - `Templates`
+  - `Studio`
+  - `Agents`
+  - `Capabilities`
+  - `Governance`
+  - `Runs`
+- new route workspaces landed for:
+  - template browse/detail/debug launch
+  - agent create/detail/lifecycle/trigger/action/run controls
+  - capability management
+  - governance management
+  - artifact deep-link inspection
+- `Workflow Studio` copy and outcomes were rewritten so helper intake/synthesize remain secondary authoring tools, while publish output now routes operators toward templates and agent promotion instead of builder/chat narratives.
+- `Runs` now treats approvals and artifacts as investigation surfaces, with artifact deep links retained as secondary routes.
+- `apps/gateway` received a minimal compatibility alignment so workspace typecheck can succeed against the current contracts:
+  - workflow event translation now uses gateway-known provider identity instead of removed run fields
+  - builder intake requests now use `authoring_intake`
+- No authoritative API renames were introduced in this task.
+- No new SSE event kinds were introduced in this task; console consistency for the new surfaces relies on mutation success + query invalidation.
+
 ## Implementation guardrails for later
 - Do not add hidden gateway or frontend fallback paths for operator actions.
 - Do not treat manual/debug runs as the main operational story once `agent-first` production entry exists.

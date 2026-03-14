@@ -44,7 +44,7 @@ Project: `main`
 | T-032 ua-pure-v1-platform-rewrite | in-progress | F-001 | dev-docs/active/ua-pure-v1-platform-rewrite |
 | T-033 ua-pure-v1-contract-reset | planned | F-001 | dev-docs/active/ua-pure-v1-contract-reset |
 | T-034 ua-pure-v1-runtime-cutover | done | F-001 | dev-docs/active/ua-pure-v1-runtime-cutover |
-| T-035 ua-pure-v1-studio-and-agent-ops | planned | F-001 | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
+| T-035 ua-pure-v1-studio-and-agent-ops | done | F-001 | dev-docs/active/ua-pure-v1-studio-and-agent-ops |
 | T-036 ua-pure-v1-connector-bridge-convergence | planned | F-001 | dev-docs/active/ua-pure-v1-connector-bridge-convergence |
 | T-037 ua-pure-v1-legacy-removal-and-identity-cleanup | planned | F-001 | dev-docs/active/ua-pure-v1-legacy-removal-and-identity-cleanup |
 <!-- AUTO-GENERATED:END task-index -->

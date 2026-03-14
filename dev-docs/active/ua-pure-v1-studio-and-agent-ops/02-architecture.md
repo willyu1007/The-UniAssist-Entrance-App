@@ -19,17 +19,18 @@
 - Projection layers may accelerate reads but must never redefine business truth.
 
 ## Primary route groups
-- `/templates`
-- `/drafts`
-- `/agents`
-- `/triggers`
-- `/connectors`
-- `/bridges`
-- `/governance`
-- `/runs`
-- `/approvals`
-- `/artifacts`
-- `/studio`
+- Top-level operator domains:
+  - `/templates`
+  - `/studio`
+  - `/agents`
+  - `/capabilities`
+  - `/governance`
+  - `/runs`
+- Deep-link and investigation routes retained under the domains:
+  - `/drafts`
+  - `/approvals`
+  - `/artifacts`
+  - `/governance/requests/$requestId`
 
 ## Required capabilities
 - browse and inspect templates and versions
@@ -63,10 +64,10 @@
 - Convex remains a projection experiment and must not become an operator-facing source of truth by UI drift.
 
 ## Current repo evidence to account for
-- `apps/control-console/src/api.ts` and `query.tsx` already target `workflow-platform-api`, which is the correct baseline.
-- `apps/workflow-platform-api/src/server.ts` still exposes draft-intake and synthesize endpoints that must be re-evaluated under pure-`v1` authoring semantics.
-- `apps/workflow-platform-api/src/server.ts` already exposes connector, bridge, policy, secret, scope, and governance-request endpoints.
-- `apps/control-console/src/` currently has little or no matching coverage for those operator objects, which is the gap this task now owns.
+- `apps/control-console/src/api.ts` and `query.tsx` now expose typed operator clients and mutations for templates, agents, capabilities, governance, runs, approvals, artifacts, and studio flows.
+- `apps/workflow-platform-api/src/server.ts` remains the authoritative API owner for all console reads and writes.
+- draft-intake and synthesize endpoints remain available, but the console now frames them only as authoring helpers rather than primary builder/chat ingress.
+- `apps/control-console/src/` now contains matching route coverage for templates, agents, capability objects, governance objects, run investigation, and studio publication flows.
 - `apps/workflow-platform-api/src/runboard-projection.ts` already contains authoritative fallback behavior, which should remain explicit rather than implicit.
 
 ## Non-goal boundary clarifications

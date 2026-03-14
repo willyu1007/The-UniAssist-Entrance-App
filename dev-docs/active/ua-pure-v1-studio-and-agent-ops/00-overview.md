@@ -1,9 +1,9 @@
 # 00 Overview
 
 ## Status
-- State: planned
-- Status note: `T-035` 已建立为 pure-`v1` operator/studio surface task；当前仅完成任务包建档。
-- Next step: 在 `T-034` 提供稳定 backend kernel 后，接手 control-console 和 operator-facing API/query/mutation surface。
+- State: done
+- Status note: `T-035` 的 pure-`v1` operator/studio surface 已完成交付；`control-console` 已切到 6 组主导航并补齐 template/agent/capability/governance operator flows。定向 typecheck、集成测试和 workspace 级 typecheck 已全部通过。
+- Next step: 由 `T-036` 接手 connector/bridge runtime convergence，`T-037` 接手不可逆切换与语义清扫。
 
 ## Goal
 交付 pure-`v1` 的 studio 与 operator surface，使运维者和设计者可以不依赖聊天入口完成模板、agent、trigger、run、approval、artifact，以及支撑运行所需的 connector/bridge/governance 对象的主线操作。
@@ -20,9 +20,9 @@
 - 因此 `T-035` 的控制台必须围绕正式对象和 operator action 展开，而不是聊天兼容入口。
 
 ## Acceptance criteria (high level)
-- [ ] 控制台可围绕 drafts/templates/agents/triggers/runs/approvals/artifacts 完成主线操作
-- [ ] 控制台提供最小可运营的 connector/bridge/policy/secret/scope/change-request 管理面
-- [ ] `Workflow Studio` 只承担 pure-`v1` draft/spec/operator flows，不再绑定 chat intake
-- [ ] 所有页面仅依赖 `workflow-platform-api` 暴露的 pure-`v1` query/mutation surface
-- [ ] manual/debug run 能以 studio/operator capability 方式存在，但不重新成为主业务入口
-- [ ] 页面信息架构和 view model 能覆盖 `T-034` 与 `T-036` 的主线对象
+- [x] 控制台可围绕 drafts/templates/agents/triggers/runs/approvals/artifacts 完成主线操作
+- [x] 控制台提供最小可运营的 connector/bridge/policy/secret/scope/change-request 管理面
+- [x] `Workflow Studio` 只承担 pure-`v1` draft/spec/operator flows，不再绑定 chat intake
+- [x] 所有页面仅依赖 `workflow-platform-api` 暴露的 pure-`v1` query/mutation surface
+- [x] manual/debug run 能以 studio/operator capability 方式存在，但不重新成为主业务入口
+- [x] 页面信息架构和 view model 能覆盖 `T-034` 与 `T-036` 的主线对象
