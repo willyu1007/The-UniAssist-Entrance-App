@@ -1,4 +1,5 @@
 import os from 'node:os';
+import { pathToFileURL } from 'node:url';
 
 import { Pool } from 'pg';
 import { createClient, type RedisClientType } from 'redis';
@@ -20,7 +21,7 @@ type OutboxRow = {
   maxAttempts: number;
 };
 
-type WorkerConfig = {
+export type WorkerConfig = {
   databaseUrl: string;
   redisUrl: string;
   streamPrefix: string;
@@ -36,7 +37,7 @@ type WorkerConfig = {
   outboxBackoffMaxMs: number;
   consumerBlockMs: number;
   consumerBatchSize: number;
-  gatewayBaseUrl: string;
+  gatewayBaseUrl?: string;
   gatewayServiceId: string;
   internalAuthConfig: InternalAuthConfig;
 };
@@ -58,7 +59,13 @@ function toInt(value: string | undefined, fallback: number): number {
   return Number.isFinite(parsed) ? Math.max(0, Math.floor(parsed)) : fallback;
 }
 
-function loadConfig(): WorkerConfig {
+function normalizeOptionalBaseUrl(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const normalized = value.trim().replace(/\/$/, '');
+  return normalized ? normalized : undefined;
+}
+
+export function loadConfig(): WorkerConfig {
   const streamPrefix = process.env.UNIASSIST_STREAM_PREFIX || 'uniassist:timeline:';
   const internalAuthConfig = loadInternalAuthConfigFromEnv(process.env);
   if (internalAuthConfig.serviceId === 'unknown') {
@@ -80,7 +87,7 @@ function loadConfig(): WorkerConfig {
     outboxBackoffMaxMs: toInt(process.env.OUTBOX_BACKOFF_MAX_MS, 300000),
     consumerBlockMs: toInt(process.env.STREAM_CONSUMER_BLOCK_MS, 2000),
     consumerBatchSize: toInt(process.env.STREAM_CONSUMER_BATCH_SIZE, 100),
-    gatewayBaseUrl: (process.env.UNIASSIST_GATEWAY_BASE_URL || 'http://127.0.0.1:8787').replace(/\/$/, ''),
+    gatewayBaseUrl: normalizeOptionalBaseUrl(process.env.UNIASSIST_GATEWAY_BASE_URL),
     gatewayServiceId: process.env.UNIASSIST_GATEWAY_SERVICE_ID || 'gateway',
     internalAuthConfig,
   };
@@ -129,7 +136,7 @@ function isRedisTransientError(message: string): boolean {
     || normalized.includes('loading redis is loading');
 }
 
-class DeliveryWorker {
+export class DeliveryWorker {
   private readonly config: WorkerConfig;
 
   private readonly pool?: Pool;
@@ -518,6 +525,9 @@ class DeliveryWorker {
   }
 
   private async forwardWorkflowFormalEvent(payload: Record<string, unknown>): Promise<void> {
+    if (!this.config.gatewayBaseUrl) {
+      return;
+    }
     const path = '/internal/workflow-events';
     const rawBody = JSON.stringify(payload);
     const controller = new AbortController();
@@ -552,8 +562,16 @@ class DeliveryWorker {
       });
 
       if (!response.ok) {
-        throw new Error(`gateway workflow projection responded ${response.status}`);
+        logger.warn('workflow formal event projection failed', {
+          gatewayBaseUrl: this.config.gatewayBaseUrl,
+          status: response.status,
+        });
       }
+    } catch (error) {
+      logger.warn('workflow formal event projection skipped after gateway failure', {
+        gatewayBaseUrl: this.config.gatewayBaseUrl,
+        error: errorMessage(error),
+      });
     } finally {
       clearTimeout(timer);
     }
@@ -603,7 +621,7 @@ class DeliveryWorker {
   }
 }
 
-async function main(): Promise<void> {
+export async function main(): Promise<void> {
   const config = loadConfig();
   const worker = new DeliveryWorker(config);
 
@@ -624,7 +642,13 @@ async function main(): Promise<void> {
   await worker.run();
 }
 
-main().catch((error) => {
-  logger.error('worker fatal', serializeError(error));
-  process.exit(1);
-});
+const isMainModule = process.argv[1]
+  ? import.meta.url === pathToFileURL(process.argv[1]).href
+  : false;
+
+if (isMainModule) {
+  main().catch((error) => {
+    logger.error('worker fatal', serializeError(error));
+    process.exit(1);
+  });
+}

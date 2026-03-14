@@ -7,7 +7,7 @@
     "dev": "tsx src/server.ts",
     "start": "tsx src/server.ts",
     "typecheck": "tsc --noEmit",
-    "test": "node --test tests/*.test.mjs"
+    "test": "node --import tsx --test tests/*.test.mjs tests/*.test.ts"
   },
   "dependencies": {
     "@baseinterface/connector-sdk": "workspace:*",

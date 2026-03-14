@@ -8,7 +8,8 @@
     "start": "tsx src/worker.ts",
     "smoke:redis:e2e": "node scripts/redis-e2e-smoke.mjs",
     "replay:dead-letter": "node scripts/dead-letter-replay.mjs",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
     "@baseinterface/shared": "workspace:*",

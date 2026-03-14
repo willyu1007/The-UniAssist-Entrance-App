@@ -168,6 +168,133 @@ function resolveCompatInteractionActionId(compatInteraction: CompatInteractionSt
   return 'answer_task_question';
 }
 
+type NativePlatformExecutorId =
+  | 'platform.emit_artifact'
+  | 'platform.request_interaction'
+  | 'platform.fail';
+
+type NativeEmitArtifactConfig = {
+  artifactType: string;
+  state: WorkflowArtifactRecord['state'];
+  payloadMode: 'input' | 'static';
+  staticPayload?: Record<string, unknown>;
+  metadataJson?: Record<string, unknown>;
+  schemaRef?: string;
+};
+
+type NativeRequestInteractionConfig = {
+  prompt: string;
+  answerSchemaJson: Record<string, unknown>;
+  uiSchemaJson: Record<string, unknown>;
+  payloadJson?: Record<string, unknown>;
+  metadataJson?: Record<string, unknown>;
+  responseArtifactType?: string;
+  responseArtifactState?: WorkflowArtifactRecord['state'];
+  responseSchemaRef?: string;
+};
+
+type NativeFailConfig = {
+  code?: string;
+  message?: string;
+  metadataJson?: Record<string, unknown>;
+};
+
+const NATIVE_PLATFORM_EXECUTOR_IDS = new Set<NativePlatformExecutorId>([
+  'platform.emit_artifact',
+  'platform.request_interaction',
+  'platform.fail',
+]);
+
+const DEFAULT_NATIVE_INTERACTION_ANSWER_SCHEMA = {
+  type: 'object',
+  additionalProperties: true,
+};
+
+const DEFAULT_NATIVE_INTERACTION_UI_SCHEMA = {};
+
+function getNativeExecutorId(node: WorkflowNodeSpec): NativePlatformExecutorId | undefined {
+  if (node.nodeType !== 'executor' || typeof node.executorId !== 'string') {
+    return undefined;
+  }
+  if (!NATIVE_PLATFORM_EXECUTOR_IDS.has(node.executorId as NativePlatformExecutorId)) {
+    return undefined;
+  }
+  return node.executorId as NativePlatformExecutorId;
+}
+
+function normalizeArtifactState(
+  value: unknown,
+  fallback: WorkflowArtifactRecord['state'],
+): WorkflowArtifactRecord['state'] {
+  const allowed = new Set<WorkflowArtifactRecord['state']>([
+    'draft',
+    'validated',
+    'review_required',
+    'published',
+    'superseded',
+    'archived',
+  ]);
+  if (typeof value === 'string' && allowed.has(value as WorkflowArtifactRecord['state'])) {
+    return value as WorkflowArtifactRecord['state'];
+  }
+  return fallback;
+}
+
+function getNativeEmitArtifactConfig(node: WorkflowNodeSpec): NativeEmitArtifactConfig {
+  const config = isRecord(node.config) ? node.config : {};
+  const artifactType = typeof config.artifactType === 'string' && config.artifactType.trim() !== ''
+    ? config.artifactType.trim()
+    : undefined;
+  if (!artifactType) {
+    throw new RuntimeRequestError(
+      409,
+      'NATIVE_ARTIFACT_TYPE_REQUIRED',
+      `native executor ${node.executorId} requires config.artifactType`,
+    );
+  }
+  return {
+    artifactType,
+    state: normalizeArtifactState(config.state, 'validated'),
+    payloadMode: config.payloadMode === 'static' ? 'static' : 'input',
+    staticPayload: isRecord(config.staticPayload) ? config.staticPayload : undefined,
+    metadataJson: isRecord(config.metadataJson) ? config.metadataJson : undefined,
+    schemaRef: typeof config.schemaRef === 'string' && config.schemaRef.trim() !== '' ? config.schemaRef.trim() : undefined,
+  };
+}
+
+function getNativeRequestInteractionConfig(node: WorkflowNodeSpec): NativeRequestInteractionConfig {
+  const config = isRecord(node.config) ? node.config : {};
+  return {
+    prompt: typeof config.prompt === 'string' && config.prompt.trim() !== ''
+      ? config.prompt.trim()
+      : `Provide input to continue ${node.nodeKey}.`,
+    answerSchemaJson: isRecord(config.answerSchemaJson)
+      ? config.answerSchemaJson
+      : DEFAULT_NATIVE_INTERACTION_ANSWER_SCHEMA,
+    uiSchemaJson: isRecord(config.uiSchemaJson)
+      ? config.uiSchemaJson
+      : DEFAULT_NATIVE_INTERACTION_UI_SCHEMA,
+    payloadJson: isRecord(config.payloadJson) ? config.payloadJson : undefined,
+    metadataJson: isRecord(config.metadataJson) ? config.metadataJson : undefined,
+    responseArtifactType: typeof config.responseArtifactType === 'string' && config.responseArtifactType.trim() !== ''
+      ? config.responseArtifactType.trim()
+      : undefined,
+    responseArtifactState: normalizeArtifactState(config.responseArtifactState, 'validated'),
+    responseSchemaRef: typeof config.responseSchemaRef === 'string' && config.responseSchemaRef.trim() !== ''
+      ? config.responseSchemaRef.trim()
+      : undefined,
+  };
+}
+
+function getNativeFailConfig(node: WorkflowNodeSpec): NativeFailConfig {
+  const config = isRecord(node.config) ? node.config : {};
+  return {
+    code: typeof config.code === 'string' && config.code.trim() !== '' ? config.code.trim() : undefined,
+    message: typeof config.message === 'string' && config.message.trim() !== '' ? config.message.trim() : undefined,
+    metadataJson: isRecord(config.metadataJson) ? config.metadataJson : undefined,
+  };
+}
+
 function isBridgeSessionTerminal(status: BridgeInvokeSessionRecord['status']): boolean {
   return status === 'completed' || status === 'failed' || status === 'cancelled';
 }
@@ -585,53 +712,55 @@ export class WorkflowRuntimeService {
       throw new RuntimeRequestError(409, 'RUN_ALREADY_TERMINAL', `workflow run is already terminal: ${request.runId}`);
     }
 
-    const bridge = this.requireExternalRuntimeBridge(state);
     const currentNode = state.nodeRuns.find((item) => item.nodeRunId === state.run.currentNodeRunId);
     if (!currentNode) {
       throw new RuntimeRequestError(409, 'RUN_CURRENT_NODE_MISSING', `workflow run missing current node: ${request.runId}`);
     }
-    const bridgeSession = currentNode.nodeType === 'executor'
+    const bridge = this.getExternalRuntimeBridge(state);
+    const bridgeSession = bridge && currentNode.nodeType === 'executor'
       ? this.findBridgeInvokeSession(state, {
           bridgeId: bridge.bridgeId,
           nodeRunId: currentNode.nodeRunId,
         })
       : undefined;
 
-    if (currentNode.nodeType === 'executor') {
-      if (!bridgeSession) {
-        throw new RuntimeRequestError(409, 'BRIDGE_SESSION_NOT_FOUND', 'external-runtime run has no active bridge session');
-      }
-      if (isBridgeSessionTerminal(bridgeSession.status)) {
-        throw new RuntimeRequestError(409, 'BRIDGE_SESSION_TERMINAL', 'bridge session is already terminal');
-      }
+    if (bridge) {
+      if (currentNode.nodeType === 'executor') {
+        if (!bridgeSession) {
+          throw new RuntimeRequestError(409, 'BRIDGE_SESSION_NOT_FOUND', 'external-runtime run has no active bridge session');
+        }
+        if (isBridgeSessionTerminal(bridgeSession.status)) {
+          throw new RuntimeRequestError(409, 'BRIDGE_SESSION_TERMINAL', 'bridge session is already terminal');
+        }
 
-      try {
-        await this.externalBridgeClient.cancel(bridge, {
-          schemaVersion: 'v1',
-          traceId: request.traceId,
-          bridgeId: bridge.bridgeId,
-          bridgeSessionId: bridgeSession.bridgeSessionId,
-          runId: state.run.runId,
-          nodeRunId: bridgeSession.nodeRunId,
-          externalSessionRef: bridgeSession.externalSessionRef,
-          reason: request.reason,
-          metadata: {
-            cancelledBy: request.userId,
-          },
-        });
-      } catch (error) {
+        try {
+          await this.externalBridgeClient.cancel(bridge, {
+            schemaVersion: 'v1',
+            traceId: request.traceId,
+            bridgeId: bridge.bridgeId,
+            bridgeSessionId: bridgeSession.bridgeSessionId,
+            runId: state.run.runId,
+            nodeRunId: bridgeSession.nodeRunId,
+            externalSessionRef: bridgeSession.externalSessionRef,
+            reason: request.reason,
+            metadata: {
+              cancelledBy: request.userId,
+            },
+          });
+        } catch (error) {
+          throw new RuntimeRequestError(
+            502,
+            'BRIDGE_CANCEL_FAILED',
+            error instanceof Error ? error.message : 'bridge cancel failed',
+          );
+        }
+      } else if (currentNode.nodeType !== 'approval_gate') {
         throw new RuntimeRequestError(
-          502,
-          'BRIDGE_CANCEL_FAILED',
-          error instanceof Error ? error.message : 'bridge cancel failed',
+          409,
+          'RUN_CANCEL_UNSUPPORTED',
+          `external-runtime run cannot be cancelled from node type ${currentNode.nodeType}`,
         );
       }
-    } else if (currentNode.nodeType !== 'approval_gate') {
-      throw new RuntimeRequestError(
-        409,
-        'RUN_CANCEL_UNSUPPORTED',
-        `external-runtime run cannot be cancelled from node type ${currentNode.nodeType}`,
-      );
     }
 
     const events = this.applyRunCancellation(state, currentNode, request.traceId, request.userId, request.reason, bridgeSession);
@@ -1089,6 +1218,10 @@ export class WorkflowRuntimeService {
     return node.nodeType === 'executor' && node.executorId === 'connector-runtime';
   }
 
+  private isNativePlatformExecutor(node: WorkflowNodeSpec): boolean {
+    return getNativeExecutorId(node) !== undefined;
+  }
+
   private getConnectorActionSnapshot(
     state: InternalRunState,
     node: WorkflowNodeSpec,
@@ -1169,6 +1302,165 @@ export class WorkflowRuntimeService {
     }
     this.store.createRun(persisted);
     return this.resolveConnectorActionSessionFromState(persisted, publicCallbackKey);
+  }
+
+  private buildNativeEmitArtifactPayload(
+    nodeRun: WorkflowNodeRunRecord,
+    config: NativeEmitArtifactConfig,
+  ): Record<string, unknown> {
+    if (config.payloadMode === 'static') {
+      return config.staticPayload ? { ...config.staticPayload } : {};
+    }
+    return nodeRun.inputJson ? { ...nodeRun.inputJson } : {};
+  }
+
+  private async completeNodeWithSuccessTransition(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+    events: WorkflowFormalEvent[],
+    nextInput?: Record<string, unknown>,
+  ): Promise<WorkflowFormalEvent[]> {
+    const timestamp = this.now();
+    nodeRun.status = 'completed';
+    nodeRun.updatedAt = timestamp;
+    events.push(this.buildNodeStateEvent(traceId, state.run, nodeRun, 'completed'));
+    if (node.transitions?.success) {
+      const tail = await this.advanceToNode(
+        state,
+        node.transitions.success,
+        traceId,
+        { payload: nextInput },
+        new Set<string>([nodeRun.nodeKey]),
+        false,
+      );
+      return [...events, ...tail];
+    }
+    state.run.status = 'completed';
+    state.run.updatedAt = timestamp;
+    state.run.completedAt = timestamp;
+    events.push(this.buildRunStateEvent(traceId, state.run, 'completed'));
+    return events;
+  }
+
+  private async executeNativePlatformNode(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+  ): Promise<WorkflowFormalEvent[]> {
+    const executorId = getNativeExecutorId(node);
+    if (!executorId) {
+      throw new RuntimeRequestError(409, 'NATIVE_EXECUTOR_INVALID', `native executor not supported: ${node.executorId}`);
+    }
+
+    if (executorId === 'platform.emit_artifact') {
+      const config = getNativeEmitArtifactConfig(node);
+      const artifact = this.createArtifact(
+        state,
+        nodeRun,
+        config.artifactType,
+        config.state,
+        this.buildNativeEmitArtifactPayload(nodeRun, config),
+        config.metadataJson,
+        config.schemaRef,
+      );
+      const events: WorkflowFormalEvent[] = [{
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId,
+        runId: state.run.runId,
+        timestampMs: this.now(),
+        kind: 'artifact.created',
+        payload: {
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          state: artifact.state,
+        },
+      }];
+      return await this.completeNodeWithSuccessTransition(state, nodeRun, node, traceId, events, artifact.payloadJson);
+    }
+
+    if (executorId === 'platform.request_interaction') {
+      const config = getNativeRequestInteractionConfig(node);
+      const timestamp = this.now();
+      this.cancelPendingInteractionRequests(state, nodeRun.nodeRunId, timestamp);
+      const interactionRequest: WorkflowInteractionRequestRecord = {
+        interactionRequestId: this.uuid(),
+        runId: state.run.runId,
+        nodeRunId: nodeRun.nodeRunId,
+        status: 'pending',
+        prompt: config.prompt,
+        answerSchemaJson: { ...config.answerSchemaJson },
+        uiSchemaJson: { ...config.uiSchemaJson },
+        payloadJson: config.payloadJson ? { ...config.payloadJson } : undefined,
+        metadataJson: {
+          ...(config.metadataJson || {}),
+          nativePlatformExecutorId: executorId,
+        },
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      state.interactionRequests.push(interactionRequest);
+      nodeRun.status = 'waiting_interaction';
+      nodeRun.interactionRequestId = interactionRequest.interactionRequestId;
+      nodeRun.waitKey = interactionRequest.interactionRequestId;
+      nodeRun.updatedAt = timestamp;
+      nodeRun.metadata = {
+        ...(nodeRun.metadata || {}),
+        nativePlatformExecutorId: executorId,
+      };
+      state.run.status = 'waiting_interaction';
+      state.run.updatedAt = timestamp;
+      return [
+        this.buildNodeStateEvent(traceId, state.run, nodeRun, 'waiting_interaction'),
+        this.buildRunStateEvent(traceId, state.run, 'waiting_interaction'),
+        {
+          schemaVersion: 'v1',
+          eventId: this.uuid(),
+          traceId,
+          runId: state.run.runId,
+          timestampMs: timestamp,
+          kind: 'interaction.requested',
+          payload: {
+            interactionRequestId: interactionRequest.interactionRequestId,
+            nodeRunId: interactionRequest.nodeRunId || nodeRun.nodeRunId,
+            nodeKey: nodeRun.nodeKey,
+            prompt: interactionRequest.prompt,
+            answerSchema: interactionRequest.answerSchemaJson,
+            uiSchema: interactionRequest.uiSchemaJson,
+            metadata: interactionRequest.metadataJson,
+          },
+        },
+      ];
+    }
+
+    const config = getNativeFailConfig(node);
+    const timestamp = this.now();
+    nodeRun.status = 'failed';
+    nodeRun.updatedAt = timestamp;
+    nodeRun.metadata = {
+      ...(nodeRun.metadata || {}),
+      nativeFailure: {
+        ...(config.code ? { code: config.code } : {}),
+        ...(config.message ? { message: config.message } : {}),
+        ...(config.metadataJson ? { metadata: config.metadataJson } : {}),
+      },
+    };
+    state.run.status = 'failed';
+    state.run.updatedAt = timestamp;
+    state.run.metadata = {
+      ...(state.run.metadata || {}),
+      nativeFailure: {
+        ...(config.code ? { code: config.code } : {}),
+        ...(config.message ? { message: config.message } : {}),
+      },
+    };
+    return [
+      this.buildNodeStateEvent(traceId, state.run, nodeRun, 'failed'),
+      this.buildRunStateEvent(traceId, state.run, 'failed'),
+    ];
   }
 
   private async advanceToNode(
@@ -1275,6 +1567,14 @@ export class WorkflowRuntimeService {
         initialInput.payload,
       );
       return [...events, ...bridgeEvents];
+    }
+
+    if (this.isNativePlatformExecutor(node)) {
+      if (fromResume) {
+        return events;
+      }
+      const nativeEvents = await this.executeNativePlatformNode(state, nodeRun, node, traceId);
+      return [...events, ...nativeEvents];
     }
 
     const compatEvents = fromResume
@@ -1385,6 +1685,10 @@ export class WorkflowRuntimeService {
       nodeRun.attempt += 1;
       return await this.resumeExternalBridgeNode(state, nodeRun, traceId);
     }
+    if (this.isNativePlatformExecutor(node)) {
+      nodeRun.attempt += 1;
+      return await this.resumeNativePlatformNode(state, nodeRun, node, traceId, request);
+    }
     const compatEvents = await this.interactExecutor(state, nodeRun, node, traceId, request);
     nodeRun.attempt += 1;
     nodeRun.updatedAt = this.now();
@@ -1468,6 +1772,14 @@ export class WorkflowRuntimeService {
       bridgeSession.cancelledAt = timestamp;
       bridgeSession.updatedAt = timestamp;
     }
+    for (const session of state.connectorActionSessions) {
+      if (session.status === 'completed' || session.status === 'failed' || session.status === 'cancelled') {
+        continue;
+      }
+      session.status = 'cancelled';
+      session.cancelledAt = timestamp;
+      session.updatedAt = timestamp;
+    }
     currentNode.status = 'cancelled';
     currentNode.updatedAt = timestamp;
     currentNode.metadata = {
@@ -1483,6 +1795,94 @@ export class WorkflowRuntimeService {
       this.buildNodeStateEvent(traceId, state.run, currentNode, 'cancelled'),
       this.buildRunStateEvent(traceId, state.run, 'cancelled'),
     ];
+  }
+
+  private async resumeNativePlatformNode(
+    state: InternalRunState,
+    nodeRun: WorkflowNodeRunRecord,
+    node: WorkflowNodeSpec,
+    traceId: string,
+    request: WorkflowRuntimeResumeRunRequest,
+  ): Promise<WorkflowFormalEvent[]> {
+    const executorId = getNativeExecutorId(node);
+    if (executorId !== 'platform.request_interaction') {
+      throw new RuntimeRequestError(
+        409,
+        'NATIVE_RESUME_UNSUPPORTED',
+        `native executor ${node.executorId} does not support interaction resume`,
+      );
+    }
+
+    const interactionRequest = state.interactionRequests.find((item) => item.interactionRequestId === request.interactionRequestId);
+    if (!interactionRequest || interactionRequest.nodeRunId !== nodeRun.nodeRunId) {
+      throw new RuntimeRequestError(404, 'INTERACTION_REQUEST_NOT_FOUND', 'interaction request not found for current node');
+    }
+    if (interactionRequest.status !== 'pending') {
+      throw new RuntimeRequestError(409, 'INTERACTION_REQUEST_NOT_PENDING', 'interaction request is not pending');
+    }
+
+    const config = getNativeRequestInteractionConfig(node);
+    const timestamp = this.now();
+    interactionRequest.status = 'answered';
+    interactionRequest.responsePayloadJson = request.payload ? { ...request.payload } : {};
+    interactionRequest.respondedAt = timestamp;
+    interactionRequest.updatedAt = timestamp;
+    nodeRun.updatedAt = timestamp;
+
+    const events: WorkflowFormalEvent[] = [{
+      schemaVersion: 'v1',
+      eventId: this.uuid(),
+      traceId,
+      runId: state.run.runId,
+      timestampMs: timestamp,
+      kind: 'interaction.responded',
+      payload: {
+        interactionRequestId: request.interactionRequestId,
+        nodeRunId: nodeRun.nodeRunId,
+        responsePayload: request.payload,
+      },
+    }];
+
+    if (config.responseArtifactType) {
+      const artifact = this.createArtifact(
+        state,
+        nodeRun,
+        config.responseArtifactType,
+        config.responseArtifactState || 'validated',
+        {
+          interactionRequestId: interactionRequest.interactionRequestId,
+          prompt: interactionRequest.prompt,
+          responsePayload: request.payload || {},
+        },
+        {
+          nodeKey: nodeRun.nodeKey,
+          source: 'interaction_response',
+        },
+        config.responseSchemaRef,
+      );
+      events.push({
+        schemaVersion: 'v1',
+        eventId: this.uuid(),
+        traceId,
+        runId: state.run.runId,
+        timestampMs: this.now(),
+        kind: 'artifact.created',
+        payload: {
+          artifactId: artifact.artifactId,
+          artifactType: artifact.artifactType,
+          state: artifact.state,
+        },
+      });
+    }
+
+    return await this.completeNodeWithSuccessTransition(
+      state,
+      nodeRun,
+      node,
+      traceId,
+      events,
+      request.payload,
+    );
   }
 
   private cancelPendingApprovals(state: InternalRunState, nodeRunId?: string): void {
