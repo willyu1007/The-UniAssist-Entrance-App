@@ -1,10 +1,10 @@
 # Convex Projection Experiment
 
-This directory contains the Convex-side schema and functions for the optional runboard/read-model experiment used by `@baseinterface/convex-projection-experiment`.
+This directory holds the Convex-side schema and functions for the optional runboard projection used by `@baseinterface/convex-projection-experiment`.
 
 ## Rules
 
-- Keep this experiment projection-only; do not add authoritative writes or bypass `workflow-platform-api`.
-- `_generated/` is managed by the Convex CLI and must not be hand-edited.
-- Use the package-level scripts (`dev:local`, `dev:local:watch`, `typecheck`, `test`) from the package root instead of documenting ad-hoc local commands here.
-- Treat this directory as experimental infrastructure tied to `T-031`; it must remain safe to disable or remove without changing the primary data plane.
+- Keep this projection-only. Do not move authoritative workflow state, approval state, or runtime decisions into Convex.
+- Treat the experiment as removable. The primary data plane remains Postgres/Prisma through the workflow platform services.
+- Convex-generated output stays tool-owned; do not replace this README with generic starter material or hand-maintain generated inventories here.
+- Use the package-root scripts from `packages/convex-projection-experiment/package.json` for local development and tests instead of documenting ad-hoc CLI flows in this directory.

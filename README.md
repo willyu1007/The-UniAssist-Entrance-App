@@ -33,11 +33,11 @@ Use root scripts or `pnpm --filter <workspace> <script>` as the canonical way to
 
 ## Non-obvious Runtime Notes
 
-- `DATABASE_URL` turns on gateway-backed persistence.
-- `REDIS_URL` turns on outbox and worker dispatch paths.
+- `DATABASE_URL` enables Postgres-backed persistence for gateway and pure-v1 workflow services; without it, several local development paths fall back to in-memory state.
+- `REDIS_URL` enables outbox delivery, worker consumption, and stream-backed dispatch paths.
 - Internal service auth supports `off`, `audit`, and `enforce`; prefer `audit` before `enforce`.
-- `apps/frontend` is the `/v0` runtime surface. `apps/control-console` is the `/v1` control surface.
-- `packages/contracts` is the `/v0` compatibility contract package. `packages/workflow-contracts` holds workflow/governance/connector contracts for the platform mainline.
+- The UI split is intentional: `apps/frontend` remains the `/v0` ingress surface, while `apps/control-console` is the `/v1` operator surface.
+- Contract ownership is split: `packages/contracts` remains `/v0` compatibility-only, and `packages/workflow-contracts` is the platform mainline contract package.
 
 ## Documentation Policy
 

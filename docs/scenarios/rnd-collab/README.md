@@ -1,6 +1,8 @@
 # R&D Collaboration Validation Scenario
 
-This scenario documents the `B8` canonical validation package used to verify:
+This scenario documents the `B8` canonical validation package. It is a validation fixture, not a product vertical definition.
+
+## What it proves
 
 - governed external write actions across `issue_tracker + source_control + ci_pipeline`
 - approval before external writes
@@ -18,18 +20,10 @@ This scenario documents the `B8` canonical validation package used to verify:
 
 `capture_validation_signal -> issue_upsert -> finish`
 
-## Helper path
+## Acceptance highlights
 
-- Code helper: `packages/workflow-contracts/src/rnd-collab-scenario.ts`
-
-## Input fixtures
-
-- `canonical-input.json`
-- `event-fixture.json`
-
-## Expected outputs
-
-- `expected-artifacts.json`
 - Approval remains pending after `synthesize_execution_plan`
 - Approve path creates `ChangeIntent`, `ExecutionPlan`, connector `ActionReceipt`s, callback `ValidationReport`, and final `DeliverySummary`
 - Event-subscription companion flow creates a `ValidationReport`, then upserts issue status via `issue_tracker`
+
+The scenario helper in `packages/workflow-contracts` and the adjacent JSON fixtures are the executable reference. This README records only the non-obvious behavioral expectations.
