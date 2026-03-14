@@ -530,7 +530,7 @@ test('workflow platform api projects the B9 runboard slice through Convex with t
   );
 
   const workflowSpec = buildWorkflowSpec('b9-convex-runboard', 'B9 Convex Runboard');
-  await createAndPublishWorkflow(platformBaseUrl, workflowSpec, stream);
+  const workflowVersion = await createAndPublishWorkflow(platformBaseUrl, workflowSpec, stream);
 
   await sleep(1500);
 
@@ -539,7 +539,7 @@ test('workflow platform api projects the B9 runboard slice through Convex with t
     traceId: 'trace-b9-public-run',
     sessionId: 'session-b9-public',
     userId: 'user-b9-public',
-    workflowKey: workflowSpec.workflowKey,
+    workflowTemplateVersionId: workflowVersion.templateVersionId,
     inputPayload: buildWorkflowInput('b9-public'),
   });
   assert.equal(startRun.status, 201);
@@ -684,14 +684,14 @@ test('workflow platform api projects the B9 runboard slice through Convex with t
   assert.ok(unavailableList.runs.some((item) => item.runId === projectionRunId));
 
   const fallbackWorkflowSpec = buildWorkflowSpec('b9-convex-runboard-fallback', 'B9 Convex Runboard Fallback');
-  await createAndPublishWorkflow(fallbackPlatformBaseUrl, fallbackWorkflowSpec, stream);
+  const fallbackWorkflowVersion = await createAndPublishWorkflow(fallbackPlatformBaseUrl, fallbackWorkflowSpec, stream);
 
   const fallbackRun = await httpPost(`${fallbackPlatformBaseUrl}/v1/runs`, {
     schemaVersion: 'v1',
     traceId: 'trace-b9-fallback-run',
     sessionId: 'session-b9-fallback',
     userId: 'user-b9-fallback',
-    workflowKey: fallbackWorkflowSpec.workflowKey,
+    workflowTemplateVersionId: fallbackWorkflowVersion.templateVersionId,
     inputPayload: buildWorkflowInput('b9-fallback'),
   });
   assert.equal(fallbackRun.status, 201);
