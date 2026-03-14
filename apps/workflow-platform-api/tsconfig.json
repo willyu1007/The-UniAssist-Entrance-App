@@ -3,11 +3,11 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@baseinterface/convex-projection-experiment": ["../../packages/convex-projection-experiment/src/index.ts"],
-      "@baseinterface/executor-sdk": ["../../packages/executor-sdk/src/index.ts"],
-      "@baseinterface/policy-sdk": ["../../packages/policy-sdk/src/index.ts"],
-      "@baseinterface/shared": ["../../packages/shared/src/index.ts"],
-      "@baseinterface/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
+      "@uniassist/convex-projection-experiment": ["../../packages/convex-projection-experiment/src/index.ts"],
+      "@uniassist/executor-sdk": ["../../packages/executor-sdk/src/index.ts"],
+      "@uniassist/policy-sdk": ["../../packages/policy-sdk/src/index.ts"],
+      "@uniassist/shared": ["../../packages/shared/src/index.ts"],
+      "@uniassist/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
     },
     "types": ["node"],
     "lib": ["ES2022"],

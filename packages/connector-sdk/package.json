@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/connector-sdk",
+  "name": "@uniassist/connector-sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*"
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.8",

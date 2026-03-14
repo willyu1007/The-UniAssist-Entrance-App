@@ -3,8 +3,8 @@
   "compilerOptions": {
     "baseUrl": ".",
     "paths": {
-      "@baseinterface/shared": ["../../packages/shared/src/index.ts"],
-      "@baseinterface/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
+      "@uniassist/shared": ["../../packages/shared/src/index.ts"],
+      "@uniassist/workflow-contracts": ["../../packages/workflow-contracts/src/index.ts"]
     },
     "types": ["node"],
     "lib": ["ES2022"],

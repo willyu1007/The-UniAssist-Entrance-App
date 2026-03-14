@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/connector-runtime",
+  "name": "@uniassist/connector-runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,12 @@
     "test": "node --import tsx --test tests/*.test.ts"
   },
   "dependencies": {
-    "@baseinterface/connector-ci-pipeline-sample": "workspace:*",
-    "@baseinterface/connector-issue-tracker-sample": "workspace:*",
-    "@baseinterface/connector-source-control-sample": "workspace:*",
-    "@baseinterface/connector-sdk": "workspace:*",
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/connector-ci-pipeline-sample": "workspace:*",
+    "@uniassist/connector-issue-tracker-sample": "workspace:*",
+    "@uniassist/connector-source-control-sample": "workspace:*",
+    "@uniassist/connector-sdk": "workspace:*",
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "express": "^4.21.2"
   },
   "devDependencies": {

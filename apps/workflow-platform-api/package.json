@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/workflow-platform-api",
+  "name": "@uniassist/workflow-platform-api",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,12 +10,12 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@baseinterface/connector-sdk": "workspace:*",
-    "@baseinterface/convex-projection-experiment": "workspace:*",
-    "@baseinterface/executor-sdk": "workspace:*",
-    "@baseinterface/policy-sdk": "workspace:*",
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/connector-sdk": "workspace:*",
+    "@uniassist/convex-projection-experiment": "workspace:*",
+    "@uniassist/executor-sdk": "workspace:*",
+    "@uniassist/policy-sdk": "workspace:*",
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "@prisma/client": "^6.16.0",
     "express": "^4.21.2",
     "pg": "^8.18.0"

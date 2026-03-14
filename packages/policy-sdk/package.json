@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/policy-sdk",
+  "name": "@uniassist/policy-sdk",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,7 +9,7 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
-    "@baseinterface/workflow-contracts": "workspace:*"
+    "@uniassist/workflow-contracts": "workspace:*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

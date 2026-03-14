@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/trigger-scheduler",
+  "name": "@uniassist/trigger-scheduler",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,8 +10,8 @@
     "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "express": "^4.21.2"
   },
   "devDependencies": {

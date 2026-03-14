@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/connector-source-control-sample",
+  "name": "@uniassist/connector-source-control-sample",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,8 +12,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@baseinterface/connector-sdk": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*"
+    "@uniassist/connector-sdk": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^22.13.8",

@@ -8,22 +8,23 @@ script = "pnpm install --frozen-lockfile"
 name = "Run"
 icon = "run"
 command = '''
-export EXPO_PUBLIC_GATEWAY_BASE_URL=http://localhost:8787
-export UNIASSIST_PLAN_PROVIDER_BASE_URL=http://localhost:8890
-(pnpm dev:provider-plan & pnpm dev:gateway & pnpm --filter @baseinterface/frontend web & wait)
+(pnpm dev:workflow-platform-api & pnpm dev:workflow-runtime & pnpm dev:connector-runtime & pnpm dev:trigger-scheduler & pnpm dev:worker & pnpm dev & wait)
 '''
 
 [[actions]]
 name = "Stop"
 icon = "debug"
 command = '''
-pkill -f "pnpm dev:provider-plan" || true
-pkill -f "pnpm dev:gateway" || true
-pkill -f "pnpm --filter @baseinterface/frontend web" || true
-pkill -f "expo start --web" || true
-(lsof -ti tcp:8787 | xargs kill -TERM) 2>/dev/null || true
-(lsof -ti tcp:8890 | xargs kill -TERM) 2>/dev/null || true
-(lsof -ti tcp:8081 | xargs kill -TERM) 2>/dev/null || true
-(lsof -ti tcp:19006 | xargs kill -TERM) 2>/dev/null || true
-echo "Stopped UA Entrance Run action processes (if running)."
+pkill -f "pnpm dev:workflow-platform-api" || true
+pkill -f "pnpm dev:workflow-runtime" || true
+pkill -f "pnpm dev:connector-runtime" || true
+pkill -f "pnpm dev:trigger-scheduler" || true
+pkill -f "pnpm dev:worker" || true
+pkill -f "pnpm --filter @uniassist/control-console dev" || true
+(lsof -ti tcp:8788 | xargs kill -TERM) 2>/dev/null || true
+(lsof -ti tcp:8792 | xargs kill -TERM) 2>/dev/null || true
+(lsof -ti tcp:8895 | xargs kill -TERM) 2>/dev/null || true
+(lsof -ti tcp:8896 | xargs kill -TERM) 2>/dev/null || true
+(lsof -ti tcp:5173 | xargs kill -TERM) 2>/dev/null || true
+echo "Stopped UniAssist pure-v1 run action processes (if running)."
 '''

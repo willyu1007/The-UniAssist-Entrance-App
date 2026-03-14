@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/workflow-runtime",
+  "name": "@uniassist/workflow-runtime",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,11 +10,10 @@
     "test": "node --import tsx --test tests/*.test.mjs tests/*.test.ts"
   },
   "dependencies": {
-    "@baseinterface/connector-sdk": "workspace:*",
-    "@baseinterface/contracts": "workspace:*",
-    "@baseinterface/executor-sdk": "workspace:*",
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/connector-sdk": "workspace:*",
+    "@uniassist/executor-sdk": "workspace:*",
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "express": "^4.21.2",
     "pg": "^8.16.3"
   },

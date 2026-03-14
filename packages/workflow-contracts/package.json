@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/workflow-contracts",
+  "name": "@uniassist/workflow-contracts",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -8,9 +8,6 @@
   "exports": {
     ".": "./src/index.ts",
     "./scenario-samples": "./src/scenario-samples.ts"
-  },
-  "dependencies": {
-    "@baseinterface/contracts": "workspace:*"
   },
   "scripts": {
     "typecheck": "tsc --noEmit"

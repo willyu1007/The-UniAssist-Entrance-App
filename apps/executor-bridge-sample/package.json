@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/executor-bridge-sample",
+  "name": "@uniassist/executor-bridge-sample",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@baseinterface/shared": "workspace:*",
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/shared": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "express": "^4.21.2"
   },
   "devDependencies": {

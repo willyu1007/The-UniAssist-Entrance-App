@@ -1,5 +1,5 @@
 {
-  "name": "@baseinterface/control-console",
+  "name": "@uniassist/control-console",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -11,7 +11,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@baseinterface/workflow-contracts": "workspace:*",
+    "@uniassist/workflow-contracts": "workspace:*",
     "@tanstack/react-query": "^5.90.21",
     "@tanstack/react-router": "^1.166.7",
     "react": "19.1.0",
